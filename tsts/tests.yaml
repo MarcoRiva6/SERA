@@ -1,0 +1,3 @@
+model: '*'
+run_mode: '*'
+queries: '*'

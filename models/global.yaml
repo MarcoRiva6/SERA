@@ -1,0 +1,5 @@
+lm_studio:
+  endpoint: 'http://localhost:1234'
+  seed: 42
+google:
+  api_key:

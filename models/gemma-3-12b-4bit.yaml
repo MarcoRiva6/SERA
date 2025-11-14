@@ -1,0 +1,4 @@
+name: 'Gemma V3 12B 4-bit'
+name_api: 'google/gemma-3-12b'
+backend: 'lm_studio'
+max_tokens: 8192

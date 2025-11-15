@@ -3,12 +3,12 @@ from pathlib import Path
 
 from models.model import Model
 from queries.query import Query
-from enum import Enum
+from enum import StrEnum, auto
 import yaml
 
-class RunMode(str, Enum):
-    DIRECT = 'direct'
-    LOTUS = 'lotus'
+class RunMode(StrEnum):
+    DIRECT = auto()
+    LOTUS = auto()
 
 @dataclass
 class Test:
@@ -19,7 +19,10 @@ class Test:
     query: Query
 
     def execute(self):
-        self.query.prepare()
+        if self.run_mode == RunMode.DIRECT:
+            self.query.prepare_direct()
+        elif self.run_mode == RunMode.LOTUS:
+            self.query.prepare_lotus()
 
         for i, s in enumerate(self.query.submissions):
             print("Running submission", i+1, '/', len(self.query.submissions))

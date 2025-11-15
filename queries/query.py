@@ -26,7 +26,6 @@ class Submission(ABC):
 @dataclass
 class Query(ABC):
     family: str
-    name: str
     name_path: str
     run_folder: Path = None
     debug: bool = True
@@ -40,7 +39,11 @@ class Query(ABC):
             return cls(**yaml.load(f, Loader=yaml.FullLoader), name_path=file.stem)
 
     @abstractmethod
-    def prepare(self):
+    def prepare_direct(self):
+        pass
+
+    @abstractmethod
+    def prepare_lotus(self):
         pass
 
     @abstractmethod

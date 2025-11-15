@@ -6,6 +6,7 @@ from queries.query import Query
 from tsts.test import *
 import importlib
 import importlib.util
+from dataclasses import replace
 from types import ModuleType
 
 runs_folder = Path('runs')
@@ -15,25 +16,9 @@ def build_run_folder() -> Path:
     run_folder = runs_folder / name
     return run_folder
 
-def import_class(path: str):
-    """
-    Accepte 'package.module.ClassName' ou 'package.module:ClassName'.
-    Retourne la classe.
-    """
-    if ":" in path:
-        mod_name, cls_name = path.split(":", 1)
-    else:
-        mod_name, cls_name = path.rsplit(".", 1)
-    module = importlib.import_module(mod_name)
-    return getattr(module, cls_name)
-
-def import_class_from_file(file_path: str, class_name: str):
-    """
-    Importe une classe depuis un fichier, par exemple `models/my_model.py`.
-    """
-    spec = importlib.util.spec_from_file_location("queries", file_path)
-    module = importlib.util.module_from_spec(spec)  # type: ModuleType
-    spec.loader.exec_module(module)
+def class_from_path(class_path: str):
+    module_path, class_name = class_path.rsplit(".", 1)
+    module = importlib.import_module(module_path)
     return getattr(module, class_name)
 
 def load_tests() -> list[Test]:
@@ -68,24 +53,24 @@ def load_tests() -> list[Test]:
             if q.is_dir() or q.name == 'query.py' or '__pycache__' in q.parts or '.DS_Store' in q.parts or '__init__.py' in q.parts:
                 continue
 
-            module = importlib.import_module('.'.join(q.with_suffix('').parts))
-            cls = getattr(module, "Main")
+            class_path = '.'.join(q.with_suffix('').parts) + '.Main'
+            cls = class_from_path(class_path)
             family = q.parts[-2]
-            queries.append(cls(family, q.stem, q.stem))
+            queries.append(cls(family, q.stem))
 
+        this_run_folder = build_run_folder()
         for mf in models:
             for rm in run_modes:
                 for q in queries:
                     test = Test(
-                        name=f"{mf.name}_{rm}_{q.family}_{q.family}_{q.name}",
-                        run_folder=build_run_folder(),
-                        model=mf,
+                        name=f"{mf.name}, {rm}, {q.family}, {q.name}",
+                        run_folder=this_run_folder,
+                        model=replace(mf),
                         run_mode=rm,
-                        query=q
+                        query=replace(q)
                     )
-                    test.query.run_folder = test.run_folder / test.model.name_path / test.run_mode / test.query.family
+                    test.query.run_folder = this_run_folder / test.model.name_path / test.run_mode / test.query.family
                     results.append(test)
-
     return results
 
 if __name__ == "__main__":

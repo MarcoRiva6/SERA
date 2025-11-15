@@ -787,7 +787,6 @@ class Main(Query):
     def evaluate_submission(self, submission: MovieSubmission) -> Evaluations:
         print('starting evaluation')
         predicted_ids = extract_movie_ids(submission.response)
-        # Calcola tutte le metriche (base + avanzate)
         return calculate_enhanced_metrics(predicted_ids, submission.ground_truth,
                                                  submission.nl_query, self.full_df)
 
@@ -808,8 +807,11 @@ class Main(Query):
         self.evaluations = filtered_metrics
         return filtered_metrics
 
-    def prepare(self):
+    def prepare_direct(self):
         if self.full_df is None:
             temp = data_folder / self.family / 'imdb_dataset_cut_300.csv'
             self.load_csv(file_path=str(temp))
         self.prepare_df()
+
+    def prepare_lotus(self):
+        pass

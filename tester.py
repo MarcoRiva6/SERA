@@ -1,3 +1,4 @@
+from datetime import datetime
 from pathlib import Path
 import yaml
 from models.model import Model
@@ -6,6 +7,14 @@ from tsts.test import *
 import importlib
 import importlib.util
 from types import ModuleType
+
+runs_folder = Path('runs')
+
+def build_run_folder() -> Path:
+    name = datetime.now().strftime('%y-%m-%d_%H-%M-%S')
+    run_folder = runs_folder / name
+    run_folder.mkdir(parents=True, exist_ok=True)
+    return run_folder
 
 def import_class(path: str):
     """
@@ -62,17 +71,21 @@ def load_tests() -> list[Test]:
 
             module = importlib.import_module('.'.join(q.with_suffix('').parts))
             cls = getattr(module, "Main")
-            queries.append(cls(q.parts[-2], q.stem, q.stem))
+            family = q.parts[-2]
+            queries.append(cls(family, q.stem, q.stem))
 
         for mf in models:
             for rm in run_modes:
                 for q in queries:
-                    results.append(Test(
+                    test = Test(
                         name=f"{mf.name}_{rm}_{q.family}_{q.family}_{q.name}",
+                        run_folder=build_run_folder(),
                         model=mf,
                         run_mode=rm,
                         query=q
-                    ))
+                    )
+                    test.query.run_folder = test.run_folder / test.model.name_path / test.run_mode / test.query.family
+                    results.append(test)
 
     return results
 
@@ -82,4 +95,4 @@ if __name__ == "__main__":
         print(t)
     for t in tests:
         print(f"Running test: {t.name}")
-        t.run()
+        t.execute()

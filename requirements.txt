@@ -1,3 +1,5 @@
+scipy==1.16.2
+numpy
 lmstudio
 pyyaml
 pandas

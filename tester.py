@@ -13,7 +13,6 @@ runs_folder = Path('runs')
 def build_run_folder() -> Path:
     name = datetime.now().strftime('%y-%m-%d_%H-%M-%S')
     run_folder = runs_folder / name
-    run_folder.mkdir(parents=True, exist_ok=True)
     return run_folder
 
 def import_class(path: str):
@@ -95,4 +94,5 @@ if __name__ == "__main__":
         print(t)
     for t in tests:
         print(f"Running test: {t.name}")
+        t.query.run_folder.mkdir(parents=True, exist_ok=True)
         t.execute()

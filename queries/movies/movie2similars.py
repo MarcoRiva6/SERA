@@ -1,12 +1,15 @@
 import random
 import re
 from dataclasses import dataclass
+from enum import auto
+from numbers import Number
+
 import numpy as np
 from scipy.stats import spearmanr
 
 from pandas import DataFrame
 
-from ..query import Query, data_folder, Submission
+from ..query import Query, data_folder, Submission, Metric, Evaluations
 import pandas as pd
 
 def parse_list_field(field_value):
@@ -450,7 +453,7 @@ def calculate_ndcg(relevant_scores: list[float], k: int = 10) -> float:
     return dcg / idcg if idcg > 0 else 0.0
 
 def calculate_enhanced_metrics(predicted_ids: list[str], ground_truth_str: str,
-                               nl_query: str, df: pd.DataFrame) -> dict:
+                               nl_query: str, df: pd.DataFrame) -> Evaluations:
     """
     Calcola tutte le metriche di valutazione, incluse quelle avanzate.
 
@@ -507,7 +510,6 @@ def calculate_enhanced_metrics(predicted_ids: list[str], ground_truth_str: str,
     # Spearman correlation (se abbiamo abbastanza dati)
     if len(predicted_ids) >= 3 and len(ground_truth_ids) >= 3:
         try:
-            print('Calculating spearman correlation...')
             # Crea ranking per predicted e ground truth
             pred_ranks = {pid: i for i, pid in enumerate(predicted_ids)}
             gt_ranks = {gid: i for i, gid in enumerate(ground_truth_ids)}
@@ -543,7 +545,13 @@ def calculate_enhanced_metrics(predicted_ids: list[str], ground_truth_str: str,
             advanced_metrics['genre_opposition_rate_10'] = calculate_genre_opposition_rate(
                 predicted_ids, reference_genres, df, 10)
 
-    return {**basic_metrics, **advanced_metrics}
+    result: Evaluations = {}
+    for k, v in basic_metrics.items():
+        result.update({MovieMetric(k): v})
+    for k, v in advanced_metrics.items():
+        result.update({MovieMetric(k): v})
+
+    return result
 
 def calculate_diversity_score(predicted_ids: list[str], df: pd.DataFrame) -> float:
     """
@@ -629,6 +637,23 @@ def calculate_genre_opposition_rate(predicted_ids: list[str], reference_genres: 
                         break
 
     return opposite_count / len(top_k_ids) if top_k_ids else 0.0
+
+class MovieMetric(Metric):
+    PRECISION = auto()
+    RECALL = auto()
+    F1 = auto()
+    ACCURACY = auto()
+    NDCG_10 = auto()
+    PRECISION_5 = auto()
+    PRECISION_10 = auto()
+    SPEARMAN_CORRELATION = auto()
+    INTERSECTION_SIZE = 'intersection_size'
+    GROUND_TRUTH_SIZE = 'ground_truth_size'
+    PREDICTED_SIZE = 'predicted_size'
+    IS_NEGATIVE_QUERY = 'is_negative_query'
+    DIVERSITY_SCORE = 'diversity_score'
+    GENRE_OPPOSITION_RATE_5 = 'genre_opposition_rate_5'
+    GENRE_OPPOSITION_RATE_10 = 'genre_opposition_rate_10'
 
 @dataclass
 class MovieSubmission(Submission):
@@ -756,10 +781,10 @@ class Main(Query):
                     prompt=prompt,
                     ground_truth=row['ground_truth'],
                     response=None,
-                    evaluation=None
+                    evaluations=None
                 ))
 
-    def evaluate_submission(self, submission: MovieSubmission):
+    def evaluate_submission(self, submission: MovieSubmission) -> Evaluations:
         print('starting evaluation')
         predicted_ids = extract_movie_ids(submission.response)
         # Calcola tutte le metriche (base + avanzate)
@@ -767,7 +792,21 @@ class Main(Query):
                                                  submission.nl_query, self.full_df)
 
     def evaluate(self):
-        pass
+        acc = super().evaluate()
+
+        allowed = {
+            MovieMetric.F1,
+            MovieMetric.PRECISION,
+            MovieMetric.RECALL,
+            MovieMetric.ACCURACY,
+            MovieMetric.NDCG_10,
+            MovieMetric.DIVERSITY_SCORE,
+            MovieMetric.SPEARMAN_CORRELATION,
+        }
+
+        filtered_metrics = {m: v for m, v in acc.items() if m in allowed}
+        self.evaluations = filtered_metrics
+        return filtered_metrics
 
     def prepare(self):
         if self.full_df is None:

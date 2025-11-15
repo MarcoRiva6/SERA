@@ -26,9 +26,12 @@ class Test:
             response = self.model.submit(s.prompt)
             s.response = response
             print("Received response:", s.response)
-            s.evaluation = self.query.evaluate_submission(s)
-            print('Evaluation:', s.evaluation)
+            s.evaluations = self.query.evaluate_submission(s)
+            print('Submission Evaluation:', s.evaluations)
 
         self.query.submissions_to_csv()
+        self.query.evaluate()
+        print('Test evaluations:', self.query.evaluations)
+        self.query.evaluations_to_csv()
 
         print('test execution complete.')

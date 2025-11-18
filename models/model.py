@@ -2,7 +2,7 @@ from dataclasses import dataclass, asdict
 import yaml
 from lmstudio import LMStudioError
 
-from tsts.run_type import RunType
+from experiments.run_type import RunType
 from enum import StrEnum, auto
 
 class Backend(StrEnum):

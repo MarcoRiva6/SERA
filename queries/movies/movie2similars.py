@@ -9,7 +9,7 @@ from scipy.stats import spearmanr
 
 from pandas import DataFrame
 
-from tsts.run_type import RunType
+from experiments.run_type import RunType
 from ..query import Query, data_folder, Submission, Metric, Evaluations
 import pandas as pd
 

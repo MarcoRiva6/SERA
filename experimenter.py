@@ -7,8 +7,8 @@ from pathlib import Path
 import yaml
 
 from models.model import Model
-from tsts.test import Test
-from tsts.run_type import RunType
+from experiments.experiment import (Experiment)
+from experiments.run_type import (RunType)
 
 runs_folder = Path('runs')
 
@@ -22,11 +22,11 @@ def class_from_path(class_path: str):
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
 
-def load_tests() -> list[Test]:
+def load_experiments() -> list[Experiment]:
     results = []
 
-    for file in Path('tsts').glob('*'):
-        if file.is_dir() or file.name == 'test.py' or '__pycache__' in file.parts or '.DS_Store' in file.parts or 'run_type.py' in file.parts:
+    for file in Path('experiments').glob('*'):
+        if file.is_dir() or file.name == 'experiment.py' or '__pycache__' in file.parts or '.DS_Store' in file.parts or 'run_type.py' in file.parts:
             continue
 
         with open(file) as f:
@@ -63,22 +63,22 @@ def load_tests() -> list[Test]:
         for mf in models:
             for rm in run_types:
                 for q in queries:
-                    test = Test(
+                    experiment = Experiment(
                         name=f"{mf.name}, {rm}, {q.family}, {q.name}",
                         run_folder=this_run_folder,
                         model=replace(mf),
                         run_type=rm,
                         query=replace(q)
                     )
-                    test.query.run_folder = this_run_folder / test.model.name_path / test.run_type / test.query.family
-                    results.append(test)
+                    experiment.query.run_folder = this_run_folder / experiment.model.name_path / experiment.run_type / experiment.query.family
+                    results.append(experiment)
     return results
 
 if __name__ == "__main__":
-    tests = load_tests()
-    for t in tests:
-        print(t)
-    for t in tests:
-        print(f"Running test: {t.name}")
-        t.query.run_folder.mkdir(parents=True, exist_ok=True)
-        t.execute()
+    experiments = load_experiments()
+    for e in experiments:
+        print(e)
+    for e in experiments:
+        print(f"Running experiment: {e.name}")
+        e.query.run_folder.mkdir(parents=True, exist_ok=True)
+        e.execute()

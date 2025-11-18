@@ -4,10 +4,10 @@ from pathlib import Path
 from models.model import Model
 from queries.query import Query
 
-from tsts.run_type import RunType
+from experiments.run_type import RunType
 
 @dataclass
-class Test:
+class Experiment:
     name: str
     run_folder: Path
     model: Model

@@ -10,7 +10,7 @@ import pandas as pd
 import yaml
 from pandas import DataFrame
 
-from tsts.run_type import RunType
+from experiments.run_type import RunType
 
 data_folder = Path('data')
 

@@ -1,0 +1,4 @@
+name: 'DeepSeek R1 8B 4-bit'
+name_api: 'deepseek/deepseek-r1-0528-qwen3-8b'
+backend: 'together'
+max_tokens: 0

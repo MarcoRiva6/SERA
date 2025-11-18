@@ -1,6 +1,6 @@
 from enum import StrEnum, auto
 
 
-class RunMode(StrEnum):
+class RunType(StrEnum):
     DIRECT = auto()
     LOTUS = auto()

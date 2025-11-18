@@ -8,7 +8,7 @@ import yaml
 
 from models.model import Model
 from tsts.test import Test
-from tsts.run_mode import RunMode
+from tsts.run_type import RunType
 
 runs_folder = Path('runs')
 
@@ -26,7 +26,7 @@ def load_tests() -> list[Test]:
     results = []
 
     for file in Path('tsts').glob('*'):
-        if file.is_dir() or file.name == 'test.py' or '__pycache__' in file.parts or '.DS_Store' in file.parts or 'run_mode.py' in file.parts:
+        if file.is_dir() or file.name == 'test.py' or '__pycache__' in file.parts or '.DS_Store' in file.parts or 'run_type.py' in file.parts:
             continue
 
         with open(file) as f:
@@ -38,13 +38,13 @@ def load_tests() -> list[Test]:
                 continue
             models.append(Model.from_yaml_file(mf))
 
-        run_modes = []
-        raw_run_modes = data.get('run_mode', '*')
-        if raw_run_modes == '*':
-            for run_mode in RunMode:
-                run_modes.append(run_mode)
+        run_types = []
+        raw_run_types = data.get('run_types', '*')
+        if raw_run_types == '*':
+            for run_type in RunType:
+                run_types.append(run_type)
         else:
-            run_modes.append(RunMode(raw_run_modes))
+            run_types.append(RunType(raw_run_types))
 
         queries = []
         raw_queries = data.get('queries', '*')
@@ -61,16 +61,16 @@ def load_tests() -> list[Test]:
 
         this_run_folder = build_run_folder()
         for mf in models:
-            for rm in run_modes:
+            for rm in run_types:
                 for q in queries:
                     test = Test(
                         name=f"{mf.name}, {rm}, {q.family}, {q.name}",
                         run_folder=this_run_folder,
                         model=replace(mf),
-                        run_mode=rm,
+                        run_type=rm,
                         query=replace(q)
                     )
-                    test.query.run_folder = this_run_folder / test.model.name_path / test.run_mode / test.query.family
+                    test.query.run_folder = this_run_folder / test.model.name_path / test.run_type / test.query.family
                     results.append(test)
     return results
 

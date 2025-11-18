@@ -9,7 +9,7 @@ from scipy.stats import spearmanr
 
 from pandas import DataFrame
 
-from tsts.run_mode import RunMode
+from tsts.run_type import RunType
 from ..query import Query, data_folder, Submission, Metric, Evaluations
 import pandas as pd
 
@@ -775,11 +775,11 @@ class Main(Query):
             output_filename = 'movie_similarity_bilingual_tests.csv'
             self.pre_submissions_df.to_csv(self.run_folder / output_filename, index=False, encoding='utf-8')
 
-    def evaluate_submission(self, submission: MovieSubmission, run_mode: RunMode) -> Evaluations:
+    def evaluate_submission(self, submission: MovieSubmission, run_type: RunType) -> Evaluations:
         print('starting evaluation')
-        if run_mode == RunMode.DIRECT:
+        if run_type == RunType.DIRECT:
             predicted_ids = extract_movie_ids(submission.response)
-        elif run_mode == RunMode.LOTUS:
+        elif run_type == RunType.LOTUS:
             predicted_ids = submission.response['IMDB_id'].tolist()
 
         return calculate_enhanced_metrics(predicted_ids, submission.ground_truth,

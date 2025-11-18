@@ -10,7 +10,7 @@ import pandas as pd
 import yaml
 from pandas import DataFrame
 
-from tsts.run_mode import RunMode
+from tsts.run_type import RunType
 
 data_folder = Path('data')
 
@@ -47,8 +47,16 @@ class Query(ABC):
     def prepare_lotus(self):
         pass
 
+    def prepare(self, run_type: RunType):
+        method_path = 'prepare_' + run_type.value
+        method = getattr(self, method_path)
+        if method is not None:
+            method()
+        else:
+            raise NotImplementedError(f'Run mode {run_type} not implemented.')
+
     @abstractmethod
-    def evaluate_submission(self, submission: Submission, run_mode: RunMode) -> Evaluations:
+    def evaluate_submission(self, submission: Submission, run_type: RunType) -> Evaluations:
         pass
 
     def evaluate(self):

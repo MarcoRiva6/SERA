@@ -2,15 +2,19 @@ from dataclasses import dataclass, asdict
 import yaml
 from lmstudio import LMStudioError
 
-from tsts.run_mode import RunMode
+from tsts.run_type import RunType
+from enum import StrEnum, auto
 
+class Backend(StrEnum):
+    LM_STUDIO = auto()
+    TOGETHER = auto()
 
 @dataclass
 class Model:
     name: str
     name_path: str
     name_api: str
-    backend: str
+    backend: Backend
     max_tokens: int
     backend: str
 
@@ -51,14 +55,39 @@ class Model:
         cache_config = CacheConfig(cache_type=CacheType.SQLITE, max_size=1000)
         cache = CacheFactory.create_cache(cache_config)
 
-        lm = LM(model="lm_studio/" + self.name_api, api_base="http://127.0.0.1:1234/v1", max_tokens=self.max_tokens, cache=cache, temperature=0.6)
+        if self.backend == "lm_studio":
+            model_str = "lm_studio/" + self.name_api
+        else:
+            model_str = self.name_api
+        lm = LM(model=model_str, api_base="http://127.0.0.1:1234/v1", max_tokens=self.max_tokens if self.max_tokens else None, cache=cache, temperature=0.6)
 
         lotus.settings.configure(lm=lm, enable_cache=True)
 
         return prompt(df)
 
-    def submit(self, run_mode: RunMode, prompt, df=None):
-        if run_mode == RunMode.DIRECT:
-            return self.submit_lm_studio(prompt)
-        elif run_mode == RunMode.LOTUS:
+    def submit_together(self, prompt: str) -> str:
+        from together import Together
+
+        client = Together()
+
+        return client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            stream=False,
+        ).response().choices[0].message.content
+
+    def submit(self, run_type: RunType, prompt, df=None):
+        if run_type == RunType.DIRECT:
+            if self.backend == Backend.LM_STUDIO:
+                return self.submit_lm_studio(prompt)
+            elif self.backend == Backend.TOGETHER:
+                return self.submit_together(prompt)
+        elif run_type == RunType.LOTUS:
             return self.submit_lotus(prompt, df)
+        else:
+            raise NotImplementedError(f'Run mode {run_type} not implemented.')

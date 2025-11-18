@@ -17,6 +17,7 @@ class Model:
     backend: Backend
     max_tokens: int
     backend: str
+    run_type: RunType = None
 
     @classmethod
     def from_yaml_file(cls, file):
@@ -81,13 +82,15 @@ class Model:
             stream=False,
         ).response().choices[0].message.content
 
-    def submit(self, run_type: RunType, prompt, df=None):
-        if run_type == RunType.DIRECT:
+    def submit(self, prompt, df=None):
+        if self.run_type == RunType.DIRECT:
             if self.backend == Backend.LM_STUDIO:
                 return self.submit_lm_studio(prompt)
             elif self.backend == Backend.TOGETHER:
                 return self.submit_together(prompt)
-        elif run_type == RunType.LOTUS:
+            else:
+                raise NotImplementedError(f'Backend {self.backend} not implemented for DIRECT run type.')
+        elif self.run_type == RunType.LOTUS:
             return self.submit_lotus(prompt, df)
         else:
-            raise NotImplementedError(f'Run mode {run_type} not implemented.')
+            raise NotImplementedError(f'Run mode {self.run_type} not implemented.')

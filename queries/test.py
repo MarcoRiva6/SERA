@@ -20,18 +20,19 @@ class Metric(StrEnum):
 Evaluations: TypeAlias = dict[Metric, Number]
 
 @dataclass
-class Submission(ABC):
+class Query(ABC):
     prompt: Any
     response: str
     evaluations: Evaluations
 
 @dataclass
-class Query(ABC):
+class Test(ABC):
     family: str
     name_path: str
+    run_type: RunType = None
     run_folder: Path = None
     debug: bool = True
-    submissions: list[Submission] = None
+    queries: list[Query] = None
     evaluations: Evaluations = None
 
     @classmethod
@@ -47,29 +48,29 @@ class Query(ABC):
     def prepare_lotus(self):
         pass
 
-    def prepare(self, run_type: RunType):
-        method_path = 'prepare_' + run_type.value
+    def prepare(self):
+        method_path = 'prepare_' + self.run_type.value
         method = getattr(self, method_path)
         if method is not None:
             method()
         else:
-            raise NotImplementedError(f'Run mode {run_type} not implemented.')
+            raise NotImplementedError(f'Run mode {self.run_type} not implemented.')
 
     @abstractmethod
-    def evaluate_submission(self, submission: Submission, run_type: RunType) -> Evaluations:
+    def evaluate_query(self, submission: Query) -> Evaluations:
         pass
 
     def evaluate(self):
         # accumulator for sums
         totals: Evaluations = {}
 
-        # sum all metrics across submissions
-        for sub in self.submissions:
-            for metric, value in sub.evaluations.items():
+        # sum all metrics across queries
+        for q in self.queries:
+            for metric, value in q.evaluations.items():
                 totals.update({metric: totals.get(metric, 0) + value})
 
         # compute mean values
-        n = len(self.submissions)
+        n = len(self.queries)
         aggregated: Evaluations = {metric: totals[metric] / n for metric in totals}
 
         self.evaluations = aggregated
@@ -82,13 +83,13 @@ class Query(ABC):
         df = pd.DataFrame([self.evaluations], index=[0])
         df.to_csv(file_path, index=False)
 
-    def submissions_to_csv(self, file_path: str = None):
+    def queries_to_csv(self, file_path: str = None):
         if file_path is None:
-            file_path = self.run_folder / 'submissions.csv'
+            file_path = self.run_folder / 'queries.csv'
         rows = []
 
-        for sub in self.submissions:
-            base = asdict(sub)                # convert dataclass to dictionary
+        for q in self.queries:
+            base = asdict(q)                # convert dataclass to dictionary
             eval_dict = base.pop("evaluations")  # remove evaluation dict
             flat = {**base, **eval_dict}      # flatten into top-level
             rows.append(flat)

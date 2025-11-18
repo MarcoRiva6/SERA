@@ -51,7 +51,7 @@ def load_experiments() -> list[Experiment]:
         if raw_queries == '*':
             raw_queries = '**/*'
         for q in Path('queries').glob(raw_queries):
-            if q.is_dir() or q.name == 'query.py' or '__pycache__' in q.parts or '.DS_Store' in q.parts or '__init__.py' in q.parts:
+            if q.is_dir() or q.name == 'test.py' or '__pycache__' in q.parts or '.DS_Store' in q.parts or '__init__.py' in q.parts:
                 continue
 
             class_path = '.'.join(q.with_suffix('').parts) + '.Main'
@@ -61,16 +61,18 @@ def load_experiments() -> list[Experiment]:
 
         this_run_folder = build_run_folder()
         for mf in models:
-            for rm in run_types:
+            for rt in run_types:
                 for q in queries:
                     experiment = Experiment(
-                        name=f"{mf.name}, {rm}, {q.family}, {q.name}",
+                        name=f"{mf.name}, {rt}, {q.family}, {q.name}",
                         run_folder=this_run_folder,
                         model=replace(mf),
-                        run_type=rm,
-                        query=replace(q)
+                        run_type=rt,
+                        test=replace(q)
                     )
-                    experiment.query.run_folder = this_run_folder / experiment.model.name_path / experiment.run_type / experiment.query.family
+                    experiment.test.run_folder = this_run_folder / experiment.model.name_path / experiment.run_type / experiment.test.family
+                    experiment.test.run_type = rt
+                    experiment.model.run_type = rt
                     results.append(experiment)
     return results
 
@@ -80,5 +82,5 @@ if __name__ == "__main__":
         print(e)
     for e in experiments:
         print(f"Running experiment: {e.name}")
-        e.query.run_folder.mkdir(parents=True, exist_ok=True)
+        e.test.run_folder.mkdir(parents=True, exist_ok=True)
         e.execute()

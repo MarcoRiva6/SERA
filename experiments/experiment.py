@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from models.model import Model
-from queries.query import Query
+from queries.test import Test
 
 from experiments.run_type import RunType
 
@@ -12,22 +12,22 @@ class Experiment:
     run_folder: Path
     model: Model
     run_type: RunType
-    query: Query
+    test: Test
 
     def execute(self):
-        self.query.prepare(self.run_type)
+        self.test.prepare()
 
-        for i, s in enumerate(self.query.submissions):
-            print("Running submission", i+1, '/', len(self.query.submissions))
-            response = self.model.submit(self.run_type, s.prompt, self.query.full_df)
-            s.response = response
-            print("Received response:", s.response)
-            s.evaluations = self.query.evaluate_submission(s, self.run_type)
-            print('Submission Evaluation:', s.evaluations)
+        for i, q in enumerate(self.test.queries):
+            print("Running query", i + 1, '/', len(self.test.queries))
+            response = self.model.submit(q.prompt, self.test.full_df)
+            q.response = response
+            print("Received response:", q.response)
+            q.evaluations = self.test.evaluate_query(q)
+            print('Query Evaluation:', q.evaluations)
 
-        self.query.submissions_to_csv()
-        self.query.evaluate()
-        print('Test evaluations:', self.query.evaluations)
-        self.query.evaluations_to_csv()
+        self.test.queries_to_csv()
+        self.test.evaluate()
+        print('Test evaluations:', self.test.evaluations)
+        self.test.evaluations_to_csv()
 
         print('test execution complete.')

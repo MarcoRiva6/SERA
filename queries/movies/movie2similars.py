@@ -10,7 +10,7 @@ from scipy.stats import spearmanr
 from pandas import DataFrame
 
 from experiments.run_type import RunType
-from ..query import Query, data_folder, Submission, Metric, Evaluations
+from ..test import Test, data_folder, Query, Metric, Evaluations
 import pandas as pd
 
 import lotus
@@ -659,17 +659,17 @@ class MovieMetric(Metric):
     GENRE_OPPOSITION_RATE_10 = 'genre_opposition_rate_10'
 
 @dataclass
-class MovieSubmission(Submission):
+class MovieQuery(Query):
     test_language: str
     test_category: str
     nl_query: str
     ground_truth: str
 
-class Main(Query):
+class Main(Test):
     name = 'Movie similarity'
     full_df: DataFrame = None
     clean_df: DataFrame = None
-    pre_submissions_df: DataFrame = None
+    pre_queries_df: DataFrame = None
     max_tests: int = 10
     tests_per_category: int = 10
     seed: int = 42
@@ -686,7 +686,7 @@ class Main(Query):
             print(f"❌ Errore nel caricamento del CSV: {e}")
         return
 
-    def initiate_submissions(self):
+    def initiate_queries(self):
         # Pulisci dati
         self.clean_df = self.full_df.dropna(subset=['title', 'year', 'genre', 'directors'])
         if self.debug:
@@ -771,11 +771,11 @@ class Main(Query):
                 test_results = random.sample(test_results, self.max_tests)
 
             # Crea DataFrame e salva
-            self.pre_submissions_df = pd.DataFrame(test_results)
+            self.pre_queries_df = pd.DataFrame(test_results)
             output_filename = 'movie_similarity_bilingual_tests.csv'
-            self.pre_submissions_df.to_csv(self.run_folder / output_filename, index=False, encoding='utf-8')
+            self.pre_queries_df.to_csv(self.run_folder / output_filename, index=False, encoding='utf-8')
 
-    def evaluate_submission(self, submission: MovieSubmission, run_type: RunType) -> Evaluations:
+    def evaluate_query(self, submission: MovieQuery) -> Evaluations:
         print('starting evaluation')
         if run_type == RunType.DIRECT:
             predicted_ids = extract_movie_ids(submission.response)
@@ -806,11 +806,11 @@ class Main(Query):
         if self.full_df is None:
             temp = data_folder / self.family / 'imdb_dataset_cut_300.csv'
             self.load_csv(file_path=str(temp))
-        self.initiate_submissions()
-        self.submissions = []
-        for _, row in self.pre_submissions_df.iterrows():
+        self.initiate_queries()
+        self.queries = []
+        for _, row in self.pre_queries_df.iterrows():
             prompt = create_direct_prompt(format_dataset_for_direct_prompt(self.clean_df), row['nl_query'])
-            self.submissions.append(MovieSubmission(
+            self.queries.append(MovieQuery(
                 test_language=row['test_language'],
                 test_category=row['test_category'],
                 nl_query=row['nl_query'],
@@ -824,15 +824,15 @@ class Main(Query):
         if self.full_df is None:
             temp = data_folder / self.family / 'imdb_dataset_cut_300.csv'
             self.load_csv(file_path=str(temp))
-        self.initiate_submissions()
-        self.submissions = []
-        for _, row in self.pre_submissions_df.iterrows():
+        self.initiate_queries()
+        self.queries = []
+        for _, row in self.pre_queries_df.iterrows():
             prompt = lambda d: d.sem_topk(
                 f"Considering the following user input:\n{row['nl_query']}\nReturn " + '{IMDB_id}' + " suggestions for the user as a commander system",
                 K=10,
                 return_stats=False,
             )
-            self.submissions.append(MovieSubmission(
+            self.queries.append(MovieQuery(
                 test_language=row['test_language'],
                 test_category=row['test_category'],
                 nl_query=row['nl_query'],

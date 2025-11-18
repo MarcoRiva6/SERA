@@ -9,8 +9,11 @@ from scipy.stats import spearmanr
 
 from pandas import DataFrame
 
+from tsts.run_mode import RunMode
 from ..query import Query, data_folder, Submission, Metric, Evaluations
 import pandas as pd
+
+import lotus
 
 def parse_list_field(field_value):
     """Converte stringa separata da virgola in lista"""
@@ -22,7 +25,7 @@ def calculate_decade(year):
     """Calcola il decennio"""
     return (year // 10) * 10
 
-def format_dataset_for_prompt(df: pd.DataFrame) -> str:
+def format_dataset_for_direct_prompt(df: pd.DataFrame) -> str:
     """
     Formatta il dataset per il prompt di Gemini.
 
@@ -34,7 +37,7 @@ def format_dataset_for_prompt(df: pd.DataFrame) -> str:
     """
     return df.to_json(orient='records', indent=2)
 
-def create_prompt(dataset_str: str, nl_query: str) -> str:
+def create_direct_prompt(dataset_str: str, nl_query: str) -> str:
     prompt = f"""
 You are a movie recommendation system. Analyze the provided movie dataset and respond to the user's request.
 
@@ -666,6 +669,7 @@ class Main(Query):
     name = 'Movie similarity'
     full_df: DataFrame = None
     clean_df: DataFrame = None
+    pre_submissions_df: DataFrame = None
     max_tests: int = 10
     tests_per_category: int = 10
     seed: int = 42
@@ -682,7 +686,7 @@ class Main(Query):
             print(f"❌ Errore nel caricamento del CSV: {e}")
         return
 
-    def prepare_df(self):
+    def initiate_submissions(self):
         # Pulisci dati
         self.clean_df = self.full_df.dropna(subset=['title', 'year', 'genre', 'directors'])
         if self.debug:
@@ -771,22 +775,13 @@ class Main(Query):
             output_filename = 'movie_similarity_bilingual_tests.csv'
             self.pre_submissions_df.to_csv(self.run_folder / output_filename, index=False, encoding='utf-8')
 
-            self.submissions = []
-            for _, row in self.pre_submissions_df.iterrows():
-                prompt = create_prompt(format_dataset_for_prompt(self.clean_df), row['nl_query'])
-                self.submissions.append(MovieSubmission(
-                    test_language=row['test_language'],
-                    test_category=row['test_category'],
-                    nl_query=row['nl_query'],
-                    prompt=prompt,
-                    ground_truth=row['ground_truth'],
-                    response=None,
-                    evaluations=None
-                ))
-
-    def evaluate_submission(self, submission: MovieSubmission) -> Evaluations:
+    def evaluate_submission(self, submission: MovieSubmission, run_mode: RunMode) -> Evaluations:
         print('starting evaluation')
-        predicted_ids = extract_movie_ids(submission.response)
+        if run_mode == RunMode.DIRECT:
+            predicted_ids = extract_movie_ids(submission.response)
+        elif run_mode == RunMode.LOTUS:
+            predicted_ids = submission.response['IMDB_id'].tolist()
+
         return calculate_enhanced_metrics(predicted_ids, submission.ground_truth,
                                                  submission.nl_query, self.full_df)
 
@@ -811,7 +806,38 @@ class Main(Query):
         if self.full_df is None:
             temp = data_folder / self.family / 'imdb_dataset_cut_300.csv'
             self.load_csv(file_path=str(temp))
-        self.prepare_df()
+        self.initiate_submissions()
+        self.submissions = []
+        for _, row in self.pre_submissions_df.iterrows():
+            prompt = create_direct_prompt(format_dataset_for_direct_prompt(self.clean_df), row['nl_query'])
+            self.submissions.append(MovieSubmission(
+                test_language=row['test_language'],
+                test_category=row['test_category'],
+                nl_query=row['nl_query'],
+                prompt=prompt,
+                ground_truth=row['ground_truth'],
+                response=None,
+                evaluations=None
+            ))
 
     def prepare_lotus(self):
-        pass
+        if self.full_df is None:
+            temp = data_folder / self.family / 'imdb_dataset_cut_300.csv'
+            self.load_csv(file_path=str(temp))
+        self.initiate_submissions()
+        self.submissions = []
+        for _, row in self.pre_submissions_df.iterrows():
+            prompt = lambda d: d.sem_topk(
+                f"Considering the following user input:\n{row['nl_query']}\nReturn " + '{IMDB_id}' + " suggestions for the user as a commander system",
+                K=10,
+                return_stats=False,
+            )
+            self.submissions.append(MovieSubmission(
+                test_language=row['test_language'],
+                test_category=row['test_category'],
+                nl_query=row['nl_query'],
+                prompt=prompt,
+                ground_truth=row['ground_truth'],
+                response=None,
+                evaluations=None
+            ))

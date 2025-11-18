@@ -1,13 +1,14 @@
 from datetime import datetime
-from pathlib import Path
-import yaml
-from models.model import Model
-from queries.query import Query
-from tsts.test import *
 import importlib
 import importlib.util
 from dataclasses import replace
-from types import ModuleType
+from pathlib import Path
+
+import yaml
+
+from models.model import Model
+from tsts.test import Test
+from tsts.run_mode import RunMode
 
 runs_folder = Path('runs')
 
@@ -25,7 +26,7 @@ def load_tests() -> list[Test]:
     results = []
 
     for file in Path('tsts').glob('*'):
-        if file.is_dir() or file.name == 'test.py' or '__pycache__' in file.parts or '.DS_Store' in file.parts:
+        if file.is_dir() or file.name == 'test.py' or '__pycache__' in file.parts or '.DS_Store' in file.parts or 'run_mode.py' in file.parts:
             continue
 
         with open(file) as f:

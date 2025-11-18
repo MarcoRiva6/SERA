@@ -3,12 +3,14 @@ from dataclasses import dataclass, asdict, field
 from enum import Enum, StrEnum, auto
 from numbers import Number
 from pathlib import Path
-from typing import TypedDict, Dict, TypeAlias
+from typing import TypedDict, Dict, TypeAlias, Any
 
 import pandas as pd
 
 import yaml
 from pandas import DataFrame
+
+from tsts.run_mode import RunMode
 
 data_folder = Path('data')
 
@@ -19,7 +21,7 @@ Evaluations: TypeAlias = dict[Metric, Number]
 
 @dataclass
 class Submission(ABC):
-    prompt: str
+    prompt: Any
     response: str
     evaluations: Evaluations
 
@@ -29,7 +31,6 @@ class Query(ABC):
     name_path: str
     run_folder: Path = None
     debug: bool = True
-    pre_submissions_df: DataFrame = None
     submissions: list[Submission] = None
     evaluations: Evaluations = None
 
@@ -47,7 +48,7 @@ class Query(ABC):
         pass
 
     @abstractmethod
-    def evaluate_submission(self, submission: Submission) -> Evaluations:
+    def evaluate_submission(self, submission: Submission, run_mode: RunMode) -> Evaluations:
         pass
 
     def evaluate(self):

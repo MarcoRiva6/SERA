@@ -1,26 +1,31 @@
 from abc import abstractmethod, ABC
-from dataclasses import dataclass, asdict, field
-from enum import Enum, StrEnum, auto
+from dataclasses import dataclass
+from enum import StrEnum
 from numbers import Number
 from pathlib import Path
-from typing import TypedDict, Dict, TypeAlias, Any
-
+from typing import TypeAlias, Any
 import pandas as pd
-
 import yaml
 from pandas import DataFrame
 
 from experiments.run_type import RunType
 
-data_folder = Path(__file__).parent.parent / 'data'
+data_folder: Path = Path(__file__).parent.parent / 'data' # path to the project's data folder
 
 class Metric(StrEnum):
+    """
+    Enumeration of possible metrics for a test.
+    """
     pass
 
-Evaluations: TypeAlias = dict[Metric, Number]
+Evaluations: TypeAlias = dict[Metric, Number] # A dictionary mapping metrics to their numeric evaluation values.
 
 @dataclass
 class Query(ABC):
+    """
+    A single query consisting of a prompt, a response, and its evaluations.
+    Prompt can be of any type, including a DataFrame (useful for lotus).
+    """
     prompt: Any
     response: str
     evaluations: Evaluations
@@ -39,13 +44,16 @@ class Query(ABC):
 
 @dataclass
 class Test(ABC):
-    family: str
-    name_path: str
+    """
+    Represents a single test, used to build queries.
+    """
+    family: str # the family this test belongs to (e.g. "movies", "molecules")
+    name_path: str # the path-safe name of the test
     run_type: RunType = None
     run_folder: Path = None
     debug: bool = True
-    queries: list[Query] = None
-    evaluations: Evaluations = None
+    queries: list[Query] = None # The list of queries generated for this test.
+    evaluations: Evaluations = None # Aggregated evaluations across all queries for this test.
 
     @classmethod
     def from_yaml_file(cls, file):
@@ -72,10 +80,19 @@ class Test(ABC):
             raise NotImplementedError(f'Run mode {self.run_type} not implemented for this test.')
 
     @abstractmethod
-    def evaluate_query(self, submission: Query) -> Evaluations:
+    def evaluate_query(self, query: Query) -> Evaluations:
+        """
+        Evaluate a single query after submission.
+        :param query: the query to evaluate
+        :return: A dictionary (an Evaluations object: dict[Metric, Number]) with the evaluation metrics for the query.
+        """
         pass
 
-    def evaluate(self):
+    def evaluate(self) -> Evaluations:
+        """
+        Aggregate evaluations across all queries for this test by computing the mean for each metric.
+        :return: A dictionary (an Evaluations object: dict[Metric, Number]) with the aggregated evaluation metrics.
+        """
         # accumulator for sums
         totals: Evaluations = {}
 
@@ -91,10 +108,18 @@ class Test(ABC):
         self.evaluations = aggregated
         return aggregated
 
-    def evaluations_to_csv(self, file_name: str = 'test_evaluations.csv'):
+    def evaluations_to_csv(self, file_name: str = 'test_evaluations.csv') -> None:
+        """
+        Save the aggregated evaluations to a CSV file.
+        :param file_name: the name of the CSV file to save the evaluations to.
+        """
         df = pd.DataFrame([self.evaluations], index=[0])
         df.to_csv(self.run_folder / file_name, index=False)
 
-    def queries_to_csv(self, file_name: str = 'queries.csv'):
+    def queries_to_csv(self, file_name: str = 'queries.csv') -> None:
+        """
+        Save the variable queries to a CSV file.
+        :param file_name: the name of the CSV file to save the queries to.
+        """
         df = pd.DataFrame([q.to_dict() for q in self.queries])
         df.to_csv(self.run_folder / file_name, index=False)

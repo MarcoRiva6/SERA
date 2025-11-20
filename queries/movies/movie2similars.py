@@ -789,17 +789,17 @@ class Main(Test):
             self.pre_queries_df = pd.DataFrame(test_results)
             self.pre_queries_df.to_csv(self.run_folder / output_filename, index=False, encoding='utf-8')
 
-    def evaluate_query(self, submission: MovieQuery) -> Evaluations:
+    def evaluate_query(self, query: MovieQuery) -> Evaluations:
         print('starting evaluation')
         if self.run_type == RunType.DIRECT:
-            predicted_ids = extract_movie_ids(submission.response)
+            predicted_ids = extract_movie_ids(query.response)
         elif self.run_type == RunType.LOTUS:
-            predicted_ids = submission.response['IMDB_id'].tolist()
+            predicted_ids = query.response['IMDB_id'].tolist()
 
-        return calculate_enhanced_metrics(predicted_ids, submission.ground_truth,
-                                                 submission.nl_query, self.full_df)
+        return calculate_enhanced_metrics(predicted_ids, query.ground_truth,
+                                          query.nl_query, self.full_df)
 
-    def evaluate(self):
+    def evaluate(self) -> Evaluations:
         acc = super().evaluate()
 
         allowed = {

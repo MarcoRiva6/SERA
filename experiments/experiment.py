@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from pathlib import Path
-
 from models.model import Model, SubmissionError
 from queries.test import Test
 
@@ -8,13 +7,19 @@ from experiments.run_type import RunType
 
 @dataclass
 class Experiment:
+    """
+    Represents an experiment. This includes the model to be tested, the type of run, and the test to be executed.
+    """
     name: str
     run_folder: Path
     model: Model
     run_type: RunType
     test: Test
 
-    def execute(self):
+    def execute(self) -> None:
+        """
+        Execute the experiment by preparing the test, submitting queries to the model and saving results.
+        """
         self.test.prepare()
         print('test prepared. Submitting queries...')
         try:

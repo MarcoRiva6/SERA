@@ -8,7 +8,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from lmstudio import LMStudioError
 from enum import StrEnum, auto
-
 from experiments.run_type import RunType
 from queries.test import Query, Test
 
@@ -68,7 +67,7 @@ class Model:
 
         raise Exception("Failed to get response from LM Studio after retries.")
 
-    def _submit_lotus_lm_studio(self, prompt, df):
+    def _submit_lotus_lm_studio(self, prompt, df) -> None:
         import lotus
         from lotus.cache import CacheFactory, CacheConfig, CacheType
         from lotus.models import LM
@@ -86,7 +85,7 @@ class Model:
 
         return prompt(df)
 
-    def _submit_together(self, prompt: str) -> str:
+    def _submit_direct_together(self, prompt: str) -> str:
         from together import Together
 
         client = Together()
@@ -102,7 +101,7 @@ class Model:
             stream=False,
         ).response().choices[0].message.content
 
-    def _submit_direct_together_batched(self, queries: list[Query]):
+    def _submit_direct_together_batched(self, queries: list[Query]) -> None:
         poll_interval = 60 #seconds
         timeout = 86400  #seconds (24 hours)
         max_tokens = 300

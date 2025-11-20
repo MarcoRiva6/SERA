@@ -1,16 +1,14 @@
-from datetime import datetime
 import importlib
 import importlib.util
 from dataclasses import replace
 from pathlib import Path
-
 import yaml
 
 from models.model import Model
 from experiments.experiment import (Experiment)
 from experiments.run_type import (RunType)
 
-runs_folder = Path('runs')
+runs_folder: Path = Path('runs')
 
 def class_from_path(class_path: str):
     module_path, class_name = class_path.rsplit(".", 1)

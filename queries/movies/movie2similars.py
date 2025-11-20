@@ -1,3 +1,4 @@
+import os
 import random
 import re
 from dataclasses import dataclass
@@ -674,9 +675,13 @@ class Main(Test):
     tests_per_category: int = 10
     seed: int = 42
 
-    def load_csv(self, file_path: str):
+    def load_csv(self, file_path: str = None) -> None:
+        """
+        Loads full_df from CSV.
+        :param file_path:
+        """
         if not file_path:
-            file_path = f'{data_folder}/{self.family}/movies_metadata.csv'
+            file_path = f'{data_folder}/{self.family}/imdb_dataset_cut_300.csv'
         try:
             self.full_df = pd.read_csv(file_path)
             if self.debug:
@@ -684,11 +689,21 @@ class Main(Test):
 
         except Exception as e:
             print(f"❌ Errore nel caricamento del CSV: {e}")
-        return
 
-    def initiate_queries(self):
+    def initiate_queries(self) -> None:
+        """
+        Creates clean_df and pre_queries_df, eventually loading from file if already present.
+        """
+        output_filename = 'movie_similarity_bilingual_tests.csv'
         # Pulisci dati
         self.clean_df = self.full_df.dropna(subset=['title', 'year', 'genre', 'directors'])
+
+        if os.path.exists(self.run_folder / output_filename):
+            self.pre_queries_df = pd.read_csv(self.run_folder / output_filename)
+            if self.debug:
+                print(f"✅ Test caricati da file: {len(self.pre_queries_df)} test")
+            return
+
         if self.debug:
             print(f"✅ Dataset pulito: {len(self.clean_df)} film validi")
 
@@ -772,14 +787,13 @@ class Main(Test):
 
             # Crea DataFrame e salva
             self.pre_queries_df = pd.DataFrame(test_results)
-            output_filename = 'movie_similarity_bilingual_tests.csv'
             self.pre_queries_df.to_csv(self.run_folder / output_filename, index=False, encoding='utf-8')
 
     def evaluate_query(self, submission: MovieQuery) -> Evaluations:
         print('starting evaluation')
-        if run_type == RunType.DIRECT:
+        if self.run_type == RunType.DIRECT:
             predicted_ids = extract_movie_ids(submission.response)
-        elif run_type == RunType.LOTUS:
+        elif self.run_type == RunType.LOTUS:
             predicted_ids = submission.response['IMDB_id'].tolist()
 
         return calculate_enhanced_metrics(predicted_ids, submission.ground_truth,
@@ -802,10 +816,12 @@ class Main(Test):
         self.evaluations = filtered_metrics
         return filtered_metrics
 
-    def prepare_direct(self):
+    def prepare_direct(self) -> None:
+        """
+        Populates queries for direct prompting.
+        """
         if self.full_df is None:
-            temp = data_folder / self.family / 'imdb_dataset_cut_300.csv'
-            self.load_csv(file_path=str(temp))
+            self.load_csv()
         self.initiate_queries()
         self.queries = []
         for _, row in self.pre_queries_df.iterrows():
@@ -820,10 +836,12 @@ class Main(Test):
                 evaluations=None
             ))
 
-    def prepare_lotus(self):
+    def prepare_lotus(self) -> None:
+        """
+        Populates queries for Lotus prompting.
+        """
         if self.full_df is None:
-            temp = data_folder / self.family / 'imdb_dataset_cut_300.csv'
-            self.load_csv(file_path=str(temp))
+            self.load_csv()
         self.initiate_queries()
         self.queries = []
         for _, row in self.pre_queries_df.iterrows():

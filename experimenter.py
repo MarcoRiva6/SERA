@@ -12,11 +12,6 @@ from experiments.run_type import (RunType)
 
 runs_folder = Path('runs')
 
-def build_run_folder() -> Path:
-    name = datetime.now().strftime('%y-%m-%d_%H-%M-%S')
-    run_folder = runs_folder / name
-    return run_folder
-
 def class_from_path(class_path: str):
     module_path, class_name = class_path.rsplit(".", 1)
     module = importlib.import_module(module_path)
@@ -25,15 +20,15 @@ def class_from_path(class_path: str):
 def load_experiments() -> list[Experiment]:
     results = []
 
-    for file in Path('experiments').glob('*'):
-        if file.is_dir() or file.name == 'experiment.py' or '__pycache__' in file.parts or '.DS_Store' in file.parts or 'run_type.py' in file.parts:
+    for test_file in Path('experiments').glob('*'):
+        if test_file.is_dir() or test_file.name == 'experiment.py' or '__pycache__' in test_file.parts or '.DS_Store' in test_file.parts or 'run_type.py' in test_file.parts:
             continue
 
-        with open(file) as f:
+        with open(test_file) as f:
             data = yaml.safe_load(f)
         models = []
         raw_model = data.get('model', '*')
-        for mf in Path('models').glob(raw_model):
+        for mf in Path('models').glob(raw_model + '.yaml'):
             if mf.is_dir() or mf.name == 'model.py' or mf.name == 'global.yaml' or '__pycache__' in mf.parts or '.DS_Store' in mf.parts:
                 continue
             models.append(Model.from_yaml_file(mf))
@@ -59,7 +54,7 @@ def load_experiments() -> list[Experiment]:
             family = q.parts[-2]
             queries.append(cls(family, q.stem))
 
-        this_run_folder = build_run_folder()
+        this_run_folder = runs_folder / test_file.stem
         for mf in models:
             for rt in run_types:
                 for q in queries:
@@ -70,17 +65,19 @@ def load_experiments() -> list[Experiment]:
                         run_type=rt,
                         test=replace(q)
                     )
-                    experiment.test.run_folder = this_run_folder / experiment.model.name_path / experiment.run_type / experiment.test.family
                     experiment.test.run_type = rt
                     experiment.model.run_type = rt
+                    inner_run_folder = this_run_folder / experiment.test.family / experiment.test.name_path
+                    experiment.test.run_folder = inner_run_folder / 'data'
+                    experiment.model.run_folder = inner_run_folder / 'results' / experiment.model.name_path / rt
                     results.append(experiment)
     return results
 
 if __name__ == "__main__":
     experiments = load_experiments()
-    for e in experiments:
-        print(e)
-    for e in experiments:
-        print(f"Running experiment: {e.name}")
-        e.test.run_folder.mkdir(parents=True, exist_ok=True)
-        e.execute()
+    #for e in experiments:
+    #    print(e)
+    for exp in experiments:
+        print(f"Running experiment: {exp.name}")
+        exp.test.run_folder.mkdir(parents=True, exist_ok=True)
+        exp.execute()

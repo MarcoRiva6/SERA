@@ -12,7 +12,7 @@ from pandas import DataFrame
 
 from experiments.run_type import RunType
 
-data_folder = Path('data')
+data_folder = Path(__file__).parent.parent / 'data'
 
 class Metric(StrEnum):
     pass
@@ -24,6 +24,18 @@ class Query(ABC):
     prompt: Any
     response: str
     evaluations: Evaluations
+
+    def to_dict(self) -> dict:
+        if isinstance(self.prompt, DataFrame):
+            prompt_str = self.prompt['prompt']
+        else:
+            prompt_str = str(self.prompt)
+        base = {"prompt": prompt_str, "response": self.response}
+        evals = {
+            (k.value if hasattr(k, "value") else str(k)): v
+            for k, v in (self.evaluations or {}).items()
+        }
+        return {**base, **evals}
 
 @dataclass
 class Test(ABC):
@@ -41,20 +53,23 @@ class Test(ABC):
             return cls(**yaml.load(f, Loader=yaml.FullLoader), name_path=file.stem)
 
     @abstractmethod
-    def prepare_direct(self):
+    def prepare_direct(self) -> None:
         pass
 
     @abstractmethod
-    def prepare_lotus(self):
+    def prepare_lotus(self) -> None:
         pass
 
-    def prepare(self):
+    def prepare(self) -> None:
+        """
+        After this method is called, queries should be populated.
+        """
         method_path = 'prepare_' + self.run_type.value
         method = getattr(self, method_path)
         if method is not None:
             method()
         else:
-            raise NotImplementedError(f'Run mode {self.run_type} not implemented.')
+            raise NotImplementedError(f'Run mode {self.run_type} not implemented for this test.')
 
     @abstractmethod
     def evaluate_query(self, submission: Query) -> Evaluations:
@@ -76,23 +91,10 @@ class Test(ABC):
         self.evaluations = aggregated
         return aggregated
 
-    def evaluations_to_csv(self, file_path: str = None):
-        if file_path is None:
-            file_path = self.run_folder / 'evaluations.csv'
-
+    def evaluations_to_csv(self, file_name: str = 'test_evaluations.csv'):
         df = pd.DataFrame([self.evaluations], index=[0])
-        df.to_csv(file_path, index=False)
+        df.to_csv(self.run_folder / file_name, index=False)
 
-    def queries_to_csv(self, file_path: str = None):
-        if file_path is None:
-            file_path = self.run_folder / 'queries.csv'
-        rows = []
-
-        for q in self.queries:
-            base = asdict(q)                # convert dataclass to dictionary
-            eval_dict = base.pop("evaluations")  # remove evaluation dict
-            flat = {**base, **eval_dict}      # flatten into top-level
-            rows.append(flat)
-
-        df = pd.DataFrame(rows)
-        df.to_csv(file_path, index=False)
+    def queries_to_csv(self, file_name: str = 'queries.csv'):
+        df = pd.DataFrame([q.to_dict() for q in self.queries])
+        df.to_csv(self.run_folder / file_name, index=False)

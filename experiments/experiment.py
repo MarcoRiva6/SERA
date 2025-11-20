@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from models.model import Model
+from models.model import Model, SubmissionError
 from queries.test import Test
 
 from experiments.run_type import RunType
@@ -16,18 +16,24 @@ class Experiment:
 
     def execute(self):
         self.test.prepare()
-
-        for i, q in enumerate(self.test.queries):
-            print("Running query", i + 1, '/', len(self.test.queries))
-            response = self.model.submit(q.prompt, self.test.full_df)
-            q.response = response
-            print("Received response:", q.response)
-            q.evaluations = self.test.evaluate_query(q)
-            print('Query Evaluation:', q.evaluations)
-
-        self.test.queries_to_csv()
+        print('test prepared. Submitting queries...')
+        try:
+            self.model.submit(self.test)
+            print('test submit complete.')
+        except NotImplementedError as e:
+            print(e)
+            return
+        except SubmissionError as e:
+            print('Submission error:', e)
+            return
+        except Exception as e:
+            print('An unknown error occurred during submission:', e)
+            return
+        self.test.queries_to_csv('answered_queries.csv')
+        print('queries saved to csv.')
         self.test.evaluate()
-        print('Test evaluations:', self.test.evaluations)
+        print('test evaluation:', self.test.evaluations)
         self.test.evaluations_to_csv()
+        print('evaluations saved to csv.')
 
-        print('test execution complete.')
+        print('test execution completed.')

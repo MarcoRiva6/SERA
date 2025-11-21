@@ -666,7 +666,7 @@ class MovieQuery(Query):
     nl_query: str
     ground_truth: str
 
-class Main(Test):
+class movie2similars(Test):
     name = 'Movie similarity'
     full_df: DataFrame = None
     clean_df: DataFrame = None
@@ -816,7 +816,7 @@ class Main(Test):
         self.evaluations = filtered_metrics
         return filtered_metrics
 
-    def prepare_direct(self) -> None:
+    def prepare_queries_for_direct(self) -> None:
         """
         Populates queries for direct prompting.
         """
@@ -833,10 +833,11 @@ class Main(Test):
                 prompt=prompt,
                 ground_truth=row['ground_truth'],
                 response=None,
-                evaluations=None
+                evaluations=None,
+                response_json_schema=None
             ))
 
-    def prepare_lotus(self) -> None:
+    def prepare_queries_for_lotus(self) -> None:
         """
         Populates queries for Lotus prompting.
         """

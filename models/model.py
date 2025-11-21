@@ -30,15 +30,18 @@ class Model:
     name_api: str
     backend: Backend
     max_tokens: int
+    run_type: RunType
+    run_folder: Path
+    seed: int
     batched: bool = False
-    run_type: RunType = None
     submissions: list[Submission] = None
-    run_folder: Path = None
 
     @classmethod
-    def from_yaml_file(cls, file):
+    def from_yaml_file(cls, file: Path, run_type: RunType, pre_run_folder: Path, seed: int) -> 'Model':
+        name_path = file.stem
+        run_folder = pre_run_folder / 'results' / name_path / run_type
         with open(file) as f:
-            data = cls(**yaml.load(f, Loader=yaml.FullLoader), name_path=file.stem)
+            data = cls(**yaml.load(f, Loader=yaml.FullLoader), name_path=name_path, run_type=run_type, run_folder=run_folder, seed=seed)
         if data.backend:
             data.backend = Backend(data.backend)
         return data
@@ -104,7 +107,7 @@ class Model:
     def _submit_direct_together_batched(self, queries: list[Query]) -> None:
         poll_interval = 60 #seconds
         timeout = 86400  #seconds (24 hours)
-        max_tokens = 300
+        max_tokens = 8000
         input_path = self.run_folder / "batch_input.jsonl"
         output_path = self.run_folder / "batch_output.jsonl"
 
@@ -116,16 +119,32 @@ class Model:
             if os.path.exists(input_path): # retrieve existing input file
                 print(f"Using existing batch input file at {input_path}")
             else:
-                requests = [{
-                        "custom_id": k,
-                        "body": {
-                            "model": self.name_api,
-                            "messages": [{"role": "user", "content": v.prompt}]
-                        },
-                        "max_tokens": max_tokens
-                    } for k, v in batch_queries.items()]
+                requests = []
+                for k, v in batch_queries.items():
+                    if v.response_json_schema is not None and v.response_json_schema != '':
+                        requests.append(
+                            {
+                                "custom_id": k,
+                                "body": {
+                                    "model": self.name_api,
+                                    "messages": [{"role": "user", "content": v.prompt}],
+                                    "response_format": v.response_json_schema
+                                },
+                                "max_tokens": max_tokens
+                            }
+                        )
+                    else:
+                        requests.append({
+                            "custom_id": k,
+                            "body": {
+                                "model": self.name_api,
+                                "messages": [{"role": "user", "content": v.prompt}],
+                            },
+                            "max_tokens": max_tokens
+                        })
 
                 # 1. Write requests to a .jsonl file
+                self.run_folder.mkdir(parents=True, exist_ok=True)
                 with input_path.open("w", encoding="utf-8") as f:
                     for req in requests:
                         f.write(json.dumps(req) + "\n")

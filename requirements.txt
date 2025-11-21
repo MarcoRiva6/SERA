@@ -1,5 +1,7 @@
-python-dotenv
+scikit-learn
 # python version: 3.12.11
+openpyxl
+python-dotenv
 scipy==1.16.2
 numpy==1.26.4
 lmstudio==1.5.0

@@ -20,7 +20,7 @@ class Experiment:
         """
         Execute the experiment by preparing the test, submitting queries to the model and saving results.
         """
-        self.test.prepare()
+        self.test.prepare_queries()
         print('test prepared. Submitting queries...')
         try:
             self.model.submit(self.test)

@@ -108,6 +108,7 @@ class Model:
         poll_interval = 60 #seconds
         timeout = 86400  #seconds (24 hours)
         max_tokens = 8000
+        batch_id_path = self.run_folder / "batch_id.txt"
         input_path = self.run_folder / "batch_input.jsonl"
         output_path = self.run_folder / "batch_output.jsonl"
 
@@ -116,8 +117,17 @@ class Model:
         if os.path.exists(output_path):
             print(f"Using existing batch output file at {output_path}")
         else:
-            if os.path.exists(input_path): # retrieve existing input file
-                print(f"Using existing batch input file at {input_path}")
+            # Load API key from .env file
+            if not load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env"):
+                raise FileNotFoundError()
+            api_key = os.getenv("TOGETHER_API_KEY")
+            from together import Together
+            client = Together(api_key=api_key)
+
+            if os.path.exists(batch_id_path): # recover existing batch
+                with open(batch_id_path, "r") as f:
+                    batch_id = f.read().strip()
+                print(f"Trying to recover already submitted batch {batch_id}...")
             else:
                 requests = []
                 for k, v in batch_queries.items():
@@ -149,25 +159,23 @@ class Model:
                     for req in requests:
                         f.write(json.dumps(req) + "\n")
 
-            # Load API key from .env file
-            if not load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env"):
-                raise FileNotFoundError()
-            api_key = os.getenv("TOGETHER_API_KEY")
-            from together import Together
-            client = Together(api_key=api_key)
-            # 2. Upload the batch file
-            file_resp = client.files.upload(file=input_path, purpose="batch-api")
-            file_id = file_resp.id
+                # 2. Upload the batch file
+                file_resp = client.files.upload(file=input_path, purpose="batch-api")
+                file_id = file_resp.id
 
-            # 3. Create the batch job
-            batch = client.batches.create_batch(file_id, endpoint="/v1/chat/completions")
-            batch_id = batch.id
+                # 3. Create the batch job
+                batch = client.batches.create_batch(file_id, endpoint="/v1/chat/completions")
+                batch_id = batch.id
+                batch_id_path.write_text(batch_id)
 
             start_time = time.time()
             while True:
                 status = client.batches.get_batch(batch_id)
                 print(f"Batch {batch_id} status: {status.status}")
 
+                if status.status == 'VALIDATING':
+                    time.sleep(5)
+                    continue
                 if status.status == "COMPLETED":
                     if status.error_file_id is not None:
                         print(f"Warning: Batch {batch_id} completed with errors. error file ID {status.error_file_id}")
@@ -189,6 +197,7 @@ class Model:
             output_file_id = status.output_file_id
             client.files.retrieve_content(id=output_file_id, output=str(output_path))
 
+        total_token_consumed = 0
         # 5. Parse the results
         with output_path.open("r", encoding="utf-8") as f:
             for line in f:
@@ -196,6 +205,10 @@ class Model:
                 if response['response']['body']['choices'][0]['finish_reason'] == 'length':
                     print(f"Warning: Response for query with prompt hash {response['id']} was cut off due to length.")
                 batch_queries[response['custom_id']].response = response['response']['body']['choices'][0]['message']['content']
+                total_token_consumed += response['response']['body']['usage']['total_tokens']
+
+        print(f"Total tokens consumed in batch: {total_token_consumed}")
+        (self.run_folder / "batch_token_usage.txt").write_text(f"{total_token_consumed}")
 
         for bq in batch_queries.values():
             if not bq.response:

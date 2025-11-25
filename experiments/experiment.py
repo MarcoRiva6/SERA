@@ -34,11 +34,12 @@ class Experiment:
         except Exception as e:
             print('An unknown error occurred during submission:', e)
             return
-        self.test.queries_to_csv('answered_queries.csv')
+        inner_run_folder = self.run_folder / self.test.family / self.test.name_path / 'results' / self.model.name_path / self.run_type
+        self.test.queries_to_csv('answered_queries.csv', inner_run_folder)
         print('queries saved to csv.')
         self.test.evaluate()
         print('test evaluation:', self.test.evaluations)
-        self.test.evaluations_to_csv()
+        self.test.evaluations_to_csv(dest=inner_run_folder)
         print('evaluations saved to csv.')
 
         print('test execution completed.')

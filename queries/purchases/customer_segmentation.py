@@ -1,4 +1,3 @@
-import ast
 import json
 import os
 import random
@@ -9,13 +8,16 @@ from enum import auto
 from pathlib import Path
 
 import kagglehub
+import numpy as np
 import pandas as pd
+import sklearn
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 
-from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, ndcg_at_k
+from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, precision_at_k, \
+    spearman_rank_correlation, ndcg_at_k_scores
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
@@ -191,9 +193,12 @@ from most to least similar, as per the following JSON schema:
 class CustomerSegmentationQuery(Query):
     customer_id: int
     ground_truth: list[int]
+    ground_truth_values: list[float]
 
 class CustomerSegmentationMetrics(Metric):
-    NDCG_5 = auto()
+    NDCG_K = auto()
+    PRECISION_K = auto()
+    SPEARMAN_K = auto()
 
 @dataclass
 class customer_segmentation(Test):
@@ -211,19 +216,32 @@ class customer_segmentation(Test):
             shutil.move(Path(ds_folder) / file_path.name, file_path)
         self.full_df = pd.read_excel(file_path)
 
-    def evaluate_query(self, query: Query) -> Evaluations:
-        json_response = extract_json(query.response)
+    def evaluate_query(self, query: CustomerSegmentationQuery) -> Evaluations:
         try:
+            json_response = extract_json(query.response)
             top_k_list = json_response['top_k']
         except KeyError as e:
             print(f"KeyError while evaluating query for customer_id {query.customer_id}: {e}")
-            return Evaluations(ndcg_5=0.0, ndcg_10=0.0, precision_5=0.0, precision_10=0.0)
-        return {CustomerSegmentationMetrics.NDCG_5: ndcg_at_k(query.ground_truth, top_k_list, k=TOP_K)}
+            return Evaluations(ndcg_5=0.0)
+        except Exception as e:
+            print(f"Error while evaluating query for customer_id {query.customer_id}: {e}")
+            return Evaluations(ndcg_5=0.0, precision_5=0.0, spearman_5=0.0)
+        temp_vals = [x + 1 for x in query.ground_truth_values]
+        ndcg_scores = np.array([temp_vals[query.ground_truth.index(cust)]
+                                      if cust in query.ground_truth
+                                      else 0
+                                      for cust in top_k_list])
+        return {
+            CustomerSegmentationMetrics.NDCG_K: ndcg_at_k_scores(temp_vals, ndcg_scores, k=TOP_K),
+           # CustomerSegmentationMetrics.NDCG_K: sklearn.metrics.ndcg_score(temp_vals, ndcg_scores, k=TOP_K),
+            CustomerSegmentationMetrics.PRECISION_K: precision_at_k(query.ground_truth, top_k_list, k=TOP_K),
+            CustomerSegmentationMetrics.SPEARMAN_K: spearman_rank_correlation(query.ground_truth, top_k_list)
+        }
 
     def init_queries(self) -> None:
         file_name = 'prepared_queries.csv'
         if os.path.exists(self.run_folder / file_name):
-            self.csv_to_queries(CustomerSegmentationQuery, file_name)
+            self.csv_to_queries(CustomerSegmentationQuery, file_name, self.run_folder)
             return
 
         current_seed = self.seed
@@ -259,13 +277,15 @@ class customer_segmentation(Test):
             hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=ALPHA)
 
             selected_cid = random.choice(selected_cids)
-            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=TOP_K)
-            top_cids = top_similar_df.index.tolist()
+            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=N_CUSTOMERS_PER_QUERY)
+            sorted_cids = top_similar_df.index.tolist()
+            ground_truth_vals = top_similar_df.values.tolist()
 
             self.queries.append(CustomerSegmentationQuery(
                 customer_id=selected_cid,
                 prompt=create_prompt(df, selected_cid),
-                ground_truth=top_cids,
+                ground_truth=sorted_cids,
+                ground_truth_values=ground_truth_vals,
                 response=None,
                 evaluations=Evaluations(),
                 response_json_schema=json.dumps(ResponseSchema.model_json_schema())
@@ -288,8 +308,6 @@ class customer_segmentation(Test):
         self.clean_df = self.clean_df[(self.clean_df["Quantity"] > 0) & (self.clean_df["UnitPrice"] > 0)]
         # Total price per line
         self.clean_df["TotalPrice"] = self.clean_df["Quantity"] * self.clean_df["UnitPrice"]
-
-        self.clean_df.to_csv(self.run_folder / 'clean_df', index=False)
 
     # def prepare_lotus(self) -> None:
     #     self.load_csv()

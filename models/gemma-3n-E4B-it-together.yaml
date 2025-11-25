@@ -1,0 +1,5 @@
+name: 'Gemma 3n E4B it Together'
+name_api: 'google/gemma-3n-E4B-it'
+backend: 'together'
+max_tokens: 0
+batched: true

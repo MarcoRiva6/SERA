@@ -1,5 +1,6 @@
 import ast
 import json
+import random
 import re
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
@@ -12,6 +13,7 @@ import numpy as np
 import pandas as pd
 import yaml
 from pandas import DataFrame
+from scipy.stats import spearmanr
 
 from experiments.run_type import RunType
 
@@ -43,32 +45,74 @@ def extract_json(raw_text: str) -> dict:
         print(json_str)
         raise e
 
-
-def ndcg_at_k(ground_truth, llm_ranking, k) -> float:
-    # Truncate both lists to k
-    gt_k = ground_truth[:k]
+#TODO: È COMPLETANEMTE ROTTO
+#TODO: sistemare questo, che così è inutile e specifico per custumer_segmentation...
+def ndcg_at_k_scores(ground_truth_scores, llm_ranking, k):
+    """
+    More powerful NDCG@k using graded relevance:
+    ground_truth_scores is a dict {customer_id: similarity_score}
+    """
     llm_k = llm_ranking[:k]
 
-    # Relevance: 1 if LLM's item at rank i is inside true top-k, else 0
-    rel = np.array([1 if cust in gt_k else 0 for cust in llm_k])
-
-    # DCG
     def dcg(scores):
         return np.sum([
-            score / np.log2(idx + 2)
-            for idx, score in enumerate(scores)
+            score / np.log2(i + 2)
+            for i, score in enumerate(scores)
         ])
 
-    dcg_llm = dcg(rel)
+    dcg_llm = dcg(llm_k)
 
-    # Ideal DCG = DCG of perfectly sorted relevance list: [1, 1, 1, ... 1] up to same number of relevant items
-    ideal_rel = sorted(rel, reverse=True)
-    dcg_ideal = dcg(ideal_rel)
+    # Ideal DCG uses sorted true scores
+    ideal_scores = sorted(ground_truth_scores, reverse=True)[:k]
+    dcg_ideal = dcg(ideal_scores)
 
     if dcg_ideal == 0:
         return 0.0
 
     return dcg_llm / dcg_ideal
+
+
+def precision_at_k(ground_truth, llm_ranking, k):
+    """
+    Precision@k = (# correctly predicted in top-k) / (# predicted in top-k)
+    ground_truth: list of true top customers (sorted by similarity)
+    llm_ranking: list of predicted top customers (sorted by similarity)
+    """
+    gt_k = set(ground_truth[:k])
+    llm_k = llm_ranking[:k]
+
+    if len(llm_k) == 0:
+        return 0.0
+
+    tp = sum(1 for c in llm_k if c in gt_k)
+    return tp / len(llm_k)
+
+
+def spearman_rank_correlation(ground_truth, llm_ranking):
+    """
+    Spearman rank correlation between two rankings.
+
+    Both inputs are lists of customer IDs ordered from most to least similar.
+    We only consider the items that appear in both lists.
+    """
+    common = list(set(ground_truth).intersection(llm_ranking))
+
+    # Need at least 2 points to define correlation
+    if len(common) < 2:
+        return 0.0
+
+    gt_pos = {cust: i for i, cust in enumerate(ground_truth)}
+    llm_pos = {cust: i for i, cust in enumerate(llm_ranking)}
+
+    gt_order = [gt_pos[c] for c in common]
+    llm_order = [llm_pos[c] for c in common]
+
+    rho, _ = spearmanr(gt_order, llm_order)
+    if np.isnan(rho):
+        return 0.0
+
+    return float(rho)
+
 
 @dataclass
 class Query(ABC):
@@ -132,11 +176,12 @@ class Test(ABC):
         It automatically calls the appropriate 'prepare' method (based on the current run_type) as 'prepare_queries_for_<run_type>()'.
         """
         method_name = 'prepare_queries_for_' + self.run_type.value
-        method = getattr(self, method_name)
-        if method is not None:
+        try:
+            method = getattr(self, method_name)
             method()
-        else:
-            raise NotImplementedError(f'Run mode {self.run_type} not implemented for this test (method {method_name} does not exists).')
+        except AttributeError:
+            raise NotImplementedError(
+                f'Run mode {self.run_type} not implemented for this test (method {method_name} does not exists).')
 
     @abstractmethod
     def evaluate_query(self, query: Query) -> Evaluations:
@@ -167,31 +212,42 @@ class Test(ABC):
         self.evaluations = aggregated
         return aggregated
 
-    def evaluations_to_csv(self, file_name: str = 'test_evaluations.csv') -> None:
+    def evaluations_to_csv(self, file_name: str = 'test_evaluations.csv', dest: Path = None) -> None:
         """
         Save the aggregated evaluations to a CSV file.
-        :param file_name: the name of the CSV file to save the evaluations to.
+        :param dest: the destination folder to save the CSV file to.
+        :param file_name: the name of the CSV file to save the test evaluations to.
         """
+        if dest is None:
+            print('Warning: No destination folder provided for evaluations CSV. Using run_folder.')
+            dest = self.run_folder
         df = pd.DataFrame([self.evaluations], index=[0])
-        df.to_csv(self.run_folder / file_name, index=False)
+        df.to_csv(dest / file_name, index=False)
 
-    def queries_to_csv(self, file_name: str = 'queries.csv') -> None:
+    def queries_to_csv(self, file_name: str, dest: Path = None) -> None:
         """
         Save the variable queries to a CSV file.
+        :param dest: the destination folder to save the CSV file to.
         :param file_name: the name of the CSV file to save the queries to (with extension).
         """
+        if dest is None:
+            dest = self.run_folder
         df = pd.DataFrame([q.to_dict() for q in self.queries])
-        df.to_csv(self.run_folder / file_name, index=False)
+        df.to_csv(dest / file_name, index=False)
 
-    def csv_to_queries(self, query_cls: type, file_name: str = 'queries.csv') -> None:
+    def csv_to_queries(self, query_cls: type, file_name: str, folder: Path = None) -> None:
         """
         Load a CSV and convert each row into an instance of `cls`.
         Handles columns that are lists stored as strings.
-        Used to restore an already computed list of queries previously sqaved to a CSV.
+        Used to restore an already computed list of queries previously saved to a CSV.
         :param query_cls: the class type to instantiate for each query (subclass of Query)
+        :param folder: The directory where the CSV file is located. If None, uses the current run folder.
+        :param file_name: the name of the CSV file to load (with extension).
         """
+        if folder is None:
+            folder = self.run_folder
         # Load CSV into dataframe
-        df = pd.read_csv(self.run_folder / file_name)
+        df = pd.read_csv(folder / file_name)
 
         # Get type hints from the class (e.g., {"id": int, "scores": List[float]})
         hints = get_type_hints(query_cls)

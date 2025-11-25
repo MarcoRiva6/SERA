@@ -3,7 +3,6 @@ import random
 import re
 from dataclasses import dataclass
 from enum import auto
-from numbers import Number
 
 import numpy as np
 from scipy.stats import spearmanr
@@ -13,8 +12,6 @@ from pandas import DataFrame
 from experiments.run_type import RunType
 from ..test import Test, data_folder, Query, Metric, Evaluations
 import pandas as pd
-
-import lotus
 
 def parse_list_field(field_value):
     """Converte stringa separata da virgola in lista"""
@@ -671,9 +668,8 @@ class movie2similars(Test):
     full_df: DataFrame = None
     clean_df: DataFrame = None
     pre_queries_df: DataFrame = None
-    max_tests: int = 10
-    tests_per_category: int = 10
-    seed: int = 42
+    max_tests: int = 200
+    tests_per_category: int = 200 // 4
 
     def load_csv(self, file_path: str = None) -> None:
         """
@@ -790,7 +786,6 @@ class movie2similars(Test):
             self.pre_queries_df.to_csv(self.run_folder / output_filename, index=False, encoding='utf-8')
 
     def evaluate_query(self, query: MovieQuery) -> Evaluations:
-        print('starting evaluation')
         if self.run_type == RunType.DIRECT:
             predicted_ids = extract_movie_ids(query.response)
         elif self.run_type == RunType.LOTUS:
@@ -836,6 +831,7 @@ class movie2similars(Test):
                 evaluations=None,
                 response_json_schema=None
             ))
+        self.queries_to_csv('prepared_queries.csv')
 
     def prepare_queries_for_lotus(self) -> None:
         """
@@ -858,5 +854,7 @@ class movie2similars(Test):
                 prompt=prompt,
                 ground_truth=row['ground_truth'],
                 response=None,
-                evaluations=None
+                evaluations=None,
+                response_json_schema=None
             ))
+        self.queries_to_csv('prepared_queries.csv')

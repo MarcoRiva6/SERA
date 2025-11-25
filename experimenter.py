@@ -30,11 +30,14 @@ def load_experiments() -> list[Experiment]:
         exp_seed = data.get('seed', 0)
 
         models: list[Path] = []
-        raw_model = data.get('model', '*')
-        for m_path in Path('models').glob(raw_model + '.yaml'):
-            if m_path.is_dir() or m_path.name == 'model.py' or m_path.name == 'global.yaml' or '__pycache__' in m_path.parts or '.DS_Store' in m_path.parts:
-                continue
-            models.append(m_path)
+        raw_models = data.get('models', '*')
+        if not isinstance(raw_models, list):
+            raw_models = [raw_models]
+        for m in raw_models:
+            for m_path in Path('models').glob(m + '.yaml'):
+                if m_path.is_dir() or m_path.name == 'model.py' or m_path.name == 'global.yaml' or '__pycache__' in m_path.parts or '.DS_Store' in m_path.parts:
+                    continue
+                models.append(m_path)
         if not models:
             print("Warning: No models found for experiment file:", test_file)
             continue

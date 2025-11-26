@@ -26,24 +26,49 @@ class Metric(StrEnum):
     pass
 
 Evaluations: TypeAlias = dict[Metric, Number] # A dictionary mapping metrics to their numeric evaluation values.
-
-def extract_json(raw_text: str) -> dict:
+def extract_json(text: str) -> str:
     """
-    Extract the JSON part from the LLM output safely.
+    Extract the first JSON block from the given text.
+    :param text: the text containing the JSON block.
+    :return: the extracted JSON as a dictionary, or an empty string if extraction/parsing fails.
     """
-    # find JSON block
-    match = re.search(r"{(.|\n)*}", raw_text)
+    # Find first {...} block (non-greedy, handles nested braces)
+    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
     if not match:
-        raise ValueError("No valid JSON found in LLM output.")
+        print("No JSON block found.")
+        return ""
+    if len(match.groups()) > 1:
+        print("Multiple JSON blocks found, using the last one.")
 
-    json_str = match.group(0)
+    json_str = match.lastgroup
 
     try:
         return json.loads(json_str)
-    except Exception as e:
-        print("Failed to parse JSON. Raw JSON:")
-        print(json_str)
-        raise e
+    except json.decoder.JSONDecodeError:
+        print("Failed to parse JSON.")
+        return ""
+
+def extract_list(text: str) -> list:
+    """
+    Extract the first list block from the given text.
+    :param text: the text containing the list block.
+    :return: the extracted list as a Python list, or an empty list if extraction/parsing fails.
+    """
+    # Find first [...] block (non-greedy, handles nested brackets)
+    matches = re.findall(r"\[.*\]", text, flags=re.DOTALL)
+    if not matches:
+        print("No list block found.")
+        return []
+    if len(matches) > 1:
+        print("Multiple list blocks found, using the last one.")
+
+    list_str = matches[-1]
+
+    try:
+        return json.loads(list_str)
+    except json.decoder.JSONDecodeError:
+        print("Failed to parse list.")
+        return []
 
 #TODO: È COMPLETANEMTE ROTTO
 #TODO: sistemare questo, che così è inutile e specifico per custumer_segmentation...

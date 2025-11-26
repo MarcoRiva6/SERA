@@ -17,7 +17,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 
 from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, precision_at_k, \
-    spearman_rank_correlation, ndcg_at_k_scores
+    spearman_rank_correlation, ndcg_at_k_scores, extract_list
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
@@ -171,7 +171,7 @@ class ResponseSchema(BaseModel):
 def create_prompt(df: pd.DataFrame, cid: int, top_k: int = TOP_K) -> str:
     prompt = \
 f"""
-your task is to compare customers only based on their purchasing behavior in the following dataset.
+Your task is to compare customers only based on their purchasing behavior in the following dataset.
 {df.to_string(index=False)}
 A customer is more similar if:
 1.	They bought many of the same products as the target customer
@@ -182,10 +182,12 @@ A customer is more similar if:
 Do NOT guess or hallucinate missing data.
 Only reason using the purchase histories provided in the dataset.
 
-Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
-Your output MUST be a sorted list of the most similar customers (represented by their customer_id),
+Identify the top {top_k} customers who are most similar to the customer {cid}.
+Your output MUST be exactly a sorted list of the most similar customers (represented by their customer_id),
 from most to least similar, as per the following JSON schema:
 {json.dumps(ResponseSchema.model_json_schema())}
+and nothing else.
+Remember that you MUST only provide the final answer, not the reasoning steps.
 """
     return prompt
 
@@ -219,6 +221,9 @@ class customer_segmentation(Test):
     def evaluate_query(self, query: CustomerSegmentationQuery) -> Evaluations:
         try:
             json_response = extract_json(query.response)
+            if json_response == "": # try extracting directly the list ("[1,2,3]")
+                json_response = {'top_k': extract_list(query.response)}
+
             top_k_list = json_response['top_k']
         except KeyError as e:
             print(f"KeyError while evaluating query for customer_id {query.customer_id}: {e}")
@@ -234,8 +239,8 @@ class customer_segmentation(Test):
         return {
             CustomerSegmentationMetrics.NDCG_K: ndcg_at_k_scores(temp_vals, ndcg_scores, k=TOP_K),
            # CustomerSegmentationMetrics.NDCG_K: sklearn.metrics.ndcg_score(temp_vals, ndcg_scores, k=TOP_K),
-            CustomerSegmentationMetrics.PRECISION_K: precision_at_k(query.ground_truth, top_k_list, k=TOP_K),
-            CustomerSegmentationMetrics.SPEARMAN_K: spearman_rank_correlation(query.ground_truth, top_k_list)
+           # CustomerSegmentationMetrics.PRECISION_K: precision_at_k(query.ground_truth, top_k_list, k=TOP_K),
+           # CustomerSegmentationMetrics.SPEARMAN_K: spearman_rank_correlation(query.ground_truth, top_k_list)
         }
 
     def init_queries(self) -> None:

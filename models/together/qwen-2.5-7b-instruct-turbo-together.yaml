@@ -1,3 +1,4 @@
+# non si capisce bene perché ma non termina proprio... troppi token generati durante l'esecuzione?
 name: 'Qwen 2.5 7B Instruct Turbo'
 name_api: 'Qwen/Qwen2.5-7B-Instruct-Turbo'
 backend: 'together'

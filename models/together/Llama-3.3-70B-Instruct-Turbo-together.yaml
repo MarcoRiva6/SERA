@@ -1,6 +1,6 @@
+# reasoning model, costosissimo
 name: 'Llama 3.3 70B Instruct Turbo'
 name_api: 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
 backend: 'together'
 max_tokens: 0
 batched: true
-# reasoning model, costosissimo

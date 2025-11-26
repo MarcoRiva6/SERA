@@ -1,11 +1,12 @@
 models:
   #- 'deepseek-V3-together'
   #- 'gemma-3n-E4B-it-together'
-  - 'llama-3.2-3B-instruct-turbo-together'
+  #- 'deepseek-r1-0528-tput-together'
+  - 'qwen-2.5-7b-instruct-turbo-together'
 #  - 'Llama-3.3-70B-Instruct-Turbo-together'
 run_types: 'direct'
 #queries: '*'
-seed: 6
+seed: 16
 #queries: 'movie2similars'
 queries: 'purchases/customer_segmentation'
 disabled: true

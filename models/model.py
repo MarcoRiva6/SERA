@@ -35,6 +35,7 @@ class Model:
     seed: int
     batched: bool = False
     submissions: list[Submission] = None
+    no_waiting: bool = False
 
     @classmethod
     def from_yaml_file(cls, file: Path, run_type: RunType, pre_run_folder: Path, seed: int) -> 'Model':
@@ -104,13 +105,15 @@ class Model:
             stream=False,
         ).response().choices[0].message.content
 
-    def _submit_direct_together_batched(self, queries: list[Query]) -> None:
+    def _submit_direct_together_batched(self, queries: list[Query]) -> bool:
         poll_interval = 60 #seconds
         timeout = 86400  #seconds (24 hours)
         max_tokens = 8000
         batch_id_path = self.run_folder / "batch_id.txt"
         input_path = self.run_folder / "batch_input.jsonl"
         output_path = self.run_folder / "batch_output.jsonl"
+        error_path = self.run_folder / "batch_error.json"
+        batch_token_usage_path =self.run_folder / "batch_token_usage.txt"
 
         batch_queries: dict[str, Query] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
 
@@ -130,28 +133,19 @@ class Model:
                 print(f"Trying to recover already submitted batch {batch_id}...")
             else:
                 requests = []
-                for k, v in batch_queries.items():
-                    if v.response_json_schema is not None and v.response_json_schema != '':
-                        requests.append(
-                            {
-                                "custom_id": k,
-                                "body": {
-                                    "model": self.name_api,
-                                    "messages": [{"role": "user", "content": v.prompt}],
-                                    "response_format": v.response_json_schema
-                                },
-                                "max_tokens": max_tokens
-                            }
-                        )
-                    else:
-                        requests.append({
-                            "custom_id": k,
-                            "body": {
-                                "model": self.name_api,
-                                "messages": [{"role": "user", "content": v.prompt}],
-                            },
-                            "max_tokens": max_tokens
-                        })
+                for q_key, q in batch_queries.items():
+                    r = {
+                        "custom_id": q_key,
+                        "body": {
+                            "model": self.name_api,
+                            "messages": [{"role": "user", "content": q.prompt}],
+                            "reasoning": {"enable": False} # supportato solo da DS V3.1
+                        },
+                        "max_tokens": max_tokens
+                    }
+                    if q.response_json_schema is not None and q.response_json_schema != '':
+                        r['body']['response_format'] = q.response_json_schema
+                    requests.append(r)
 
                 # 1. Write requests to a .jsonl file
                 self.run_folder.mkdir(parents=True, exist_ok=True)
@@ -179,11 +173,9 @@ class Model:
                 if status.status == "COMPLETED":
                     if status.error_file_id is not None:
                         print(f"Warning: Batch {batch_id} completed with errors. error file ID {status.error_file_id}")
-                        error_path = self.run_folder / "batch_error.json"
                         client.files.retrieve_content(id=status.error_file_id, output=str(error_path))
                     break
                 if status.status in ("FAILED", "EXPIRED", "CANCELLED"):
-                    error_path = self.run_folder / "batch_error.json"
                     with error_path.open("w", encoding="utf-8") as f:
                         f.write(status.model_dump_json())
                     raise RuntimeError(f"Batch {batch_id} failed with error {status.error}")
@@ -191,6 +183,8 @@ class Model:
                 if (time.time() - start_time) > timeout:
                     raise TimeoutError(f"Batch {batch_id} did not complete within {timeout} seconds")
 
+                if self.no_waiting:
+                    return False
                 time.sleep(poll_interval)
 
             # 4. Download the result file
@@ -208,13 +202,14 @@ class Model:
                 total_token_consumed += response['response']['body']['usage']['total_tokens']
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")
-        (self.run_folder / "batch_token_usage.txt").write_text(f"{total_token_consumed}")
+        batch_token_usage_path.write_text(f"{total_token_consumed}")
 
         for bq in batch_queries.values():
             if not bq.response:
                 print(f"Warning: No response for query with prompt hash {hash(bq.prompt)}")
+        return True
 
-    def submit(self, test: Test, df=None):
+    def submit(self, test: Test, df=None) -> bool:
         #build submissions
         if self.batched:
             self.submissions = [Submission(queries=test.queries)]
@@ -233,7 +228,8 @@ class Model:
             if self.batched:
                 print(f'Submitting {len(submission.queries)} queries...')
                 try:
-                    submit_method(submission.queries)
+                    if not submit_method(submission.queries):
+                        return False
                     submission.success = True
                 except Exception as e:
                     raise SubmissionError(f'Error during batched submission: {e}')
@@ -255,3 +251,4 @@ class Model:
                         q.evaluations = test.evaluate_query(q)
                     except Exception as e:
                         raise SubmissionError(f'Error during evaluation of query: {e}')
+        return True

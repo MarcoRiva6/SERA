@@ -23,7 +23,9 @@ class Experiment:
         self.test.prepare_queries()
         print('test prepared. Submitting queries...')
         try:
-            self.model.submit(self.test)
+            if not self.model.submit(self.test):
+                print('Skipping the remaining part of the execution...')
+                return
             print('test submit complete.')
         except NotImplementedError as e:
             print(e)

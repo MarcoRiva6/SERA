@@ -26,7 +26,7 @@ N_QUERIES = 50
 TOP_K = 5
 
 def build_basket_matrix(df: pd.DataFrame,
-                        min_item_purchases: int = TOP_N_ITEMS_MIN_PURCHASES) -> pd.DataFrame:
+                        min_item_purchases: int) -> pd.DataFrame:
     """
     Build a customer–item matrix (counts of purchased items).
     Optionally filter items bought fewer than `min_item_purchases` times.
@@ -114,7 +114,7 @@ def compute_rfm_similarity(rfm: pd.DataFrame) -> pd.DataFrame:
 
 def compute_hybrid_similarity(basket_sim: pd.DataFrame,
                               rfm_sim: pd.DataFrame,
-                              alpha: float = ALPHA) -> pd.DataFrame:
+                              alpha: float) -> pd.DataFrame:
     """
     Combine basket-content similarity and RFM similarity:
         hybrid = alpha * basket_sim + (1 - alpha) * rfm_sim
@@ -168,7 +168,7 @@ def select_random_customer_ids(n: int, cid_list):
 class ResponseSchema(BaseModel):
     top_k: list[int] = Field(description="The ordered list of top k most similar customers.")
 
-def create_prompt(df: pd.DataFrame, cid: int, top_k: int = TOP_K) -> str:
+def create_prompt(df: pd.DataFrame, cid: int, top_k: int) -> str:
     prompt = \
 f"""
 Your task is to compare customers only based on their purchasing behavior in the following dataset.
@@ -208,6 +208,11 @@ class customer_segmentation(Test):
     full_df: DataFrame = None
     clean_df: DataFrame = None
     pre_queries_df: DataFrame = None
+    alpha: float = ALPHA
+    top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
+    n_customers_per_query: int = N_CUSTOMERS_PER_QUERY
+    n_queries: int = N_QUERIES
+    top_k: int = TOP_K
 
     def load_csv(self, file_path: Path = None) -> None:
         if file_path is None:
@@ -237,7 +242,7 @@ class customer_segmentation(Test):
                                       else 0
                                       for cust in top_k_list])
         return {
-            CustomerSegmentationMetrics.NDCG_K: ndcg_at_k_scores(temp_vals, ndcg_scores, k=TOP_K),
+            CustomerSegmentationMetrics.NDCG_K: ndcg_at_k_scores(temp_vals, ndcg_scores, k=self.top_k),
            # CustomerSegmentationMetrics.NDCG_K: sklearn.metrics.ndcg_score(temp_vals, ndcg_scores, k=TOP_K),
            # CustomerSegmentationMetrics.PRECISION_K: precision_at_k(query.ground_truth, top_k_list, k=TOP_K),
            # CustomerSegmentationMetrics.SPEARMAN_K: spearman_rank_correlation(query.ground_truth, top_k_list)
@@ -255,19 +260,19 @@ class customer_segmentation(Test):
         self.queries = []
         cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
 
-        for _ in range(N_QUERIES):
+        for _ in range(self.n_queries):
             if self.seed != 0:
                 random.seed(current_seed)
             # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
             while True:
-                selected_cids = select_random_customer_ids(N_CUSTOMERS_PER_QUERY, cids_unique_full)
+                selected_cids = select_random_customer_ids(self.n_customers_per_query, cids_unique_full)
 
                 temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
                 if len(temp_df) > row_limit:
                     current_seed += 1
                     continue
 
-                basket = build_basket_matrix(temp_df)
+                basket = build_basket_matrix(temp_df, self.top_n_items_min_purchases)
                 if count_row_sums(basket) < 15: # n of interesting rows
                     current_seed += 1
                     continue
@@ -279,16 +284,16 @@ class customer_segmentation(Test):
             rfm = build_rfm_features(df)
             rfm_sim = compute_rfm_similarity(rfm)
 
-            hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=ALPHA)
+            hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.alpha)
 
             selected_cid = random.choice(selected_cids)
-            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=N_CUSTOMERS_PER_QUERY)
+            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=self.n_customers_per_query)
             sorted_cids = top_similar_df.index.tolist()
             ground_truth_vals = top_similar_df.values.tolist()
 
             self.queries.append(CustomerSegmentationQuery(
                 customer_id=selected_cid,
-                prompt=create_prompt(df, selected_cid),
+                prompt=create_prompt(df, selected_cid, self.top_k),
                 ground_truth=sorted_cids,
                 ground_truth_values=ground_truth_vals,
                 response=None,

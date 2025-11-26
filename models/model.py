@@ -38,11 +38,10 @@ class Model:
     no_waiting: bool = False
 
     @classmethod
-    def from_yaml_file(cls, file: Path, run_type: RunType, pre_run_folder: Path, seed: int) -> 'Model':
-        name_path = file.stem
-        run_folder = pre_run_folder / 'results' / name_path / run_type
-        with open(file) as f:
-            data = cls(**yaml.load(f, Loader=yaml.FullLoader), name_path=name_path, run_type=run_type, run_folder=run_folder, seed=seed)
+    def from_yaml_file(cls, **kwargs) -> 'Model':
+        with open(kwargs.get('file')) as f:
+            kwargs.pop('file')
+            data = cls(**{**yaml.load(f, Loader=yaml.FullLoader), **{k: v for k, v in kwargs.items() if k != 'file'}})
         if data.backend:
             data.backend = Backend(data.backend)
         return data

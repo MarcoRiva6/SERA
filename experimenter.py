@@ -22,9 +22,6 @@ def instantiate_from_yaml(cls, data: dict) -> DataclassInstance:
     field_names = {f.name for f in fields(cls)}
     kwargs = {k: v for k, v in data.items() if k in field_names}
 
-    # 3. Construct dataclass:
-    #    - any field in kwargs → overridden
-    #    - any field NOT in kwargs → default value is used
     return cls(**kwargs)
 
 def load_experiments() -> list[Experiment]:
@@ -37,7 +34,7 @@ def load_experiments() -> list[Experiment]:
         with open(test_file) as f:
             data = yaml.safe_load(f)
         if data.get('disabled', False):
-            print("Warning: Skipping disabled experiment file:", test_file)
+            print("Skipping disabled experiment file:", test_file)
             continue
         exp_seed = data.get('seed', 0)
 
@@ -74,6 +71,9 @@ def load_experiments() -> list[Experiment]:
                             print(f"Warning: {attr['attr_name']} path does not exist:", a_path, "in experiment file:", test_file)
                             continue
                         attr['lst'].append({'name': a})
+                    else: # invalid format
+                        print(f"Warning: Invalid format for {attr['attr_name']} in experiment file:", test_file)
+                        continue
             elif isinstance(pattern, str): # attr: 'some_val'
                 a_path = attr['folder'] / (pattern + attr['extension'])
                 if not a_path.exists():
@@ -107,9 +107,8 @@ def load_experiments() -> list[Experiment]:
             for rt in run_types:
                 for q in queries:
                     # instantiate test object
-                    name_split = q['name'].split('/')
-                    family = name_split[0]
-                    test_name_path = name_split[1]
+                    q_name_split = q['name'].split('/')
+                    family, test_name_path = q_name_split[0], q_name_split[1]
                     inner_run_folder = this_run_folder / family / test_name_path
                     q_class = class_from_path('queries.' + q['name'].replace('/', '.') + '.' + test_name_path)
                     q_extend = {
@@ -119,7 +118,8 @@ def load_experiments() -> list[Experiment]:
                         'run_folder': inner_run_folder / 'data',
                         'seed': exp_seed
                     }
-                    test = q_class(**{**q_extend, **{k: v for k, v in q.items() if k != 'name'}})
+                    test_args = q_extend | {k: v for k, v in q.items() if k != 'name'}
+                    test = q_class(**test_args)
                     # instantiate model object
                     model_name_path = m['name'].split('/')[1]
                     m_extend = {
@@ -129,7 +129,9 @@ def load_experiments() -> list[Experiment]:
                         'run_folder': inner_run_folder / 'results' / model_name_path / rt,
                         'seed': exp_seed
                     }
-                    model = Model.from_yaml_file(**{**m_extend, **{k: v for k, v in m.items() if k != 'name'}})
+                    model_args = m_extend | {k: v for k, v in m.items() if k != 'name'}
+                    model = Model.from_yaml_file(**model_args)
+                    # instantiate experiment object
                     experiment = Experiment(
                         name=f"{model.name}, {rt}, {family} - {test.name}",
                         run_folder=this_run_folder,

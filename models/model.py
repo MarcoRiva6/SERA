@@ -40,8 +40,8 @@ class Model:
     @classmethod
     def from_yaml_file(cls, **kwargs) -> 'Model':
         with open(kwargs.get('file')) as f:
-            kwargs.pop('file')
-            data = cls(**{**yaml.load(f, Loader=yaml.FullLoader), **{k: v for k, v in kwargs.items() if k != 'file'}})
+            model_args = yaml.load(f, Loader=yaml.FullLoader) | {k: v for k, v in kwargs.items() if k != 'file'}
+            data = cls(**model_args)
         if data.backend:
             data.backend = Backend(data.backend)
         return data
@@ -107,7 +107,6 @@ class Model:
     def _submit_direct_together_batched(self, queries: list[Query]) -> bool:
         poll_interval = 60 #seconds
         timeout = 86400  #seconds (24 hours)
-        max_tokens = 8000
         batch_id_path = self.run_folder / "batch_id.txt"
         input_path = self.run_folder / "batch_input.jsonl"
         output_path = self.run_folder / "batch_output.jsonl"
@@ -140,7 +139,7 @@ class Model:
                             "messages": [{"role": "user", "content": q.prompt}],
                             "reasoning": {"enable": False} # supportato solo da DS V3.1
                         },
-                        "max_tokens": max_tokens
+                        "max_tokens": self.max_tokens
                     }
                     if q.response_json_schema is not None and q.response_json_schema != '':
                         r['body']['response_format'] = q.response_json_schema

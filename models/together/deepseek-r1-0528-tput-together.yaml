@@ -1,4 +1,4 @@
-# reasoning
+# reasoning, non si disabilita
 name: 'DeepSeek R1 0528 Tput (Together)'
 name_api: 'deepseek-ai/DeepSeek-R1-0528-tput'
 backend: 'together'

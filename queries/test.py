@@ -26,49 +26,41 @@ class Metric(StrEnum):
     pass
 
 Evaluations: TypeAlias = dict[Metric, Number] # A dictionary mapping metrics to their numeric evaluation values.
-def extract_json(text: str) -> str:
+def extract_json(text: str, q_id=None) -> dict:
     """
     Extract the first JSON block from the given text.
     :param text: the text containing the JSON block.
-    :return: the extracted JSON as a dictionary, or an empty string if extraction/parsing fails.
+    :param q_id: used in logging to identify the query.
+    :return: the extracted JSON as a dictionary. Raises TypeError if failed.
     """
     # Find first {...} block (non-greedy, handles nested braces)
-    match = re.search(r"\{.*\}", text, flags=re.DOTALL)
-    if not match:
-        print("No JSON block found.")
-        return ""
-    if len(match.groups()) > 1:
-        print("Multiple JSON blocks found, using the last one.")
+    matches = re.findall(r"{.*?}", text, flags=re.DOTALL)
+    if not matches:
+        raise TypeError("No JSON block found.")
+    if len(matches) > 1:
+        print(f"Query {q_id}: Multiple JSON blocks found, using the last one.")
 
-    json_str = match.lastgroup
+    json_str = matches[-1]
 
-    try:
-        return json.loads(json_str)
-    except json.decoder.JSONDecodeError:
-        print("Failed to parse JSON.")
-        return ""
+    return json.loads(json_str)
 
-def extract_list(text: str) -> list:
+def extract_list(text: str, q_id=None) -> list:
     """
     Extract the first list block from the given text.
     :param text: the text containing the list block.
+    :param q_id: used in logging to identify the query.
     :return: the extracted list as a Python list, or an empty list if extraction/parsing fails.
     """
     # Find first [...] block (non-greedy, handles nested brackets)
-    matches = re.findall(r"\[.*\]", text, flags=re.DOTALL)
+    matches = re.findall(r"\[.*?]", text, flags=re.DOTALL)
     if not matches:
-        print("No list block found.")
-        return []
+        raise TypeError("No list block found.")
     if len(matches) > 1:
-        print("Multiple list blocks found, using the last one.")
+        print(f"Query {q_id}: Multiple list blocks found, using the last one.")
 
     list_str = matches[-1]
 
-    try:
-        return json.loads(list_str)
-    except json.decoder.JSONDecodeError:
-        print("Failed to parse list.")
-        return []
+    return json.loads(list_str)
 
 #TODO: È COMPLETANEMTE ROTTO
 #TODO: sistemare questo, che così è inutile e specifico per custumer_segmentation...
@@ -217,10 +209,11 @@ class Test(ABC):
         """
         pass
 
-    def evaluate(self) -> Evaluations:
+    def evaluate(self) -> dict:
         """
         Aggregate evaluations across all queries for this test by computing the mean for each metric.
-        :return: A dictionary (an Evaluations object: dict[Metric, Number]) with the aggregated evaluation metrics.
+        The method should also populate the 'evaluations' variable.
+        :return: A dictionary with the aggregated evaluation metrics.
         """
         # accumulator for sums
         totals: Evaluations = {}
@@ -249,6 +242,13 @@ class Test(ABC):
         df = pd.DataFrame([self.evaluations], index=[0])
         df.to_csv(dest / file_name, index=False)
 
+    def queries_to_df(self) -> pd.DataFrame:
+        """
+        Convert the variable queries to a Pandas DataFrame.
+        :return: DataFrame containing all queries.
+        """
+        return pd.DataFrame([q.to_dict() for q in self.queries])
+
     def queries_to_csv(self, file_name: str, dest: Path = None) -> None:
         """
         Save the variable queries to a CSV file.
@@ -257,7 +257,7 @@ class Test(ABC):
         """
         if dest is None:
             dest = self.run_folder
-        df = pd.DataFrame([q.to_dict() for q in self.queries])
+        df = self.queries_to_df()
         df.to_csv(dest / file_name, index=False)
 
     def csv_to_queries(self, query_cls: type, file_name: str, folder: Path = None) -> None:

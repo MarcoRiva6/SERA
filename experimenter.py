@@ -150,6 +150,10 @@ if __name__ == "__main__":
     #    print(e)
     #exit(0)
     for exp in experiments:
+        if (exp.inner_folder / 'queries.parquet').exists():
+            exp.display()
+            print(f"Skipping experiment (already executed): {exp.name}")
+            continue
         print(f"Running experiment: {exp.name}")
         exp.test.run_folder.mkdir(parents=True, exist_ok=True)
         exp.execute()

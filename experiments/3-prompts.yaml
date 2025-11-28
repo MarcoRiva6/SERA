@@ -1,0 +1,16 @@
+models:
+  - name: 'together/deepseek-V3-together'
+    no_waiting: true
+  - name: 'together/Llama-3.2-3B-Instruct-Turbo-together'
+    no_waiting: true
+run_types: 'direct'
+#queries: '*'
+seed: 16
+disabled: true
+#queries: 'movie2similars'
+queries:
+  - name: 'purchases/customer_segmentation'
+    prompt_levels:
+      - 'formula'
+      - 'medium'
+      - 'generic'

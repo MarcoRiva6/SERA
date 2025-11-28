@@ -116,7 +116,7 @@ class Model:
         batch_queries: dict[str, Query] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
 
         if os.path.exists(output_path):
-            print(f"Using existing batch output file at {output_path}")
+            print(f"Using existing batch output file...")
         else:
             # Load API key from .env file
             if not load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env"):
@@ -142,7 +142,7 @@ class Model:
                         "max_tokens": self.max_tokens
                     }
                     if q.response_json_schema is not None and q.response_json_schema != '':
-                        r['body']['response_format'] = q.response_json_schema
+                        r['body']['response_format'] = {"type": "json_schema", "schema": q.response_json_schema}
                     requests.append(r)
 
                 # 1. Write requests to a .jsonl file
@@ -248,5 +248,5 @@ class Model:
                     try:
                         q.evaluations = test.evaluate_query(q)
                     except Exception as e:
-                        raise SubmissionError(f'Error during evaluation of query: {e}')
+                        print(f'Error during evaluation of query: {e}')
         return True

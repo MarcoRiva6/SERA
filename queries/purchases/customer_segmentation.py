@@ -1,14 +1,12 @@
 import json
 import os
 import random
-import shutil
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import auto
 from json import JSONDecodeError
 from pathlib import Path
 
-import kagglehub
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
@@ -16,8 +14,8 @@ from pydantic import BaseModel, Field
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 
-from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, precision_at_k, \
-    spearman_rank_correlation, ndcg_at_k_scores, extract_list
+from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, ndcg_at_k_scores, extract_list, \
+    ensure_kaggle_ds, extract_pipe_sequence, mare_at_k, spearman_rho_at_k, miss_rate_at_k
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
@@ -164,10 +162,18 @@ def select_random_customer_ids(n: int, cid_list):
         cst_ids.append(cst_id)
     return cst_ids
 
-class ResponseSchema(BaseModel):
+class MostSimilarCustomers(BaseModel):
     top_k: list[int] = Field(description="The ordered list of top k most similar customers.")
 
-def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: str) -> str:
+def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: str, json_schema: bool) -> str:
+    if json_schema:
+        output_string = f"""Your output MUST contain only a sorted list of the most similar customers (represented by their customer_id),
+from most to least similar, as per the following JSON schema:
+{json.dumps(MostSimilarCustomers.model_json_schema())}"""
+    else:
+        output_string = f"""Your output MUST contain only a sorted list of the most similar customers (represented by their customer_id),
+from most to least similar, separated by the character '|'."""
+
     if level == 'formula':
         prompt = \
 f"""
@@ -188,36 +194,28 @@ be computed following these steps:
 	•	{alpha*100}% weight for the basket-content similarity
 	•	{(1-alpha)*100}% weight for the RFM similarity
 
-Only reason using the purchase histories provided in the dataset.
 Do NOT guess or hallucinate missing data.
+Only reason using the purchase histories provided in the dataset.
 
-Your output MUST be the sorted list of the most similar customers found (represented by their customer_id),
-from most to least similar, as per the following JSON schema:
-{json.dumps(ResponseSchema.model_json_schema())}
-
-The output MUST strictly follow the JSON schema and not include any additional text.
+Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
+{output_string}
 """
     elif level == 'medium':
         prompt = \
 f"""
-your are given the following dataset of customer purchase histories:
+your task is to compare customers only based on their purchasing behavior in the following dataset.
 {df.to_string(index=False)}
-
-Identify the top {top_k} customers who are most similar to the customer {cid}.
 A customer is more similar if:
 1.	They bought many of the same products as the target customer
 2.	Their purchase frequency is similar
 3.	Their monetary spend is similar
 4.	Their recency of last purchase is similar
 
-Only reason using the purchase histories provided in the dataset.
 Do NOT guess or hallucinate missing data.
+Only reason using the purchase histories provided in the dataset.
 
-Your output MUST be a sorted list of the most similar customers (represented by their customer_id),
-from most to least similar, as per the following JSON schema:
-{json.dumps(ResponseSchema.model_json_schema())}
-
-The output MUST strictly follow the JSON schema and not include any additional text.
+Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
+{output_string}
 """
     elif level == 'generic':
         prompt = \
@@ -225,15 +223,11 @@ f"""
 Your are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
 
-Identify the top {top_k} customers who are most similar to the customer {cid}.
-Only reason using the purchase histories provided in the dataset.
 Do NOT guess or hallucinate missing data.
+Only reason using the purchase histories provided in the dataset.
 
-Your output MUST be a sorted list of the most similar customers (represented by their customer_id),
-from most to least similar, as per the following JSON schema:
-{json.dumps(ResponseSchema.model_json_schema())}
-
-The output MUST strictly follow the JSON schema and not include any additional text.
+Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
+{output_string}
 """
     return prompt
 
@@ -246,6 +240,9 @@ class CustomerSegmentationQuery(Query):
 
 class CustomerSegmentationMetrics(Metric):
     NDCG_K = auto()
+    MARE_K = auto()
+    SPEARMAN_K = auto()
+    MISS_RATE_K = auto()
 
 @dataclass
 class customer_segmentation(Test):
@@ -256,45 +253,60 @@ class customer_segmentation(Test):
     alpha: float = ALPHA
     top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
     n_customers_per_query: int = N_CUSTOMERS_PER_QUERY
-    n_queries: int = N_QUERIES
     top_k: int = TOP_K
-    prompt_levels: list[str] = field(default_factory=lambda: ['medium'])
+    n_queries: int = N_QUERIES
+    rows_in_prompt_limit: int = 2000
+    prompt_levels: list[str] = field(default_factory=lambda: ['medium']) # generic, medium, formula
+    enforce_json_schema: bool = False
 
     def load_csv(self, file_path: Path = None) -> None:
         if file_path is None:
             file_path = data_folder / self.family / 'Online Retail.xlsx'
-        if not os.path.exists(file_path):
-            ds_folder = kagglehub.dataset_download("yasserh/customer-segmentation-dataset", force_download=True)
-            file_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(Path(ds_folder) / file_path.name, file_path)
+        ds_name = "yasserh/customer-segmentation-dataset"
+        ensure_kaggle_ds(ds_name, file_path)
         self.full_df = pd.read_excel(file_path)
 
-    def evaluate(self) -> dict:
-        evals = super().evaluate()
-        miss = sum(1 for q in self.queries if q.evaluations[CustomerSegmentationMetrics.NDCG_K] == 0)
-        miss_rate = miss / len(self.queries) if len(self.queries) > 0 else 0
-        result =  {**evals, 'miss_rate': miss_rate}
-        self.evaluations = result
-        return result
-
     def evaluate_query(self, query: CustomerSegmentationQuery) -> Evaluations:
-        try:
-            json_response = extract_json(query.response, query.customer_id)
-            top_k_list = json_response['top_k']
-        except (JSONDecodeError, KeyError, TypeError):
+        if query.response_json_schema:
             try:
-                json_response = {'top_k': extract_list(query.response, query.customer_id)}
+                json_response = extract_json(query.response, query.customer_id)
                 top_k_list = json_response['top_k']
-            except (JSONDecodeError, KeyError, TypeError) as e:
-                print(f"Cannot evaluate query for customer_id {query.customer_id}: {e}")
-                return Evaluations(ndcg_k=0.0)
+            except (JSONDecodeError, KeyError, TypeError):
+                try:
+                    json_response = {'top_k': extract_list(query.response, query.customer_id)}
+                    top_k_list = json_response['top_k']
+                except (JSONDecodeError, KeyError, TypeError) as e:
+                    print(f"Cannot evaluate query {query.id}: {e}")
+                    query.parsing_failed = True
+                    return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
+        else:
+            matched_lists = extract_pipe_sequence(query.response)
+            matched_lists_len = len(matched_lists)
+            if matched_lists_len == 0:
+                print(f"Cannot evaluate query {query.id}: no pipe-separated list found in the response.")
+                query.parsing_failed = True
+                return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
+            elif matched_lists_len > 1:
+                print(f"Warning for query {query.id}: multiple pipe-separated lists found in the response. Using the last one.")
+            top_k_list: list[str] = matched_lists[-1] # use the last matched list
+            top_k_list: list[str] = [s.replace("*", "") for s in top_k_list] # remove possible asterisks
+            try:
+                top_k_list: list[int] = [int(s) for s in top_k_list]
+            except (TypeError, ValueError) as e:
+                print(f"Cannot evaluate query {query.id}: invalid customer IDs in the extracted list. {e}")
+                query.parsing_failed = True
+                return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
 
-        temp_vals = [x + 1 for x in query.ground_truth_values]
-        ndcg_scores = np.array([temp_vals[query.ground_truth.index(cust)]
+        query.parsing_failed = False
+        temp_vals: list[float] = [x + 1 for x in query.ground_truth_values]
+        ndcg_scores: list[float] = [temp_vals[query.ground_truth.index(cust)]
                                       if cust in query.ground_truth
                                       else 0
-                                      for cust in top_k_list])
-        return Evaluations(ndcg_k=ndcg_at_k_scores(temp_vals, ndcg_scores, k=self.top_k))
+                                      for cust in top_k_list]
+        return Evaluations(ndcg_k=ndcg_at_k_scores(temp_vals, ndcg_scores, k=self.top_k),
+                           mare_k=mare_at_k(query.ground_truth, top_k_list, k=self.top_k),
+                           spearman_k=spearman_rho_at_k(query.ground_truth, top_k_list, k=self.top_k),
+                           miss_rate_k=miss_rate_at_k(query.ground_truth, top_k_list, k=self.top_k))
 
     def init_queries(self) -> None:
         file_name = 'prepared_queries.csv'
@@ -303,10 +315,10 @@ class customer_segmentation(Test):
             return
 
         current_seed = self.seed
-        row_limit = 2000
 
         self.queries = []
         cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
+        counter = 0
 
         for _ in range(self.n_queries):
             if self.seed != 0:
@@ -316,7 +328,7 @@ class customer_segmentation(Test):
                 selected_cids = select_random_customer_ids(self.n_customers_per_query, cids_unique_full)
 
                 temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
-                if len(temp_df) > row_limit:
+                if len(temp_df) > self.rows_in_prompt_limit:
                     current_seed += 1
                     continue
 
@@ -341,15 +353,18 @@ class customer_segmentation(Test):
 
             for p_level in self.prompt_levels:
                 self.queries.append(CustomerSegmentationQuery(
+                    id=counter,
                     customer_id=selected_cid,
-                    prompt=create_prompt(df, selected_cid, self.top_k, self.alpha, p_level),
+                    prompt=create_prompt(df, selected_cid, self.top_k, self.alpha, p_level, self.enforce_json_schema),
                     ground_truth=sorted_cids,
                     ground_truth_values=ground_truth_vals,
                     prompt_level=p_level,
                     response=None,
                     evaluations=Evaluations(),
-                    response_json_schema=json.dumps(ResponseSchema.model_json_schema())
+                    response_json_schema=MostSimilarCustomers.model_json_schema() if self.enforce_json_schema else None,
+                    parsing_failed=None
                 ))
+                counter += 1
 
             current_seed += 1
 

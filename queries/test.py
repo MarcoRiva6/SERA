@@ -144,6 +144,113 @@ def spearman_rank_correlation(ground_truth, llm_ranking):
 
     return float(rho)
 
+def miss_rate_at_k(ground_truth_full: list[Any], llm_ranking: list[Any], k: int) -> float:
+    """
+    Miss Rate @ k = (# of LLM's top-k items NOT in ground truth) / (total # of ground truth items)
+
+    :param ground_truth_full: list of true top customers (sorted by similarity)
+    :param llm_ranking: list of predicted top customers (sorted by similarity)
+    :param k: evaluate only the LLM's top-k predictions
+    :return: Miss Rate @ k
+    """
+    gt_set = set(ground_truth_full)
+    llm_k_set = set(llm_ranking[:k])
+
+    misses = sum(1 for c in llm_k_set if c not in gt_set)
+
+    return misses / k if k > 0 else 0.0
+
+def mare_at_k(ground_truth_full: list[Any], llm_ranking: list[Any], k: int) -> float:
+    """
+    Mean Absolute Rank Error @ k. It only considers items that appear in both rankings.
+
+    :param ground_truth_full: *full* ranking list sorted by true similarity
+    :param llm_ranking: predicted ranking list from LLM
+    :param k: evaluate only the LLM's top-k predictions
+    :return: MARE@k. k if no common items.
+    """
+    gt = ground_truth_full
+    llm = llm_ranking[:k]
+    # Position maps
+    gt_pos = {c: i for i, c in enumerate(gt)}
+    llm_pos = {c: i for i, c in enumerate(llm)}
+    # Items that appear in both rankings
+    common = set(gt).intersection(llm)
+
+    if len(common) == 0:
+        return k   # or return k, depending on your preference
+
+    errors = [
+        abs(gt_pos[c] - llm_pos[c])
+        for c in common
+    ]
+
+    return sum(errors) / len(errors)
+
+
+def spearman_rho_at_k(ground_truth_full: list[Any], llm_ranking: list[Any], k: int) -> float:
+    """
+    Spearman rank correlation (ρ) @ k based on global ground truth. It only considers items that appear in both rankings.
+
+    - ground_truth_full: full ranking list sorted by true similarity
+    - llm_ranking: predicted ranking list from the LLM (length >= k ideally)
+    - k: evaluate only the LLM's top-k predictions
+
+    For each of the LLM's top-k customers, we compare:
+      - pred_rank: its position in the LLM ranking (0..k-1)
+      - true_rank: its position in the full ground-truth ranking (0..N-1)
+    """
+
+    gt = ground_truth_full#[:k]
+    llm = llm_ranking[:k]
+
+    # Items that both rankings cover
+    common = list(set(gt).intersection(llm))
+    if len(common) < 2:
+        return 0.0  # cannot compute correlation with <2 points
+
+    # Position lookup
+    gt_pos = {c: i for i, c in enumerate(gt)}
+    llm_pos = {c: i for i, c in enumerate(llm)}
+
+    # Build rank position vectors
+    gt_order = [gt_pos[c] for c in common]
+    llm_order = [llm_pos[c] for c in common]
+
+    rho, _ = spearmanr(gt_order, llm_order)
+    if np.isnan(rho):
+        return 0.0
+
+    return float(rho)
+
+def ensure_kaggle_ds(ds_name: str, file_path: Path) -> None:
+    """
+    Ensure that the specified file from a Kaggle dataset is available locally.
+    If not, download the dataset and move the file to the specified path.
+    :param ds_name: the name of the Kaggle dataset
+    :param file_path: the full local path where the file should be located.
+    """
+    if not os.path.exists(file_path):
+        ds_folder = kagglehub.dataset_download(ds_name, force_download=True)
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(Path(ds_folder) / file_path.name, file_path)
+
+def download_csv(url: str, dest_path: Path) -> None:
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        content = response.text
+        csv_reader = csv.reader(content.splitlines())
+        header = next(csv_reader)
+        rows = list(csv_reader)
+        # Write the CSV data to a local file
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest_path, "w", newline="") as csvfile:
+            csv_writer = csv.writer(csvfile)
+            csv_writer.writerow(header)
+            csv_writer.writerows(rows)
+    else:
+        raise Exception(response.text)
 
 @dataclass
 class Query(ABC):
@@ -151,10 +258,12 @@ class Query(ABC):
     A single query consisting of a prompt, a response, and its evaluations.
     Prompt can be of any type, including a DataFrame (useful for lotus).
     """
+    id: int
     prompt: Any
     response: str
     evaluations: Evaluations
     response_json_schema: dict
+    parsing_failed: bool
 
     class Query(ABC):
         """

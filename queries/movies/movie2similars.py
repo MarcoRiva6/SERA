@@ -791,6 +791,8 @@ class movie2similars(Test):
         elif self.run_type == RunType.LOTUS:
             predicted_ids = query.response['IMDB_id'].tolist()
 
+        query.parsing_failed = len(predicted_ids) == 0
+
         return calculate_enhanced_metrics(predicted_ids, query.ground_truth,
                                           query.nl_query, self.full_df)
 
@@ -819,9 +821,10 @@ class movie2similars(Test):
             self.load_csv()
         self.initiate_queries()
         self.queries = []
-        for _, row in self.pre_queries_df.iterrows():
+        for i, row in self.pre_queries_df.iterrows():
             prompt = create_direct_prompt(format_dataset_for_direct_prompt(self.clean_df), row['nl_query'])
             self.queries.append(MovieQuery(
+                id=i,
                 test_language=row['test_language'],
                 test_category=row['test_category'],
                 nl_query=row['nl_query'],
@@ -829,7 +832,8 @@ class movie2similars(Test):
                 ground_truth=row['ground_truth'],
                 response=None,
                 evaluations=None,
-                response_json_schema=None
+                response_json_schema=None,
+                parsing_failed=None
             ))
         self.queries_to_csv('prepared_queries.csv')
 
@@ -841,13 +845,14 @@ class movie2similars(Test):
             self.load_csv()
         self.initiate_queries()
         self.queries = []
-        for _, row in self.pre_queries_df.iterrows():
+        for i, row in self.pre_queries_df.iterrows():
             prompt = lambda d: d.sem_topk(
                 f"Considering the following user input:\n{row['nl_query']}\nReturn " + '{IMDB_id}' + " suggestions for the user as a commander system",
                 K=10,
                 return_stats=False,
             )
             self.queries.append(MovieQuery(
+                id=i,
                 test_language=row['test_language'],
                 test_category=row['test_category'],
                 nl_query=row['nl_query'],
@@ -855,6 +860,7 @@ class movie2similars(Test):
                 ground_truth=row['ground_truth'],
                 response=None,
                 evaluations=None,
-                response_json_schema=None
+                response_json_schema=None,
+                parsing_failed=None
             ))
         self.queries_to_csv('prepared_queries.csv')

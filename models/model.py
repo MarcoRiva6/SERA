@@ -110,7 +110,7 @@ class Model:
         batch_id_path = self.run_folder / "batch_id.txt"
         input_path = self.run_folder / "batch_input.jsonl"
         output_path = self.run_folder / "batch_output.jsonl"
-        error_path = self.run_folder / "batch_error.json"
+        error_path = self.run_folder / "batch_error.jsonl"
         batch_token_usage_path =self.run_folder / "batch_token_usage.txt"
 
         batch_queries: dict[str, Query] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
@@ -141,6 +141,7 @@ class Model:
                         },
                         "max_tokens": self.max_tokens
                     }
+                    # notare che questo serve solamente a verificare che l'output rispetti lo schema, e non forza il modello a rispondere in quel modo
                     if q.response_json_schema is not None and q.response_json_schema != '':
                         r['body']['response_format'] = {"type": "json_schema", "schema": q.response_json_schema}
                     requests.append(r)

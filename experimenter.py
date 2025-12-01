@@ -32,7 +32,11 @@ def load_experiments() -> list[Experiment]:
             continue
 
         with open(test_file) as f:
-            data = yaml.safe_load(f)
+            try:
+                data = yaml.safe_load(f)
+            except yaml.YAMLError as exc:
+                print("Error YAML parsing experiment file:", test_file, exc)
+                continue
         if data.get('disabled', False):
             print("Skipping disabled experiment file:", test_file)
             continue

@@ -1,16 +1,22 @@
 import ast
+import csv
 import json
+import os
 import random
 import re
+import shutil
 from abc import abstractmethod, ABC
 from dataclasses import dataclass
 from enum import StrEnum
 from numbers import Number
 from pathlib import Path
-from typing import TypeAlias, Any, get_type_hints
+from typing import TypeAlias, Any, get_type_hints, get_origin
 
+import kagglehub
+import math
 import numpy as np
 import pandas as pd
+import requests
 import yaml
 from pandas import DataFrame
 from scipy.stats import spearmanr
@@ -46,7 +52,7 @@ def extract_json(text: str, q_id=None) -> dict:
 
 def extract_list(text: str, q_id=None) -> list:
     """
-    Extract the first list block from the given text.
+    Extract the last list block from the given text.
     :param text: the text containing the list block.
     :param q_id: used in logging to identify the query.
     :return: the extracted list as a Python list, or an empty list if extraction/parsing fails.
@@ -62,21 +68,29 @@ def extract_list(text: str, q_id=None) -> list:
 
     return json.loads(list_str)
 
-#TODO: È COMPLETANEMTE ROTTO
-#TODO: sistemare questo, che così è inutile e specifico per custumer_segmentation...
-def ndcg_at_k_scores(ground_truth_scores, llm_ranking, k):
+def extract_pipe_sequence(input_text: str) -> list[list[str]]:
     """
-    More powerful NDCG@k using graded relevance:
-    ground_truth_scores is a dict {customer_id: similarity_score}
+    Extract sequences of words separated by pipes from the given text.
+    :param input_text: the input text
+    :return: a list of lists, where each inner list contains words from a line separated by pipes
     """
-    llm_k = llm_ranking[:k]
+    lines = input_text.splitlines()
+    pattern = re.compile(r"\b[^|\n]+(?:\s*\|\s*[^|\n]+)+\b")
+    matched_lines = [line for line in lines if pattern.search(line)]
+    return [[n.strip() for n in line.split("|") if n.strip()] for line in matched_lines]
 
+def ndcg_at_k_scores(ground_truth_scores: list[float], llm_ranking_scores: list[float], k: int):
+    """
+    NDCG@k using graded relevance.
+    Scores must be non-negative.
+    """
     def dcg(scores):
-        return np.sum([
-            score / np.log2(i + 2)
-            for i, score in enumerate(scores)
+        return sum([
+            score / math.log2(i + 1)
+            for i, score in enumerate(scores, start=1)
         ])
 
+    llm_k = llm_ranking_scores[:k]
     dcg_llm = dcg(llm_k)
 
     # Ideal DCG uses sorted true scores
@@ -283,27 +297,43 @@ class Test(ABC):
             kwargs = {}
 
             for field_name, field_type in hints.items():
+                # 1. If the column doesn't exist → keep it as None
                 try:
                     value = row[field_name]
                 except KeyError:
                     kwargs[field_name] = None
-                    continue  # Skip if the field is not in the CSV
-                # Case 1: list fields (e.g. List[int], List[float])
-                if hasattr(field_type, "__origin__") and field_type.__origin__ is list:
-                    # Convert the string to a real list
-                    try:
-                        parsed = ast.literal_eval(value) if isinstance(value, str) else value
-                    except Exception:
-                        parsed = []
-                    value = parsed
-                # Case 2: boolean strings like "True"/"False"
+                    continue
+
+                # 2. Normalize pandas nulls (NaN, NA) and empty strings to None
+                #    pd.isna handles np.nan, pd.NA, None
+                if pd.isna(value) or (isinstance(value, str) and value.strip() == ""):
+                    kwargs[field_name] = None
+                    continue
+
+                origin = get_origin(field_type)
+                # 3. List fields (e.g. list[int], list[float], list[str])
+                if origin is list:
+                    # If it's a string, try to parse it as a Python literal (e.g. "[1, 2, 3]")
+                    if isinstance(value, str):
+                        try:
+                            value = ast.literal_eval(value)
+                        except Exception:
+                            # Could not parse; choose your default (None or [])
+                            value = []
+                    # optional: you could also enforce element types using get_args(field_type)
+
+                # 4. Booleans from strings like "True"/"False"
                 if field_type is bool and isinstance(value, str):
-                    value = value.lower() == "true"
-                # Case 3: automatic type casting for int, float
+                    value = value.strip().lower() == "true"
+
+                # 5. Light type casting for simple types (int, float, str, etc.)
+                #    Skip if it's already of the right type.
                 try:
-                    value = field_type(value)
+                    if not isinstance(value, field_type):
+                        value = field_type(value)
                 except Exception:
-                    pass  # fallback if casting isn't necessary or valid
+                    # If casting fails, just leave the original value
+                    pass
 
                 kwargs[field_name] = value
 

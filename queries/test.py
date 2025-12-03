@@ -363,7 +363,7 @@ class Test(ABC):
             print('Warning: No destination folder provided for evaluations CSV. Using run_folder.')
             dest = self.run_folder
         df = pd.DataFrame([self.evaluations], index=[0])
-        df.to_csv(dest / file_name, index=False)
+        df.to_csv(dest / file_name, index=False, decimal=',', sep=';')
 
     def queries_to_df(self) -> pd.DataFrame:
         """
@@ -381,7 +381,7 @@ class Test(ABC):
         if dest is None:
             dest = self.run_folder
         df = self.queries_to_df()
-        df.to_csv(dest / file_name, index=False)
+        df.to_csv(dest / file_name, index=False, decimal=',', sep=';')
 
     def csv_to_queries(self, query_cls: type, file_name: str, folder: Path = None) -> None:
         """
@@ -394,9 +394,7 @@ class Test(ABC):
         """
         if folder is None:
             folder = self.run_folder
-        # Load CSV into dataframe
-        df = pd.read_csv(folder / file_name)
-
+        df = pd.read_csv(folder / file_name, decimal=',', sep=';')
         # Get type hints from the class (e.g., {"id": int, "scores": List[float]})
         hints = get_type_hints(query_cls)
 

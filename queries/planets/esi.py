@@ -154,10 +154,10 @@ class esi(Test):
         query.parsing_failed = False
 
         llm_names: list[str] = top_k_list
-        for i, name in enumerate(top_k_list):
-            for item in query.ground_truth:
-                if item['planet_name'].lower() in name.lower(): # works when llm had produced names with prepended numbers
-                    llm_names[i] = item['planet_name']
+        for i, llm_name in enumerate(top_k_list):
+            for gt_name in query.ground_truth:
+                if gt_name['planet_name'].lower() == re.sub(r"^\s*\d+\.\s*", "", llm_name.lower()): # removes possible prepended numbers
+                    llm_names[i] = gt_name['planet_name']
                     break
 
         ground_truth_names: list[str] = [item['planet_name'] for item in query.ground_truth]
@@ -165,9 +165,9 @@ class esi(Test):
         llm_scores: list[float] = []
         for i, pred_planet in enumerate(llm_names):
             score = 0.0
-            for item in query.ground_truth:
-                if item['planet_name'] == pred_planet:
-                    score = item['esi']
+            for gt_name in query.ground_truth:
+                if gt_name['planet_name'] == pred_planet:
+                    score = gt_name['esi']
                     break
             llm_scores.append(score)
 

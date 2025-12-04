@@ -11,7 +11,7 @@ from pandas import DataFrame
 from pydantic import BaseModel, Field
 
 from queries.test import Test, data_folder, Query, Evaluations, download_csv, Metric, extract_json, extract_list, \
-    ndcg_at_k_scores, mare_at_k, spearman_rho_at_k, miss_rate_at_k, extract_pipe_sequence
+    hallucination_rate, extract_pipe_sequence, mare_k, spearman_rho_k, ndcg_k
 
 
 def compute_ground_truth(df: DataFrame, top_k: int = None) -> DataFrame:
@@ -87,10 +87,13 @@ it is computed as follows:
     return prompt
 
 class PlanetMetrics(Metric):
-    NDCG_K = auto()
-    MARE_K = auto()
+    NDCG_SCORES = auto() # NDCG considerando i punteggi reali, indipendentemente da k
+    NDCG_K = auto() # NDCG considerando k-i se l'elemento i-esimo dilla lista predetta è presente nella k-ground truth (indipendentemente dalla sua posizione)
+    MARE = auto() # MARE considerando tutti gli elementi dalla ground truth
+    MARE_K = auto() # MARE considerando solo i primi k elementi della ground truth
+    SPEARMAN = auto()
     SPEARMAN_K = auto()
-    MISS_RATE_K = auto()
+    HALLUCINATION_RATE = auto()
 
 @dataclass
 class PlanetQuery(Query):
@@ -122,6 +125,8 @@ class esi(Test):
         self.simplified_df = pd.read_csv(simplified_ds_path)
 
     def evaluate_query(self, query: PlanetQuery) -> Evaluations:
+        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.top_k, mare_k=self.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.top_k)
+
         if query.response_json_schema:
             try:
                 json_response = extract_json(query.response)
@@ -133,19 +138,19 @@ class esi(Test):
                 except (JSONDecodeError, KeyError, TypeError) as e:
                     print(f"Cannot evaluate query: {e}")
                     query.parsing_failed = True
-                    return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
+                    return failing_scores
         else:
             matched_lists = extract_pipe_sequence(query.response)
             if len(matched_lists) == 0:
                 print(f"Cannot evaluate query {query.id}: no pipe-separated list found in the response.")
                 query.parsing_failed = True
-                return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
+                return failing_scores
             elif len(matched_lists) > 1:
                 matched_lists = [lst for lst in matched_lists if len(lst) == self.top_k]
                 if len(matched_lists) == 0:
                     print(f"Cannot evaluate query {query.id}: no valid pipe-separated list found in the response.")
                     query.parsing_failed = True
-                    return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
+                    return failing_scores
                 elif len(matched_lists) > 1:
                     print(f"Warning for query {query.id}: multiple pipe-separated lists found in the response. Using the last one.")
             top_k_list = matched_lists[-1] # use the last matched list
@@ -171,10 +176,15 @@ class esi(Test):
                     break
             llm_scores.append(score)
 
-        return Evaluations(ndcg_k=ndcg_at_k_scores(ground_truth_scores, llm_scores, k=self.top_k),
-                           mare_k= mare_at_k(ground_truth_names, llm_names, k=self.top_k),
-                           spearman_k=spearman_rho_at_k(ground_truth_names, llm_names, k=self.top_k),
-                           miss_rate_k=miss_rate_at_k(ground_truth_names, llm_names, k=self.top_k))
+        return Evaluations(ndcg_scores=ndcg_k(llm_scores, ground_truth_scores, self.top_k),
+                           ndcg_k=ndcg_k(
+            [self.top_k - i if p in ground_truth_names[:self.top_k] else 0 for i, p in enumerate(llm_names)],
+            k=self.top_k),
+                           mare=mare_k(llm_names, ground_truth_names),
+                           mare_k=mare_k(llm_names, ground_truth_names, self.top_k),
+                           spearman=spearman_rho_k(llm_names, ground_truth_names),
+                           spearman_k=spearman_rho_k(llm_names, ground_truth_names, self.top_k),
+                           hallucination_rate=hallucination_rate(llm_names, ground_truth_names))
 
     def prepare_df(self) -> None:
         def clean_html_tags(text: str) -> str:

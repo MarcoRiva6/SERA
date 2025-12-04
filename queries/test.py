@@ -79,31 +79,33 @@ def extract_pipe_sequence(input_text: str) -> list[list[str]]:
     matched_lines = [line for line in lines if pattern.search(line)]
     return [[n.strip() for n in line.split("|") if n.strip()] for line in matched_lines]
 
-def ndcg_at_k_scores(ground_truth_scores: list[float], llm_ranking_scores: list[float], k: int):
+def _dcg(scores):
+    return sum([
+        score / math.log2(i + 1)
+        for i, score in enumerate(scores, start=1)
+    ])
+
+def ndcg_k(relevance_scores: list[Number], ground_truth_scores: list[Number]=None, k: int=None):
     """
-    NDCG@k using graded relevance.
-    Scores must be non-negative.
+    NDCG@k. It computes the Normalized Discounted Cumulative Gain for *relevance_scores* and *ground_truth_scores*,
+    then normalizes the result.
+    All scores must be non-negative.
+    :param relevance_scores: the relevance scores, used as they are.
+    :param ground_truth_scores: scores for the ideal ranking. Defaults to [k, k-1, ..., 1] if not specified.
+    :param k: consider only the top-k elements. If not specified, uses the full length of *relevance_scores*.
+    :return: NDCG value.
     """
-    def dcg(scores):
-        return sum([
-            score / math.log2(i + 1)
-            for i, score in enumerate(scores, start=1)
-        ])
+    if k is None:
+        k = len(relevance_scores)
 
-    llm_k = llm_ranking_scores[:k]
-    dcg_llm = dcg(llm_k)
-
-    # Ideal DCG uses sorted true scores
-    ideal_scores = sorted(ground_truth_scores, reverse=True)[:k]
-    dcg_ideal = dcg(ideal_scores)
-
-    if dcg_ideal == 0:
-        return 0.0
+    llm = relevance_scores[:k]
+    gt = ground_truth_scores[:k] if ground_truth_scores is not None else [k - i for i in range(k)]
+    dcg_llm = _dcg(llm)
+    dcg_ideal = _dcg(gt)
 
     return dcg_llm / dcg_ideal
 
-
-def precision_at_k(ground_truth, llm_ranking, k):
+def precision_at_k(llm_ranking, ground_truth, k):
     """
     Precision@k = (# correctly predicted in top-k) / (# predicted in top-k)
     ground_truth: list of true top customers (sorted by similarity)
@@ -118,109 +120,85 @@ def precision_at_k(ground_truth, llm_ranking, k):
     tp = sum(1 for c in llm_k if c in gt_k)
     return tp / len(llm_k)
 
-
-def spearman_rank_correlation(ground_truth, llm_ranking):
+def hallucination_rate(llm_ranking: list[Any], ground_truth: list[Any]) -> float:
     """
-    Spearman rank correlation between two rankings.
+    Miss Rate = (# of LLM's top-k items NOT in ground truth) / (total # of ground truth items)
 
-    Both inputs are lists of customer IDs ordered from most to least similar.
-    We only consider the items that appear in both lists.
-    """
-    common = list(set(ground_truth).intersection(llm_ranking))
-
-    # Need at least 2 points to define correlation
-    if len(common) < 2:
-        return 0.0
-
-    gt_pos = {cust: i for i, cust in enumerate(ground_truth)}
-    llm_pos = {cust: i for i, cust in enumerate(llm_ranking)}
-
-    gt_order = [gt_pos[c] for c in common]
-    llm_order = [llm_pos[c] for c in common]
-
-    rho, _ = spearmanr(gt_order, llm_order)
-    if np.isnan(rho):
-        return 0.0
-
-    return float(rho)
-
-def miss_rate_at_k(ground_truth_full: list[Any], llm_ranking: list[Any], k: int) -> float:
-    """
-    Miss Rate @ k = (# of LLM's top-k items NOT in ground truth) / (total # of ground truth items)
-
-    :param ground_truth_full: list of true top customers (sorted by similarity)
     :param llm_ranking: list of predicted top customers (sorted by similarity)
-    :param k: evaluate only the LLM's top-k predictions
-    :return: Miss Rate @ k
+    :param ground_truth: list of true top customers (sorted by similarity)
+    :return: Miss Rate
     """
-    gt_set = set(ground_truth_full)
-    llm_k_set = set(llm_ranking[:k])
+    length = len(llm_ranking)
+    gt_set = set(ground_truth)
+    llm_k_set = set(llm_ranking)
 
     misses = sum(1 for c in llm_k_set if c not in gt_set)
 
-    return misses / k if k > 0 else 0.0
+    return misses / length if length > 0 else 0.0
 
-def mare_at_k(ground_truth_full: list[Any], llm_ranking: list[Any], k: int) -> float:
+def mare_k(llm_ranking: list[Any], ground_truth: list[Any], k: int=None) -> float:
     """
-    Mean Absolute Rank Error @ k. It only considers items that appear in both rankings.
+    Mean Absolute Rank Error @ k. Computes the distance between the predicted and true ranks and computes its mean.
+    If an element from *llm_ranking* is missing in *ground_truth*, it is penalized with *k* or *len(ground_truth)* (see below).
 
-    :param ground_truth_full: *full* ranking list sorted by true similarity
     :param llm_ranking: predicted ranking list from LLM
-    :param k: evaluate only the LLM's top-k predictions
-    :return: MARE@k. k if no common items.
+    :param ground_truth: ranking list sorted by true similarity
+    :param k: consider only the top-k elements for both *llm_ranking* and *ground_truth*.
+        If not specified, uses the full length for both; in this case, if an element from *llm_ranking* is still missing
+         in *ground_truth*, it is penalized with *len(ground_truth)*.
+    :return: MARE@k.
     """
-    gt = ground_truth_full
-    llm = llm_ranking[:k]
+    if k is not None:
+        llm = llm_ranking[:k]
+        gt = ground_truth[:k]
+    else:
+        llm = llm_ranking
+        gt = ground_truth
+    penality = len(ground_truth)
     # Position maps
-    gt_pos = {c: i for i, c in enumerate(gt)}
-    llm_pos = {c: i for i, c in enumerate(llm)}
-    # Items that appear in both rankings
-    common = set(gt).intersection(llm)
-
-    if len(common) == 0:
-        return k   # or return k, depending on your preference
+    llm_pos_position_map = {c: i for i, c in enumerate(llm)}
+    gt_position_map = {c: i for i, c in enumerate(gt)}
 
     errors = [
-        abs(gt_pos[c] - llm_pos[c])
-        for c in common
+        abs(gt_position_map[c] - llm_pos_position_map[c]) if c in gt_position_map else penality
+        for c in llm
     ]
 
     return sum(errors) / len(errors)
 
-
-def spearman_rho_at_k(ground_truth_full: list[Any], llm_ranking: list[Any], k: int) -> float:
+def spearman_rho_k(llm_ranking: list[Any], ground_truth: list[Any], k: int = None) -> float:
     """
-    Spearman rank correlation (ρ) @ k based on global ground truth. It only considers items that appear in both rankings.
+    Spearman rank correlation (ρ) @ k.
+    It computes the spearman ranking correlation between *llm_ranking* and *ground_truth* rankings. It penalizes missing
+    elements in *llm_ranking* with *k* or *len(ground_truth)* (see below).
 
-    - ground_truth_full: full ranking list sorted by true similarity
-    - llm_ranking: predicted ranking list from the LLM (length >= k ideally)
-    - k: evaluate only the LLM's top-k predictions
-
-    For each of the LLM's top-k customers, we compare:
-      - pred_rank: its position in the LLM ranking (0..k-1)
-      - true_rank: its position in the full ground-truth ranking (0..N-1)
+    :param llm_ranking: predicted ranking list from the LLM
+    :param ground_truth: ranking list sorted by true similarity
+    :param k: consider only the top-k elements for both *llm_ranking* and *ground_truth*.
+        If not specified, uses the full length of both; in this case, if an element from *llm_ranking* is still missing
+            in *ground_truth*, it is penalized with *len(ground_truth)*.
     """
+    if k is None:
+        llm = llm_ranking
+        gt = ground_truth
+    else:
+        llm = llm_ranking[:k]
+        gt = ground_truth[:k]
+    penality = len(ground_truth)
 
-    gt = ground_truth_full#[:k]
-    llm = llm_ranking[:k]
-
-    # Items that both rankings cover
-    common = list(set(gt).intersection(llm))
-    if len(common) < 2:
+    if len(llm_ranking) < 2:
         return 0.0  # cannot compute correlation with <2 points
 
     # Position lookup
-    gt_pos = {c: i for i, c in enumerate(gt)}
-    llm_pos = {c: i for i, c in enumerate(llm)}
-
+    gt_position_map = {c: i for i, c in enumerate(gt)}
     # Build rank position vectors
-    gt_order = [gt_pos[c] for c in common]
-    llm_order = [llm_pos[c] for c in common]
+    llm_order = [gt_position_map[c] if c in gt else penality
+                 for c in llm]
+    gt_order = range(len(llm_order))
 
     rho, _ = spearmanr(gt_order, llm_order)
     if np.isnan(rho):
         return 0.0
-
     return float(rho)
 
 def ensure_kaggle_ds(ds_name: str, file_path: Path) -> None:

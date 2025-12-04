@@ -14,8 +14,8 @@ from pydantic import BaseModel, Field
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 
-from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, ndcg_at_k_scores, extract_list, \
-    ensure_kaggle_ds, extract_pipe_sequence, mare_at_k, spearman_rho_at_k, miss_rate_at_k
+from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, extract_list, \
+    ensure_kaggle_ds, extract_pipe_sequence, hallucination_rate, mare_k, spearman_rho_k, ndcg_k
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
@@ -239,10 +239,13 @@ class CustomerSegmentationQuery(Query):
     prompt_level: str
 
 class CustomerSegmentationMetrics(Metric):
-    NDCG_K = auto()
-    MARE_K = auto()
-    SPEARMAN_K = auto()
-    MISS_RATE_K = auto()
+    NDCG_SCORES = auto() # NDCG considerando i punteggi reali, indipendentemente da k
+    NDCG_K = auto() # NDCG considerando k-i se l'elemento i-esimo dilla lista predetta è presente nella k-ground truth (indipendentemente dalla sua posizione)
+    MARE = auto() # MARE considerando tutti gli elementi della ground truth
+    MARE_K = auto() # MARE considerando solo i primi k elementi della ground truth
+    SPEARMAN = auto() # Spearman considerando tutti gli elementi della ground truth
+    SPEARMAN_K = auto() # Spearman considerando solo i primi k elementi della ground truth
+    HALLUCINATION_RATE = auto()
 
 @dataclass
 class customer_segmentation(Test):
@@ -267,6 +270,8 @@ class customer_segmentation(Test):
         self.full_df = pd.read_excel(file_path)
 
     def evaluate_query(self, query: CustomerSegmentationQuery) -> Evaluations:
+        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.top_k, mare_k=self.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.top_k)
+
         if query.response_json_schema:
             try:
                 json_response = extract_json(query.response, query.customer_id)
@@ -278,14 +283,14 @@ class customer_segmentation(Test):
                 except (JSONDecodeError, KeyError, TypeError) as e:
                     print(f"Cannot evaluate query {query.id}: {e}")
                     query.parsing_failed = True
-                    return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
+                    return failing_scores
         else:
             matched_lists = extract_pipe_sequence(query.response)
             matched_lists_len = len(matched_lists)
             if matched_lists_len == 0:
                 print(f"Cannot evaluate query {query.id}: no pipe-separated list found in the response.")
                 query.parsing_failed = True
-                return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
+                return failing_scores
             elif matched_lists_len > 1:
                 print(f"Warning for query {query.id}: multiple pipe-separated lists found in the response. Using the last one.")
             top_k_list: list[str] = matched_lists[-1] # use the last matched list
@@ -295,7 +300,7 @@ class customer_segmentation(Test):
             except (TypeError, ValueError) as e:
                 print(f"Cannot evaluate query {query.id}: invalid customer IDs in the extracted list. {e}")
                 query.parsing_failed = True
-                return Evaluations(ndcg_k=0.0, mare_k=self.top_k, spearman_k=-1.0, miss_rate_k=self.top_k)
+                return failing_scores
 
         query.parsing_failed = False
         temp_vals: list[float] = [x + 1 for x in query.ground_truth_values]
@@ -303,10 +308,15 @@ class customer_segmentation(Test):
                                       if cust in query.ground_truth
                                       else 0
                                       for cust in top_k_list]
-        return Evaluations(ndcg_k=ndcg_at_k_scores(temp_vals, ndcg_scores, k=self.top_k),
-                           mare_k=mare_at_k(query.ground_truth, top_k_list, k=self.top_k),
-                           spearman_k=spearman_rho_at_k(query.ground_truth, top_k_list, k=self.top_k),
-                           miss_rate_k=miss_rate_at_k(query.ground_truth, top_k_list, k=self.top_k))
+
+        return Evaluations(ndcg_scores=ndcg_k(ndcg_scores, temp_vals, self.top_k),
+                           ndcg_k=ndcg_k(relevance_scores=[self.top_k - i if cust in query.ground_truth[:self.top_k] else 0 for i, cust in
+                                enumerate(top_k_list)], k=self.top_k),
+                           mare=mare_k(top_k_list, query.ground_truth),
+                           mare_k=mare_k(top_k_list, query.ground_truth, self.top_k),
+                           spearman=spearman_rho_k(top_k_list, query.ground_truth),
+                           spearman_k=spearman_rho_k(top_k_list, query.ground_truth, self.top_k),
+                           hallucination_rate=hallucination_rate(top_k_list, query.ground_truth))
 
     def init_queries(self) -> None:
         file_name = 'prepared_queries.csv'

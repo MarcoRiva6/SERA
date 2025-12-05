@@ -159,8 +159,6 @@ class Experiment:
             print('An unknown error occurred during submission:', e)
             return
         q_df = self.test.queries_to_df()
-        q_df.to_parquet(self.inner_folder / 'queries.parquet', index=True)
-        q_df.to_excel(self.inner_folder / 'answered_queries.xlsx', index=True)
         self.test.queries_to_csv('answered_queries.csv', self.inner_folder)
         print('queries saved to csv.')
         self.test.evaluate()
@@ -168,6 +166,6 @@ class Experiment:
         self.test.evaluations_to_csv(dest=self.inner_folder)
         print('evaluations saved to csv.')
 
-        self.display(df=q_df)
+        #self.display(df=q_df)
 
         print('test execution completed.')

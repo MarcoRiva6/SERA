@@ -2,7 +2,6 @@ import ast
 import csv
 import json
 import os
-import random
 import re
 import shutil
 from abc import abstractmethod, ABC
@@ -17,7 +16,6 @@ import math
 import numpy as np
 import pandas as pd
 import requests
-import yaml
 from pandas import DataFrame
 from scipy.stats import spearmanr
 
@@ -32,6 +30,7 @@ class Metric(StrEnum):
     pass
 
 Evaluations: TypeAlias = dict[Metric, Number] # A dictionary mapping metrics to their numeric evaluation values.
+
 def extract_json(text: str, q_id=None) -> dict:
     """
     Extract the first JSON block from the given text.
@@ -188,7 +187,6 @@ def spearman_rho_k(llm_ranking: list[Any], ground_truth: list[Any], k: int = Non
 
     if len(llm_ranking) < 2:
         return 0.0  # cannot compute correlation with <2 points
-
     # Position lookup
     gt_position_map = {c: i for i, c in enumerate(gt)}
     # Build rank position vectors
@@ -197,7 +195,7 @@ def spearman_rho_k(llm_ranking: list[Any], ground_truth: list[Any], k: int = Non
     gt_order = range(len(llm_order))
 
     rho, _ = spearmanr(gt_order, llm_order)
-    if np.isnan(rho):
+    if np.isnan(rho): # constant list
         return 0.0
     return float(rho)
 
@@ -211,7 +209,7 @@ def ensure_kaggle_ds(ds_name: str, file_path: Path) -> None:
     if not os.path.exists(file_path):
         ds_folder = kagglehub.dataset_download(ds_name, force_download=True)
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(Path(ds_folder) / file_path.name, file_path)
+        shutil.move(Path(ds_folder) / file_path.name, file_path) # move the DS
 
 def download_csv(url: str, dest_path: Path) -> None:
     response = requests.get(url)
@@ -236,22 +234,12 @@ class Query(ABC):
     A single query consisting of a prompt, a response, and its evaluations.
     Prompt can be of any type, including a DataFrame (useful for lotus).
     """
-    id: int
+    id: int # must be unique within a test
     prompt: Any
     response: str
     evaluations: Evaluations
     response_json_schema: dict
     parsing_failed: bool
-
-    class Query(ABC):
-        """
-        A single query consisting of a prompt, a response, and its evaluations.
-        Prompt can be of any type, including a DataFrame (useful for lotus).
-        """
-    prompt: Any
-    response: str
-    evaluations: Evaluations
-    response_json_schema: str
 
     def to_dict(self) -> dict:
         base: dict = {
@@ -261,7 +249,6 @@ class Query(ABC):
         }
         # Normalize the prompt
         if isinstance(self.prompt, DataFrame):
-            # You might want .to_dict() /.to_json() here depending on your use case
             base["prompt"] = self.prompt["prompt"]
         else:
             base["prompt"] = str(self.prompt)
@@ -271,8 +258,8 @@ class Query(ABC):
             (k.value if hasattr(k, "value") else str(k)): v
             for k, v in (evaluations or {}).items()
         }
-        # Merge: base now includes subclass attributes as well
-        return {**base, **evals}
+
+        return base | evals
 
 @dataclass
 class Test(ABC):
@@ -363,9 +350,8 @@ class Test(ABC):
 
     def csv_to_queries(self, query_cls: type, file_name: str, folder: Path = None) -> None:
         """
-        Load a CSV and convert each row into an instance of `cls`.
-        Handles columns that are lists stored as strings.
         Used to restore an already computed list of queries previously saved to a CSV.
+        Automatically sets the variable `queries`.
         :param query_cls: the class type to instantiate for each query (subclass of Query)
         :param folder: The directory where the CSV file is located. If None, uses the current run folder.
         :param file_name: the name of the CSV file to load (with extension).
@@ -388,13 +374,11 @@ class Test(ABC):
                 except KeyError:
                     kwargs[field_name] = None
                     continue
-
                 # 2. Normalize pandas nulls (NaN, NA) and empty strings to None
                 #    pd.isna handles np.nan, pd.NA, None
                 if pd.isna(value) or (isinstance(value, str) and value.strip() == ""):
                     kwargs[field_name] = None
                     continue
-
                 origin = get_origin(field_type)
                 # 3. List fields (e.g. list[int], list[float], list[str])
                 if origin is list:
@@ -405,12 +389,10 @@ class Test(ABC):
                         except Exception:
                             # Could not parse; choose your default (None or [])
                             value = []
-                    # optional: you could also enforce element types using get_args(field_type)
-
+                    # optional: could also enforce element types using get_args(field_type)
                 # 4. Booleans from strings like "True"/"False"
                 if field_type is bool and isinstance(value, str):
                     value = value.strip().lower() == "true"
-
                 # 5. Light type casting for simple types (int, float, str, etc.)
                 #    Skip if it's already of the right type.
                 try:

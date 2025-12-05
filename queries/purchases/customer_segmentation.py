@@ -7,7 +7,6 @@ from enum import auto
 from json import JSONDecodeError
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
@@ -191,8 +190,8 @@ be computed following these steps:
 	2.3	Compute the cosine similarity between customers based on these normalized RFM vectors.
 3.	Final Score
 	•	Combine the two similarity measures with a weighted average:
-	•	{alpha*100}% weight for the basket-content similarity
-	•	{(1-alpha)*100}% weight for the RFM similarity
+	•	{alpha*100:.0f}% weight for the basket-content similarity
+	•	{(1-alpha)*100:0.f}% weight for the RFM similarity
 
 Do NOT guess or hallucinate missing data.
 Only reason using the purchase histories provided in the dataset.

@@ -195,9 +195,11 @@ class Model:
         with output_path.open("r", encoding="utf-8") as f:
             for line in f:
                 response = json.loads(line)
+                q: Query = batch_queries[response['custom_id']]
                 if response['response']['body']['choices'][0]['finish_reason'] == 'length':
-                    print(f"Warning: Response for query with prompt hash {response['id']} was cut off due to length.")
-                batch_queries[response['custom_id']].response = response['response']['body']['choices'][0]['message']['content']
+                    q_id = getattr(q, 'id', response['id'])
+                    print(f"Warning: Response for query {q_id} was cut off due to length.")
+                q.response = response['response']['body']['choices'][0]['message']['content']
                 total_token_consumed += response['response']['body']['usage']['total_tokens']
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")
@@ -209,6 +211,13 @@ class Model:
         return True
 
     def submit(self, test: Test, df=None) -> bool:
+        """
+        Submit the test queries to the model.
+        It automatically selects the appropriate submission method based on the model's run type and backend.
+        :param test: the Test object containing the queries to be submitted
+        :param df: used only for LOTUS run type, the dataframe to be passed to the prompt function
+        :return: True when the submission is complete, False if the batched submission is still in progress
+        """
         #build submissions
         if self.batched:
             self.submissions = [Submission(queries=test.queries)]

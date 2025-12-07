@@ -335,7 +335,7 @@ class Test(ABC):
         Convert the variable queries to a Pandas DataFrame.
         :return: DataFrame containing all queries.
         """
-        return pd.DataFrame([q.to_dict() for q in self.queries])
+        return queries_to_df(self.queries)
 
     def queries_to_csv(self, file_name: str, dest: Path = None) -> None:
         """
@@ -405,3 +405,12 @@ class Test(ABC):
                 kwargs[field_name] = value
 
             self.queries.append(query_cls(**kwargs))
+
+def queries_to_df(queries: list[Query]) -> pd.DataFrame:
+    """
+    Convert the variable queries to a Pandas DataFrame.
+    :return: DataFrame containing all queries.
+    """
+    df = pd.DataFrame([q.to_dict() for q in queries])
+    put_first = ['id', 'prompt', 'response_json_schema']
+    return df[put_first + [col for col in df.columns if col not in put_first]]

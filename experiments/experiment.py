@@ -47,7 +47,7 @@ def more_interactive_plot(df: pd.DataFrame, title: str, columns: list[str] = Non
     # ---- Dropdown buttons for Y-axis ----
     if len(columns) > 1:
         y_buttons = []
-        for col in numeric_cols:
+        for col in columns:
             y_buttons.append(
                 dict(
                     label=col,

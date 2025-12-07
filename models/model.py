@@ -2,10 +2,14 @@ import hashlib
 import json
 import os
 import time
+from datetime import datetime
+from typing import Any
+
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
 from dotenv import load_dotenv
+from google.genai.types import BatchJob
 from lmstudio import LMStudioError
 from enum import StrEnum, auto
 from experiments.run_type import RunType
@@ -14,6 +18,7 @@ from queries.test import Query, Test
 class Backend(StrEnum):
     LM_STUDIO = auto()
     TOGETHER = auto()
+    GOOGLE = auto()
 
 @dataclass
 class Submission:
@@ -22,6 +27,13 @@ class Submission:
 
 class SubmissionError(RuntimeError):
     pass
+
+
+def write_jsonl(write_to: Path, lines: list[Any]):
+    with write_to.open("w", encoding="utf-8") as f:
+        for l in lines:
+            f.write(json.dumps(l) + "\n")
+
 
 @dataclass
 class Model:
@@ -36,6 +48,7 @@ class Model:
     batched: bool = False
     submissions: list[Submission] = None
     no_waiting: bool = False
+    initialized_client: Any = None
 
     @classmethod
     def from_yaml_file(cls, **kwargs) -> 'Model':
@@ -148,9 +161,7 @@ class Model:
 
                 # 1. Write requests to a .jsonl file
                 self.run_folder.mkdir(parents=True, exist_ok=True)
-                with input_path.open("w", encoding="utf-8") as f:
-                    for req in requests:
-                        f.write(json.dumps(req) + "\n")
+                write_jsonl(input_path, requests)
 
                 # 2. Upload the batch file
                 file_resp = client.files.upload(file=input_path, purpose="batch-api")
@@ -163,21 +174,22 @@ class Model:
 
             start_time = time.time()
             while True:
-                status = client.batches.get_batch(batch_id)
-                print(f"Batch {batch_id} status: {status.status}")
+                b = client.batches.get_batch(batch_id)
+                status = b.status
+                print(f"[{datetime.now().strftime('%y-%m-%d %H:%M:%S')}] Batch {batch_id} status: {status}")
 
-                if status.status == 'VALIDATING':
+                if status == 'VALIDATING':
                     time.sleep(5)
                     continue
-                if status.status == "COMPLETED":
-                    if status.error_file_id is not None:
-                        print(f"Warning: Batch {batch_id} completed with errors. error file ID {status.error_file_id}")
-                        client.files.retrieve_content(id=status.error_file_id, output=str(error_path))
+                if status == "COMPLETED":
+                    if b.error_file_id is not None:
+                        print(f"Warning: Batch {batch_id} completed with errors. error file ID {b.error_file_id}")
+                        client.files.retrieve_content(id=b.error_file_id, output=str(error_path))
                     break
-                if status.status in ("FAILED", "EXPIRED", "CANCELLED"):
+                if status in ("FAILED", "EXPIRED", "CANCELLED"):
                     with error_path.open("w", encoding="utf-8") as f:
-                        f.write(status.model_dump_json())
-                    raise RuntimeError(f"Batch {batch_id} failed with error {status.error}")
+                        f.write(b.model_dump_json())
+                    raise RuntimeError(f"Batch {batch_id} failed with error {b.error}")
 
                 if (time.time() - start_time) > timeout:
                     raise TimeoutError(f"Batch {batch_id} did not complete within {timeout} seconds")
@@ -187,7 +199,7 @@ class Model:
                 time.sleep(poll_interval)
 
             # 4. Download the result file
-            output_file_id = status.output_file_id
+            output_file_id = b.output_file_id
             client.files.retrieve_content(id=output_file_id, output=str(output_path))
 
         total_token_consumed = 0
@@ -201,6 +213,180 @@ class Model:
                     print(f"Warning: Response for query {q_id} was cut off due to length.")
                 q.response = response['response']['body']['choices'][0]['message']['content']
                 total_token_consumed += response['response']['body']['usage']['total_tokens']
+
+        print(f"Total tokens consumed in batch: {total_token_consumed}")
+        batch_token_usage_path.write_text(f"{total_token_consumed}")
+
+        for bq in batch_queries.values():
+            if not bq.response:
+                print(f"Warning: No response for query with prompt hash {hash(bq.prompt)}")
+        return True
+
+    @staticmethod
+    def __init_google_client():
+        # Load API key from .env file
+        if not load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env"):
+            raise FileNotFoundError()
+        api_key = os.getenv("GOOGLE_API_KEY")
+        from google.genai import Client
+        return Client(api_key=api_key)
+
+    def _submit_direct_google(self, prompt: str) -> str:
+        MAX_RETRIES = 3
+        TIMEOUT = 600
+        RETRY_DELAY = 40
+        QUOTA_WAIT_HOURS=8
+        REASONING=False
+
+        def handle_api_error(error_msg: str, retry_count: int) -> bool:
+            """
+            Gestisce gli errori dell'API e decide se fare retry.
+            :param error_msg: Messaggio di errore
+            :param retry_count: numero di retry già effettuati
+            :returns: True se dovrebbe fare retry, False altrimenti
+            """
+            error_msg_lower = error_msg.lower()
+
+            # Gestione quota exceeded
+            if "429" in error_msg and "quota" in error_msg_lower and 'perday' in error_msg_lower:
+                print(f"Limite quota raggiunto. Attendo {QUOTA_WAIT_HOURS} ore...")
+                time.sleep(QUOTA_WAIT_HOURS * 60 * 60)
+                return True  # Non fare retry automatico, attendi
+
+            # Gestione altri errori temporanei
+            temporary_errors = [
+                "timeout", "connection", "network", "service unavailable",
+                "temporarily unavailable", "rate limit", "502", "503", "504",
+                "GenerateContentPaidTierInputTokensPerModelPerMinute"
+            ]
+
+            is_temporary = any(temp_error in error_msg_lower for temp_error in temporary_errors)
+
+            if is_temporary and retry_count < MAX_RETRIES:
+                print(f"Errore temporaneo rilevato (retry {retry_count + 1}/{MAX_RETRIES}): {error_msg}")
+                print(f"Attendo {RETRY_DELAY} secondi prima del retry...")
+                time.sleep(RETRY_DELAY)
+                return True
+
+            return False
+
+        from google.genai import Client
+        from google.genai import types
+        if self.initialized_client is None:
+            self.initialized_client = self.__init_google_client()
+        client: Client = self.initialized_client
+
+        retry_count = 0
+        while retry_count <= MAX_RETRIES:
+            try:
+                response = client.models.generate_content(
+                    model=self.name_api,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        thinking_config=types.ThinkingConfig(thinking_budget=0)) if REASONING else None,
+                )
+                return response.text.strip()
+            except Exception as e:
+                error_msg = str(e)
+                print(f"errore nella query a Gemini: {error_msg}")
+
+                # Se non è l'ultimo tentativo, controlla se fare retry
+                if retry_count < MAX_RETRIES and handle_api_error(error_msg, retry_count):
+                    retry_count += 1
+                    continue
+                else:
+                    raise SubmissionError(error_msg)
+
+
+    def _submit_direct_google_batched(self, queries: list[Query]) -> bool:
+        poll_interval = 60 #seconds
+        timeout = 86400  #seconds (24 hours)
+        batch_id_path = self.run_folder / "batch_id.txt"
+        input_path = self.run_folder / "batch_input.jsonl"
+        output_path = self.run_folder / "batch_output.jsonl"
+        error_path = self.run_folder / "batch_error.jsonl"
+        batch_token_usage_path =self.run_folder / "batch_token_usage.txt"
+
+        batch_queries: dict[str, Query] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
+
+        if os.path.exists(output_path):
+            print(f"Using existing batch output file...")
+        else:
+            client = self.__init_google_client()
+
+            if os.path.exists(batch_id_path): # recover existing batch
+                with open(batch_id_path, "r") as f:
+                    batch_id = f.read().strip()
+                print(f"Trying to recover already submitted batch {batch_id}...")
+            else:
+                requests: list[dict] = []
+
+                for q_key, q in batch_queries.items():
+                    r = {
+                        "key": q_key,
+                        "generationConfig": {
+                            "maxOutputTokens": self.max_tokens,
+                            "thinking_config": {
+                                "include_thoughts": False,
+                                "thinking_budget": 0
+                            }
+                            #"temperature": 0.7,
+                            #"seed": self.seed
+                        },
+                        "request": {
+                            "contents": [{"parts": [{"text": q.prompt}], "role": "user"}],
+                        }
+                    }
+                    requests.append(r)
+
+                self.run_folder.mkdir(parents=True, exist_ok=True)
+                write_jsonl(input_path, requests)
+
+                # Upload the file to the File API
+                file_resp = client.files.upload(file=input_path, config={'mime_type': 'jsonl'})
+                file_id = file_resp.name
+
+                # Create the batch job
+                batch: BatchJob = client.batches.create(model=self.name_api, src=file_id)
+                batch_id = batch.name
+                batch_id_path.write_text(batch_id)
+
+            start_time = time.time()
+            while True:
+                b = client.batches.get(name=batch_id)
+                status = b.state.name
+                print(f"[{datetime.now().strftime('%y-%m-%d %H:%M:%S')}] Batch {batch_id} status: {status}")
+
+                failing_states = {'JOB_STATE_FAILED', 'JOB_STATE_CANCELLED', 'JOB_STATE_EXPIRED'}
+                successfully_completed_states = {'JOB_STATE_SUCCEEDED'}
+                completed_states = successfully_completed_states | failing_states
+                if status in completed_states:
+                    if status not in successfully_completed_states:
+                        print(f"Warning: Batch {batch_id} completed with state: {status}. error file ID {b.error}")
+                    break
+                if (time.time() - start_time) > timeout:
+                    raise TimeoutError(f"Batch {batch_id} did not complete within {timeout} seconds")
+
+                if self.no_waiting:
+                    return False
+                time.sleep(poll_interval)
+
+            # download result file
+            output_file_id = b.dest.file_name
+            file_content = client.files.download(file=output_file_id)
+            output_path.write_text(file_content.decode('utf-8'))
+
+        total_token_consumed = 0
+        # 5. Parse the results
+        with output_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                response = json.loads(line)
+                q: Query = batch_queries[response['key']]
+                if response['response']['candidates'][0]['finishReason'] != 'STOP':
+                    q_id = getattr(q, 'id', response['key'])
+                    print(f"Warning: Response for query {q_id} didn't finish.")
+                q.response = response['response']['candidates'][0]['content']['parts'][0]['text']
+                total_token_consumed += response['response']['usageMetadata']['totalTokenCount']
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")
         batch_token_usage_path.write_text(f"{total_token_consumed}")

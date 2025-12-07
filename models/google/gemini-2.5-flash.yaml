@@ -1,0 +1,5 @@
+name: 'Gemini 2.5 Flash'
+name_api: 'gemini-2.5-flash'
+backend: 'google'
+batched: true
+max_tokens: 8000

@@ -74,9 +74,28 @@ def extract_pipe_sequence(input_text: str) -> list[list[str]]:
     :return: a list of lists, where each inner list contains words from a line separated by pipes
     """
     lines = input_text.splitlines()
-    pattern = re.compile(r"\b[^|\n]+(?:\s*\|\s*[^|\n]+)+\b")
+    pattern = re.compile(r"[^|\n]+(?:\s*\|\s*[^|\n]+)+")
     matched_lines = [line for line in lines if pattern.search(line)]
     return [[n.strip() for n in line.split("|") if n.strip()] for line in matched_lines]
+
+def extract_separator_sequence(input_text: str, separator: str, top_k: int) -> list[list[str]]:
+    """
+    Extract sequences of strings separated by a custom separator from the given text.
+    :param input_text: the input text
+    :param separator: the custom separator string
+    :param top_k: expected number of elements in each sequence.
+    :return: a list of lists, each of length between top_k and top_k+2
+    """
+    lines = input_text.splitlines()
+    matched_lines = [line for line in lines if top_k - 1 <= line.count(separator) <= top_k + 1] # at least top_k-1 separators and at most top_k+1
+    result = []
+    for line in matched_lines:
+        parts = [n.strip(" .") for n in line.split(separator) if n.strip(" .")] # remove leading/trailing spaces and dots
+        new_parts = [p for p in parts if p != ''] # remove empty strings
+        # keep only lists with length between top_k and top_k+2 (to account for cases with 'separator' at the beginning and/or end)
+        if top_k <= len(new_parts) <= top_k + 2:
+            result.append(new_parts)
+    return result
 
 def _dcg(scores):
     return sum([

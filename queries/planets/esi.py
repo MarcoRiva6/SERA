@@ -97,6 +97,7 @@ class PlanetMetrics(Metric):
 
 @dataclass
 class PlanetQuery(Query):
+    parsed_response: str
     prompt_level: str
     plant_names_mod: str
     ground_truth: list[dict]
@@ -157,6 +158,7 @@ class esi(Test):
             top_k_list = [s.replace("*", "") for s in top_k_list] # remove possible asterisks
 
         query.parsing_failed = False
+        query.parsed_response = top_k_list
 
         # removes possible prepended numbers
         llm_names: list[str] = top_k_list

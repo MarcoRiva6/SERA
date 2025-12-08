@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import re
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import auto
@@ -14,13 +15,15 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 
 from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, extract_list, \
-    ensure_kaggle_ds, extract_pipe_sequence, hallucination_rate, mare_k, spearman_rho_k, ndcg_k
+    ensure_kaggle_ds, extract_pipe_sequence, hallucination_rate, mare_k, spearman_rho_k, ndcg_k, \
+    extract_separator_sequence
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
 N_CUSTOMERS_PER_QUERY = 30        # number of similar customers to retrieve per query
 N_QUERIES = 50
 TOP_K = 5
+CHOSEN_SEPARATOR = '|'
 
 def build_basket_matrix(df: pd.DataFrame,
                         min_item_purchases: int) -> pd.DataFrame:
@@ -171,7 +174,7 @@ from most to least similar, as per the following JSON schema:
 {json.dumps(MostSimilarCustomers.model_json_schema())}"""
     else:
         output_string = f"""Your output MUST contain only a sorted list of the most similar customers (represented by their customer_id),
-from most to least similar, separated by the character '|'."""
+from most to least similar, separated by the character '{CHOSEN_SEPARATOR}'."""
 
     if level == 'formula':
         prompt = \
@@ -236,6 +239,7 @@ class CustomerSegmentationQuery(Query):
     ground_truth: list[int]
     ground_truth_values: list[float]
     prompt_level: str
+    parsed_response: list[int]
 
 class CustomerSegmentationMetrics(Metric):
     NDCG_SCORES = auto() # NDCG considerando i punteggi reali, indipendentemente da k
@@ -268,10 +272,16 @@ class customer_segmentation(Test):
         ensure_kaggle_ds(ds_name, file_path)
         self.full_df = pd.read_excel(file_path)
 
-    def evaluate_query(self, query: CustomerSegmentationQuery) -> Evaluations:
-        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.top_k, mare_k=self.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.top_k)
-
+    def parse_query(self, query: CustomerSegmentationQuery) -> bool:
+        """
+        Parse the response of a query to extract the list of top-k similar customers.
+        It automatically sets the `parsing_failed` and `parsed_response` attributes of the query.
+        :param query: CustomerSegmentationQuery
+        :return: bool indicating whether parsing was successful
+        """
+        top_k_list: list[str] = None
         if query.response_json_schema:
+            #TODO: verificare il tipo assunto da top_k_list in questo ramo dell'if
             try:
                 json_response = extract_json(query.response, query.customer_id)
                 top_k_list = json_response['top_k']
@@ -280,42 +290,77 @@ class customer_segmentation(Test):
                     json_response = {'top_k': extract_list(query.response, query.customer_id)}
                     top_k_list = json_response['top_k']
                 except (JSONDecodeError, KeyError, TypeError) as e:
-                    print(f"Cannot evaluate query {query.id}: {e}")
+                    print(f"Cannot parse query {query.id}: {e}")
                     query.parsing_failed = True
-                    return failing_scores
         else:
-            matched_lists = extract_pipe_sequence(query.response)
+            matched_lists: list[list[str]] = extract_separator_sequence(query.response, CHOSEN_SEPARATOR, self.top_k)
             matched_lists_len = len(matched_lists)
             if matched_lists_len == 0:
-                print(f"Cannot evaluate query {query.id}: no pipe-separated list found in the response.")
+                print(f"Cannot parse query {query.id}: no '{CHOSEN_SEPARATOR}'-separated list found in the response.")
                 query.parsing_failed = True
-                return failing_scores
-            elif matched_lists_len > 1:
-                print(f"Warning for query {query.id}: multiple pipe-separated lists found in the response. Using the last one.")
-            top_k_list: list[str] = matched_lists[-1] # use the last matched list
-            top_k_list: list[str] = [s.replace("*", "") for s in top_k_list] # remove possible asterisks
-            try:
-                top_k_list: list[int] = [int(s) for s in top_k_list]
-            except (TypeError, ValueError) as e:
-                print(f"Cannot evaluate query {query.id}: invalid customer IDs in the extracted list. {e}")
-                query.parsing_failed = True
-                return failing_scores
+            else:
+                candidate_lists: list[list[str]] = []
+                for matched_list in matched_lists:
+                    valid_parts: list[str] = []
+                    for i, part in enumerate(matched_list):
+                        found_numbers: list = re.findall(r"\d{3,}", part)
+                        if len(found_numbers) == 0:
+                            continue # no numbers within an element of the list: skip
+                        elif len(found_numbers) == 1:
+                            valid_parts.append(found_numbers[0])
+                        elif len(found_numbers) > 1:
+                            if i == 0: # if multiple numbers in the first part, take the last one
+                                valid_parts.append(found_numbers[-1])
+                            elif i == matched_lists_len - 1: # if multiple numbers in the last part, take the first one
+                                valid_parts.append(found_numbers[0])
+                            else: # ambiguous part in the middle of the list
+                                valid_parts = [] # invalidate the entire list
+                                break
+                    if len(valid_parts) == self.top_k:
+                        candidate_lists.append(valid_parts)
+                if len(candidate_lists) == 0:
+                    print(f"Cannot parse query {query.id}: no valid '{CHOSEN_SEPARATOR}'-separated list with enough customer IDs found in the response.")
+                    query.parsing_failed = True
+                elif len(candidate_lists) > 1:
+                    print(f"Warning for query {query.id}: multiple valid '{CHOSEN_SEPARATOR}'-separated lists found in the response. Using the last one.")
+                    top_k_list: list[str] = candidate_lists[-1] # use the last valid
+                else:
+                    top_k_list: list[str] = candidate_lists[0]
 
-        query.parsing_failed = False
+        if query.parsing_failed or top_k_list is None:
+            return False
+        try:
+            query.parsed_response = [int(s) for s in top_k_list]
+            query.parsing_failed = False
+            return True
+        except (TypeError, ValueError) as e:
+            print(f"Cannot parse query {query.id}: invalid customer IDs in the extracted list. {e}")
+            query.parsing_failed = True
+            return False
+
+
+    def evaluate_query(self, query: CustomerSegmentationQuery) -> Evaluations:
+        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.top_k, mare_k=self.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.top_k)
+
+        if not self.parse_query(query):
+            return failing_scores
+
         temp_vals: list[float] = [x + 1 for x in query.ground_truth_values]
         ndcg_scores: list[float] = [temp_vals[query.ground_truth.index(cust)]
-                                      if cust in query.ground_truth
-                                      else 0
-                                      for cust in top_k_list]
+                                    if cust in query.ground_truth
+                                    else 0
+                                    for cust in query.parsed_response]
 
         return Evaluations(ndcg_scores=ndcg_k(ndcg_scores, temp_vals, self.top_k),
-                           ndcg_k=ndcg_k(relevance_scores=[self.top_k - i if cust in query.ground_truth[:self.top_k] else 0 for i, cust in
-                                enumerate(top_k_list)], k=self.top_k),
-                           mare=mare_k(top_k_list, query.ground_truth),
-                           mare_k=mare_k(top_k_list, query.ground_truth, self.top_k),
-                           spearman=spearman_rho_k(top_k_list, query.ground_truth),
-                           spearman_k=spearman_rho_k(top_k_list, query.ground_truth, self.top_k),
-                           hallucination_rate=hallucination_rate(top_k_list, query.ground_truth))
+                           ndcg_k=ndcg_k(
+                               relevance_scores=[self.top_k - i if cust in query.ground_truth[:self.top_k] else 0 for
+                                                 i, cust in
+                                                 enumerate(query.parsed_response)], k=self.top_k),
+                           mare=mare_k(query.parsed_response, query.ground_truth),
+                           mare_k=mare_k(query.parsed_response, query.ground_truth, self.top_k),
+                           spearman=spearman_rho_k(query.parsed_response, query.ground_truth),
+                           spearman_k=spearman_rho_k(query.parsed_response, query.ground_truth, self.top_k),
+                           hallucination_rate=hallucination_rate(query.parsed_response, query.ground_truth))
 
     def init_queries(self) -> None:
         file_name = 'prepared_queries.csv'

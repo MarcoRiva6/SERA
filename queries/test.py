@@ -194,8 +194,12 @@ def spearman_rho_k(llm_ranking: list[Any], ground_truth: list[Any], k: int = Non
                  for c in llm]
     gt_order = range(len(llm_order))
 
+    # check for constant list
+    if all(x == llm_order[0] for x in llm_order):
+        return 0.0
+
     rho, _ = spearmanr(gt_order, llm_order)
-    if np.isnan(rho): # constant list
+    if np.isnan(rho): # constant list, but should not happen due to previous check
         return 0.0
     return float(rho)
 

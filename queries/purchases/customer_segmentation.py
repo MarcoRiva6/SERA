@@ -194,7 +194,7 @@ be computed following these steps:
 3.	Final Score
 	•	Combine the two similarity measures with a weighted average:
 	•	{alpha*100:.0f}% weight for the basket-content similarity
-	•	{(1-alpha)*100:0.f}% weight for the RFM similarity
+	•	{(1-alpha)*100:.0f}% weight for the RFM similarity
 
 Do NOT guess or hallucinate missing data.
 Only reason using the purchase histories provided in the dataset.

@@ -108,12 +108,16 @@ class esi(Test):
     name: str = "ESI"
     simplified_df: DataFrame = None
     clean_df: DataFrame = None
-    prompt_levels: list[str] = field(default_factory=lambda: ['generic']) # 'generic', 'esi_instruct', 'esi_formula'
-    plant_names_mods: list[str] = field(default_factory=lambda: ['real']) # 'real', 'fake'
-    n_queries: int = 10
-    planets_per_query: int = 50
-    top_k: int = 10
-    enforce_json_schema: bool = False
+    @dataclass
+    class Params(Test.Params):
+        prompt_levels: list[str] = field(default_factory=lambda: ['generic']) # 'generic', 'esi_instruct', 'esi_formula'
+        plant_names_mods: list[str] = field(default_factory=lambda: ['real']) # 'real', 'fake'
+        n_queries: int = 10
+        planets_per_query: int = 50
+        top_k: int = 10
+        enforce_json_schema: bool = False
+    params: Params = field(default_factory=Params)
+        
 
     def load_csvs(self) -> None:
         folder = data_folder / self.family
@@ -126,7 +130,7 @@ class esi(Test):
         self.simplified_df = pd.read_csv(simplified_ds_path)
 
     def evaluate_query(self, query: PlanetQuery) -> Evaluations:
-        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.top_k, mare_k=self.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.top_k)
+        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.params.top_k, mare_k=self.params.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.params.top_k)
 
         if query.response_json_schema:
             try:
@@ -147,7 +151,7 @@ class esi(Test):
                 query.parsing_failed = True
                 return failing_scores
             elif len(matched_lists) > 1:
-                matched_lists = [lst for lst in matched_lists if len(lst) == self.top_k]
+                matched_lists = [lst for lst in matched_lists if len(lst) == self.params.top_k]
                 if len(matched_lists) == 0:
                     print(f"Cannot evaluate query {query.id}: no valid pipe-separated list found in the response.")
                     query.parsing_failed = True
@@ -179,14 +183,14 @@ class esi(Test):
                     break
             llm_scores.append(score)
 
-        return Evaluations(ndcg_scores=ndcg_k(llm_scores, ground_truth_scores, self.top_k),
+        return Evaluations(ndcg_scores=ndcg_k(llm_scores, ground_truth_scores, self.params.top_k),
                            ndcg_k=ndcg_k(
-            [self.top_k - i if p in ground_truth_names[:self.top_k] else 0 for i, p in enumerate(llm_names)],
-            k=self.top_k),
+            [self.params.top_k - i if p in ground_truth_names[:self.params.top_k] else 0 for i, p in enumerate(llm_names)],
+            k=self.params.top_k),
                            mare=mare_k(llm_names, ground_truth_names),
-                           mare_k=mare_k(llm_names, ground_truth_names, self.top_k),
+                           mare_k=mare_k(llm_names, ground_truth_names, self.params.top_k),
                            spearman=spearman_rho_k(llm_names, ground_truth_names),
-                           spearman_k=spearman_rho_k(llm_names, ground_truth_names, self.top_k),
+                           spearman_k=spearman_rho_k(llm_names, ground_truth_names, self.params.top_k),
                            hallucination_rate=hallucination_rate(llm_names, ground_truth_names))
 
     def prepare_df(self) -> None:
@@ -223,17 +227,17 @@ class esi(Test):
         if os.path.exists(self.run_folder / file_name):
             self.csv_to_queries(PlanetQuery, file_name, self.run_folder)
             return
-        if math.comb(len(self.clean_df), self.planets_per_query) < self.n_queries:
+        if math.comb(len(self.clean_df), self.params.planets_per_query) < self.params.n_queries:
             raise ValueError("Not enough unique combinations of planets to generate the requested number of queries.")
 
         self.queries = []
-        current_seed = self.seed
+        current_seed = self.params.seed
         counter = 0
 
-        for _ in range(self.n_queries):
-            selected_planets = self.clean_df.sample(n=self.planets_per_query, replace=False, random_state=current_seed if self.seed != 0 else None)
+        for _ in range(self.params.n_queries):
+            selected_planets = self.clean_df.sample(n=self.params.planets_per_query, replace=False, random_state=current_seed if self.params.seed != 0 else None)
 
-            for planet_name_mod in self.plant_names_mods:
+            for planet_name_mod in self.params.plant_names_mods:
                 if planet_name_mod == 'real':
                     q_df = selected_planets
                 elif planet_name_mod == 'fake':
@@ -247,7 +251,7 @@ class esi(Test):
                 ground_truth = [{'planet_name': row['Name'],
                                  'esi': row['ESI']} for _, row
                                 in ground_truth_df.iterrows()]
-                for prompt_level in self.prompt_levels:
+                for prompt_level in self.params.prompt_levels:
                     if prompt_level == 'generic':
                         response_schema = MostSimilarPlanets.model_json_schema()
                     elif prompt_level in ['esi_instruct', 'esi_formula']:
@@ -256,14 +260,15 @@ class esi(Test):
                         raise ValueError(f"Unknown prompt_level: {prompt_level}")
                     query = PlanetQuery(
                         id=counter,
-                        prompt=create_prompt(prompt_df, prompt_level, self.top_k, self.enforce_json_schema),
+                        prompt=create_prompt(prompt_df, prompt_level, self.params.top_k, self.params.enforce_json_schema),
                         prompt_level=prompt_level,
                         plant_names_mod=planet_name_mod,
                         ground_truth=ground_truth,
                         response=None,
                         evaluations=Evaluations(),
-                        response_json_schema=response_schema if self.enforce_json_schema else None,
-                        parsing_failed=None
+                        response_json_schema=response_schema if self.params.enforce_json_schema else None,
+                        parsing_failed=None,
+                        parsed_response=None
                     )
                     self.queries.append(query)
                     counter += 1

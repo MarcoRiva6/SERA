@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 from abc import abstractmethod, ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, asdict, field
 from enum import StrEnum
 from numbers import Number
 from pathlib import Path
@@ -292,11 +292,39 @@ class Test(ABC):
     family: str # the family this test belongs to (e.g. "movies", "molecules")
     name_path: str # the path-safe name of the test
     run_type: RunType
-    run_folder: Path
-    seed: int # random seed for reproducibility
+    run_folder: Path # /data
     debug: bool = True
     queries: list[Query] = None # The list of queries generated for this test.
     evaluations: Evaluations = None # Aggregated evaluations across all queries for this test.
+    @dataclass
+    class Params(ABC):
+        """
+        Parameters for the test.
+        All configuration parameters that could be changed via the yaml file should be declared here.
+        This class should be extended in subclasses, to add specific parameters, with name 'Params'.
+
+        A single instance of this class should be stored in the variable 'params' of the test, as shown below.
+        """
+        seed: int = 0 # random seed
+    params: Params = field(default_factory=Params)
+    params_file_name: str = 'test_params.json'
+
+    def save_params(self) -> None:
+        """
+        Save the test configuration to a JSON file.
+        """
+        with open(self.run_folder / self.params_file_name, 'w') as f:
+            json.dump(asdict(self.params), f, indent=4)
+
+    def same_params(self) -> bool:
+        """
+        Compare the current test configuration with a previously saved one.
+        :return: True if the configurations match, False otherwise.
+        """
+        with open(self.run_folder / self.params_file_name, 'r') as f:
+            saved_params = json.load(f)
+        current_params = asdict(self.params)
+        return saved_params == current_params
 
     def prepare_queries(self) -> None:
         """

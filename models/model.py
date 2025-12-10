@@ -5,6 +5,7 @@ import time
 from datetime import datetime
 from typing import Any
 
+import math
 import yaml
 from dataclasses import dataclass
 from pathlib import Path
@@ -42,6 +43,7 @@ class Model:
     name_api: str
     backend: Backend
     max_tokens: int
+    batch_max_tokens: int
     run_type: RunType
     run_folder: Path
     seed: int
@@ -222,6 +224,13 @@ class Model:
                 print(f"Warning: No response for query with prompt hash {hash(bq.prompt)}")
         return True
 
+    def _count_tokens_google(self, prompt: str) -> int:
+        if self.initialized_client is None:
+            self.initialized_client = self.__init_google_client()
+        client: Any = self.initialized_client
+        response = client.models.count_tokens(contents=prompt, model=self.name_api)
+        return response.total_tokens
+
     @staticmethod
     def __init_google_client():
         # Load API key from .env file
@@ -339,7 +348,6 @@ class Model:
                     }
                     requests.append(r)
 
-                self.run_folder.mkdir(parents=True, exist_ok=True)
                 write_jsonl(input_path, requests)
 
                 # Upload the file to the File API
@@ -396,6 +404,27 @@ class Model:
                 print(f"Warning: No response for query with prompt hash {hash(bq.prompt)}")
         return True
 
+    def _prepare_submissions(self, queries: list[Query]) -> None:
+        """
+        Populates self.submissions using the provided queries,
+        """
+        if self.batched:
+            self.submissions = [Submission(queries=queries)]
+            if self.batch_max_tokens != 0:
+                counting_method = getattr(self, '_count_tokens_' + self.backend.value, None)
+                if counting_method is not None:
+                    total_batch_tokens = sum([counting_method(q.prompt) for q in queries])
+                    if total_batch_tokens > self.batch_max_tokens:
+                        margin = 0.1
+                        n_batches = math.ceil(total_batch_tokens / ((1-margin) * self.batch_max_tokens))
+                        queries_per_batch = math.ceil(len(queries) / n_batches)
+                        self.submissions = [Submission(queries=queries[i*queries_per_batch : (i+1)*queries_per_batch])
+                                            for i in range(n_batches)]
+                else:
+                    print(f"Warning: 'max_batch_tokens' specified, but counting method for backend {self.backend.value} not implemented. Will not split.")
+        else:
+            self.submissions = [Submission(queries=[q]) for q in queries]
+
     def submit(self, test: Test, df=None) -> bool:
         """
         Submit the test queries to the model.
@@ -404,11 +433,7 @@ class Model:
         :param df: used only for LOTUS run type, the dataframe to be passed to the prompt function
         :return: True when the submission is complete, False if the batched submission is still in progress
         """
-        #build submissions
-        if self.batched:
-            self.submissions = [Submission(queries=test.queries)]
-        else:
-            self.submissions = [Submission(queries=[q]) for q in test.queries]
+        self._prepare_submissions(test.queries)
 
         submit_name = '_submit_' + self.run_type.value + '_' + self.backend.value
         if self.batched:
@@ -418,17 +443,24 @@ class Model:
         except AttributeError:
             raise NotImplementedError(f'Submit {submit_name} not implemented.')
 
-        for i, submission in enumerate(self.submissions):
-            if self.batched:
-                print(f'Submitting {len(submission.queries)} queries...')
+        print(f"Submitting {len(test.queries)} queries...")
+
+        if self.batched:
+            for b_number, submission in enumerate(self.submissions):
+                print(f'Submitting batch {b_number + 1}/{len(self.submissions)} with {len(submission.queries)} queries...')
+                self.run_folder = self.run_folder / f'batch_{b_number + 1}'
+                self.run_folder.mkdir(parents=True, exist_ok=True)
                 try:
                     if not submit_method(submission.queries):
                         return False
                     submission.success = True
                 except Exception as e:
                     raise SubmissionError(f'Error during batched submission: {e}')
-            else:
-                print(f'Submitting query {i + 1}/{len(self.submissions)}...')
+                finally:
+                    self.run_folder = self.run_folder.parent
+        else:
+            for s_number, submission in enumerate(self.submissions):
+                print(f'Submitting query {s_number + 1}/{len(self.submissions)}...')
                 try:
                     if self.run_type == RunType.LOTUS:
                         response = submit_method(submission.queries[0].prompt, df)
@@ -438,11 +470,14 @@ class Model:
                     submission.success = True
                     print("Received response:", submission.queries[0].response)
                 except Exception as e:
-                    raise SubmissionError(f'Error during submission of query {i + 1}: {e}')
+                    raise SubmissionError(f'Error during submission of query {s_number + 1}: {e}')
+
+        for submission in self.submissions:
             if submission.success:
                 for q in submission.queries:
                     try:
                         q.evaluations = test.evaluate_query(q)
                     except Exception as e:
                         print(f'Error during evaluation of query: {e}')
+
         return True

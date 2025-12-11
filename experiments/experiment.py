@@ -149,8 +149,16 @@ class Experiment:
 
         print('Preparing test...')
         self.test.save_params()
-
-        self.test.prepare_queries()
+        queries_file_exists: bool = (self.test.run_folder / self.test.prepared_queries_file_name).exists()
+        if queries_file_exists:
+            print('Restoring already generated queries...')
+            self.test.restore_queries()
+        else:
+            print('Generating queries...')
+            self.test.generate_queries()
+            print('Storing queries...')
+            self.test.store_queries()
+            self.test.queries_to_csv('prepared_queries.csv')
         print('test ready. Submitting queries...')
         try:
             if not self.model.submit(self.test):

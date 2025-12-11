@@ -223,10 +223,6 @@ class esi(Test):
         self.clean_df = df
 
     def init_queries(self) -> None:
-        file_name = 'prepared_queries.csv'
-        if os.path.exists(self.run_folder / file_name):
-            self.csv_to_queries(PlanetQuery, file_name, self.run_folder)
-            return
         if math.comb(len(self.clean_df), self.params.planets_per_query) < self.params.n_queries:
             raise ValueError("Not enough unique combinations of planets to generate the requested number of queries.")
 
@@ -274,7 +270,6 @@ class esi(Test):
                     counter += 1
 
             current_seed = current_seed + 1
-        self.queries_to_csv(file_name)
 
     def prepare_queries_for_direct(self) -> None:
         print('loading dataset...')

@@ -367,11 +367,6 @@ class customer_segmentation(Test):
                            hallucination_rate=hallucination_rate(query.parsed_response, query.ground_truth))
 
     def init_queries(self) -> None:
-        file_name = 'prepared_queries.csv'
-        if os.path.exists(self.run_folder / file_name):
-            self.csv_to_queries(CustomerSegmentationQuery, file_name, self.run_folder)
-            return
-
         current_seed = self.params.seed
 
         self.queries = []
@@ -426,8 +421,6 @@ class customer_segmentation(Test):
                 counter += 1
 
             current_seed += 1
-
-        self.queries_to_csv(file_name)
 
     def prepare_df(self) -> None:
         # Drop unnecessary columns

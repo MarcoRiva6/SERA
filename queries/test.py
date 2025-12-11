@@ -295,6 +295,7 @@ class Test(ABC):
     run_folder: Path # /data
     debug: bool = True
     queries: list[Query] = None # The list of queries generated for this test.
+    prepared_queries_file_name: str = "prepared_queries.pkl" # Path to the file where prepared queries are stored.
     evaluations: Evaluations = None # Aggregated evaluations across all queries for this test.
     @dataclass
     class Params(ABC):
@@ -326,7 +327,7 @@ class Test(ABC):
         current_params = asdict(self.params)
         return saved_params == current_params
 
-    def prepare_queries(self) -> None:
+    def generate_queries(self) -> None:
         """
         After this method is called, variable 'queries' should be populated.
         It automatically calls the appropriate 'prepare' method (based on the current run_type) as 'prepare_queries_for_<run_type>()'.
@@ -387,6 +388,20 @@ class Test(ABC):
         :return: DataFrame containing all queries.
         """
         return queries_to_df(self.queries)
+
+    def store_queries(self) -> None:
+        """
+        Store the variable queries as a CSV file in the run folder.
+        The file name is 'queries_<test_name_path>.csv'.
+        """
+        import pickle
+        with (self.run_folder / self.prepared_queries_file_name).open("wb") as f:
+            pickle.dump(self.queries, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def restore_queries(self) -> None:
+        import pickle
+        with (self.run_folder / self.prepared_queries_file_name).open("rb") as f:
+            self.queries = pickle.load(f)
 
     def queries_to_csv(self, file_name: str, dest: Path = None) -> None:
         """

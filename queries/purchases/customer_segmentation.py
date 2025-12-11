@@ -331,7 +331,7 @@ class customer_segmentation(Test):
                 else:
                     top_k_list: list[str] = candidate_lists[0]
 
-        if query.parsing_failed or top_k_list is None:
+        if query.parsing_failed or top_k_list is None or len(top_k_list) != self.params.top_k:
             return False
         try:
             query.parsed_response = [int(s) for s in top_k_list]

@@ -15,7 +15,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 
 from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, extract_list, \
-    ensure_kaggle_ds, extract_pipe_sequence, hallucination_rate, mare_k, spearman_rho_k, ndcg_k, \
+    ensure_kaggle_ds, hallucination_rate, mare_k, spearman_rho_k, ndcg_k, \
     extract_separator_sequence
 
 ALPHA = 0.7                      # weight for basket-content similarity
@@ -285,7 +285,6 @@ class customer_segmentation(Test):
         """
         top_k_list: list[str] = None
         if query.response_json_schema:
-            #TODO: verificare il tipo assunto da top_k_list in questo ramo dell'if
             try:
                 json_response = extract_json(query.response, query.customer_id)
                 top_k_list = json_response['top_k']
@@ -369,7 +368,7 @@ class customer_segmentation(Test):
     def init_queries(self) -> None:
         current_seed = self.params.seed
 
-        self.queries = []
+        self.queries: list[CustomerSegmentationQuery] = []
         cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
         counter = 0
 

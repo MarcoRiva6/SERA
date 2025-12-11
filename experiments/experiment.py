@@ -174,7 +174,6 @@ class Experiment:
         except Exception as e:
             print('An unknown error occurred during submission:', e)
             return
-        q_df = self.test.queries_to_df()
         self.test.queries_to_csv('answered_queries.csv', self.inner_folder)
         print('queries saved to csv.')
         self.test.evaluate()

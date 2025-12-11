@@ -35,6 +35,22 @@ def write_jsonl(write_to: Path, lines: list[Any]):
         for l in lines:
             f.write(json.dumps(l) + "\n")
 
+def convert_schema_to_gemini(schema):
+    if isinstance(schema, dict):
+        new_schema = {}
+        for key, value in schema.items():
+            if key == "type" and isinstance(value, str):
+                new_schema[key] = value.upper()
+            else:
+                new_schema[key] = convert_schema_to_gemini(value)
+        return new_schema
+
+    elif isinstance(schema, list):
+        return [convert_schema_to_gemini(item) for item in schema]
+
+    else:
+        return schema
+
 
 @dataclass
 class Model:
@@ -333,19 +349,23 @@ class Model:
                 for q_key, q in batch_queries.items():
                     r = {
                         "key": q_key,
-                        "generationConfig": {
-                            "maxOutputTokens": self.max_tokens,
-                            "thinking_config": {
-                                "include_thoughts": False,
-                                "thinking_budget": 0
-                            }
-                            #"temperature": 0.7,
-                            #"seed": self.seed
-                        },
                         "request": {
                             "contents": [{"parts": [{"text": q.prompt}], "role": "user"}],
+                            "generation_config": {
+                                "maxOutputTokens": self.max_tokens,
+                                "thinking_config": {
+                                    "include_thoughts": False,
+                                    "thinking_budget": 0
+                                }
+                                #"temperature": 0.7,
+                                #"seed": self.seed
+                            }
                         }
                     }
+                    if q.response_json_schema is not None and q.response_json_schema != '':
+                        r['request']['generation_config']['response_mime_type'] = "application/json"
+                        r['request']['generation_config']['response_schema'] = convert_schema_to_gemini(q.response_json_schema)
+
                     requests.append(r)
 
                 write_jsonl(input_path, requests)

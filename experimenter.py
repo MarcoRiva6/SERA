@@ -1,15 +1,14 @@
 import importlib
 import importlib.util
-from dataclasses import replace, fields
+from dataclasses import fields
 from pathlib import Path
-from typing import Iterable, Any, Sequence
+from typing import Iterable, Sequence
 
 import pandas as pd
 import yaml
 from huggingface_hub.hub_mixin import DataclassInstance
 from pandas import DataFrame
 
-from models.model import Model
 from experiments.experiment import (Experiment)
 from experiments.run_type import (RunType)
 from queries.test import Query, queries_to_df
@@ -117,10 +116,10 @@ def load_experiments() -> list[Experiment]:
                 for q in queries:
                     # instantiate test object
                     q_name_split = q['name'].split('/')
-                    family, test_name_path = q_name_split[0], q_name_split[1]
-                    inner_run_folder = this_run_folder / family / test_name_path
+                    test_family, test_name_path = q_name_split[0], q_name_split[1]
+                    inner_run_folder = this_run_folder / test_family / test_name_path
                     test_base_args = {
-                        'family': family,
+                        'family': test_family,
                         'name_path': test_name_path,
                         'run_type': rt,
                         'run_folder': inner_run_folder / 'data',
@@ -128,27 +127,34 @@ def load_experiments() -> list[Experiment]:
                     q_class_path = 'queries.' + q['name'].replace('/', '.') + '.' + test_name_path
                     q_class = class_from_path(q_class_path)
 
-                    q_param_class = getattr(q_class, 'Params')
                     #instanciate test parameters object
+                    q_param_class = getattr(q_class, 'Params')
                     q_external_params = {k: v for k, v in q.items() if k != 'name'}
                     test_params = q_param_class(seed=exp_seed, **q_external_params)
                     # instantiate test object
                     test_obj = q_class(**test_base_args, params=test_params)
 
                     # instantiate model object
-                    model_name_path = m['name'].split('/')[1]
-                    m_extend = {
+                    model_name_split = m['name'].split('/')
+                    model_family = model_name_split[0]
+                    model_class_path = 'models.' + model_family + '.' + model_family.capitalize() + 'Model' + '.' + model_family.capitalize() + 'Model'
+                    model_class = class_from_path(model_class_path)
+                    model_name_path = model_name_split[1]
+                    model_base_args = {
                         'name_path': model_name_path,
-                        'file': models_folder / (m['name'] + '.yaml'),
+                        'family': model_family,
+                        'file': models_folder / model_family / (model_name_path + '.yaml'),
                         'run_type': rt,
                         'run_folder': inner_run_folder / 'results' / model_name_path / rt,
-                        'seed': exp_seed
                     }
-                    model_args = m_extend | {k: v for k, v in m.items() if k != 'name'}
-                    model = Model.from_yaml_file(**model_args)
+                    # instantiate model parameters object
+                    model_param_class = getattr(model_class, 'Params')
+                    model_external_args = {k: v for k, v in m.items() if k != 'name'}
+                    model_params = model_param_class(seed=exp_seed, **model_external_args)
+                    model = model_class.from_yaml_file(**model_base_args, params=model_params)
                     # instantiate experiment object
                     experiment = Experiment(
-                        name=f"{test_file.stem}: {model.name}, {rt}, {family} - {test_obj.name}",
+                        name=f"{test_file.stem}: {model.name}, {rt}, {test_family} - {test_obj.name}",
                         run_folder=this_run_folder,
                         model=model,
                         run_type=rt,

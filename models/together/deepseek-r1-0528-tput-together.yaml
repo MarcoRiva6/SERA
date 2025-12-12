@@ -1,6 +1,5 @@
 # reasoning, non si disabilita
 name: 'DeepSeek R1 0528 Tput (Together)'
 name_api: 'deepseek-ai/DeepSeek-R1-0528-tput'
-backend: 'together'
+supports_batched: true
 max_tokens: 0
-batched: true

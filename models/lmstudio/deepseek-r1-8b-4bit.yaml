@@ -1,4 +1,3 @@
-name: 'DeepSeek R1 8B 8-bit'
+name: 'DeepSeek R1 8B 4-bit'
 name_api: 'deepseek/deepseek-r1-0528-qwen3-8b'
-backend: 'lm_studio'
 max_tokens: 8192

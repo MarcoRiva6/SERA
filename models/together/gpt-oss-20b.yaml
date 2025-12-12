@@ -1,6 +1,5 @@
 # reasoning, lunghissimo
 name: 'GPT OSS 20B'
 name_api: 'openai/gpt-oss-20b'
-backend: 'together'
 max_tokens: 0
-batched: true
+supports_batched: true

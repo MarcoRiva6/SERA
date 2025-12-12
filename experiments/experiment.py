@@ -159,12 +159,10 @@ class Experiment:
             print('Storing queries...')
             self.test.store_queries()
             self.test.queries_to_csv('prepared_queries.csv')
-        print('test ready. Submitting queries...')
+        print('test ready.')
         try:
-            if not self.model.submit(self.test):
-                print('Skipping the remaining part of the execution...')
-                return
-            print('test submit complete.')
+            self.model.run(self.test.queries)
+            print('test submission complete.')
         except NotImplementedError as e:
             print(e)
             return
@@ -174,12 +172,21 @@ class Experiment:
         except Exception as e:
             print('An unknown error occurred during submission:', e)
             return
-        self.test.queries_to_csv('answered_queries.csv', self.inner_folder)
-        print('queries saved to csv.')
-        self.test.evaluate()
-        print('test evaluation:', self.test.evaluations)
-        self.test.evaluations_to_csv(dest=self.inner_folder)
-        print('evaluations saved to csv.')
+
+        at_least_one_completed = any(q.response is not None for q in self.test.queries)
+        if at_least_one_completed:
+            print('Evaluating queries...')
+            for q in self.test.queries:
+                if q.response is not None:
+                    q.evaluations = self.test.evaluate_query(q)
+
+            print('Storing answered queries...')
+            self.test.queries_to_csv('answered_queries.csv', self.inner_folder)
+            print('queries saved to csv.')
+            self.test.evaluate()
+            print('test evaluation:', self.test.evaluations)
+            self.test.evaluations_to_csv(dest=self.inner_folder)
+            print('evaluations saved to csv.')
 
         #self.display(df=q_df)
 

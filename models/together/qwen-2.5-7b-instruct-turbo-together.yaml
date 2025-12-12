@@ -1,6 +1,5 @@
 #troppi token generati durante l'esecuzione?
 name: 'Qwen 2.5 7B Instruct Turbo'
 name_api: 'Qwen/Qwen2.5-7B-Instruct-Turbo'
-backend: 'together'
 max_tokens: 0
-batched: true
+supports_batched: true

@@ -1,6 +1,5 @@
 #ok
 name: 'Llama 3.2 3B Instruct Turbo Together'
 name_api: 'meta-llama/Llama-3.2-3B-Instruct-Turbo'
-backend: 'together'
 max_tokens: 0
-batched: true
+supports_batched: true

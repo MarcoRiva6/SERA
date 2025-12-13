@@ -7,7 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import google.genai
-from google.genai.types import BatchJob, GenerationConfig, ThinkingConfig
+from google.genai.types import BatchJob, ThinkingConfig, GenerationConfig, Content, Part
 
 from models.model import Model, write_jsonl, _split_queries
 from queries.test import Query
@@ -48,8 +48,8 @@ class GoogleModel(Model):
         return Client(api_key=api_key)
 
     def _count_tokens(self, prompt: str) -> int:
-        if self.initialized_client is None:
-            self.initialized_client = self.__init_google_client()
+        if self.client is None:
+            self.client = self.__init_google_client()
         response = self.client.models.count_tokens(contents=prompt, model=self.name_api)
         return response.total_tokens
 
@@ -94,9 +94,9 @@ class GoogleModel(Model):
 
         from google.genai import Client
         from google.genai import types
-        if self.initialized_client is None:
-            self.initialized_client = self.__init_google_client()
-        client: Client = self.initialized_client
+        if self.client is None:
+            self.client = self.__init_google_client()
+        client: Client = self.client
 
         retry_count = 0
         while retry_count <= MAX_RETRIES:
@@ -140,28 +140,25 @@ class GoogleModel(Model):
             else:
                 requests: list[dict] = []
 
+                thinking_config = ThinkingConfig(include_thoughts=False)
+                if self.params.reasoning and self.supports_reasoning:
+                    thinking_config.thinking_budget = -1 # auto hybrid thinking
+                else:
+                    thinking_config.thinking_budget = 0
+                gen_config = GenerationConfig(max_output_tokens=self.max_tokens, thinking_config=thinking_config)
                 for q_key, q in batch_queries.items():
+                    content = Content(parts=[Part(text=q.prompt)], role="user")
+                    req_gen_config = gen_config.model_copy()
+                    if q.response_json_schema is not None and q.response_json_schema != '':
+                        req_gen_config.response_mime_type = "application/json"
+                        req_gen_config.response_schema = convert_schema_to_gemini(q.response_json_schema)
                     r = {
                         "key": q_key,
                         "request": {
-                            "contents": [{"parts": [{"text": q.prompt}], "role": "user"}],
-                            "generation_config": {
-                                "maxOutputTokens": self.max_tokens,
-                                "thinking_config": {
-                                    "include_thoughts": False,
-                                    "thinking_budget": 0
-                                }
-                                #"temperature": 0.7,
-                                #"seed": self.seed
-                            }
+                            "contents": [content.to_json_dict()],
+                            "generation_config": req_gen_config.to_json_dict()
                         }
                     }
-                    if self.params.reasoning and self.supports_reasoning:
-                        r['request']['generation_config']['thinking_config']['thinking_budget'] = 1000  # example budget
-                    if q.response_json_schema is not None and q.response_json_schema != '':
-                        r['request']['generation_config']['response_mime_type'] = "application/json"
-                        r['request']['generation_config']['response_schema'] = convert_schema_to_gemini(q.response_json_schema)
-
                     requests.append(r)
 
                 folder.mkdir(parents=True, exist_ok=True)

@@ -3,11 +3,11 @@ models:
     no_waiting: false
     reasoning: true
 run_types: 'direct'
-seed: 678
-disabled: false
+seed: 67890
+disabled: true
 queries:
   - name: 'purchases/customer_segmentation'
-    n_queries: 3
+    n_queries: 1
     top_k: 5
     prompt_levels:
 #      - 'formula'

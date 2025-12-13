@@ -266,7 +266,6 @@ class customer_segmentation(Test):
         rows_in_prompt_limit: int = 2000
         prompt_levels: list[str] = field(default_factory=lambda: ['medium']) # generic, medium, formula
         enforce_json_schema: bool = True
-    #params: Params = field(default_factory=lambda: customer_segmentation.Params())
     params: Params = field(default_factory=Params)
 
     def load_csv(self, file_path: Path = None) -> None:

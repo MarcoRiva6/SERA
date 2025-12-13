@@ -265,7 +265,6 @@ if __name__ == "__main__":
                 print(f"Skipping experiment (already executed): {exp.name}")
                 continue
             print(f"Running experiment: {exp.name}")
-            exp.test.run_folder.mkdir(parents=True, exist_ok=True)
             exp.execute()
             print('\n')
 

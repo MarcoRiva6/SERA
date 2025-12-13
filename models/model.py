@@ -4,7 +4,7 @@ from typing import Any
 
 import math
 import yaml
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -55,6 +55,29 @@ class Model(ABC):
         seed: int = 0
         no_waiting: bool = False
     params: Params
+
+    params_file_name: str = 'model_params.json'
+
+    def save_params(self) -> None:
+        """
+        Save the test configuration to a JSON file.
+        """
+        self.run_folder.mkdir(parents=True, exist_ok=True)
+        with open(self.run_folder / self.params_file_name, 'w') as f:
+            param_dict = asdict(self.params)
+            param_dict.pop('no_waiting', None)
+            json.dump(param_dict, f, indent=4)
+
+    def same_params(self) -> bool:
+        """
+        Compare the current test configuration with a previously saved one.
+        :return: True if the configurations match, False otherwise.
+        """
+        with open(self.run_folder / self.params_file_name, 'r') as f:
+            saved_params = json.load(f)
+        current_params = asdict(self.params)
+        current_params.pop('no_waiting', None)
+        return saved_params == current_params
 
     def _load_env_file(self) -> None:
         """

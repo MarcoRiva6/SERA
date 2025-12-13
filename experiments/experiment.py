@@ -143,12 +143,14 @@ class Experiment:
         Execute the experiment by preparing the test, submitting queries to the model and saving results.
         """
         test_has_already_run_once = (self.test.run_folder / self.test.params_file_name).exists()
-        if test_has_already_run_once and not self.test.same_params():
+        model_has_already_run_once = (self.model.run_folder / self.model.params_file_name).exists()
+        if test_has_already_run_once and not self.test.same_params() or model_has_already_run_once and not self.model.same_params():
             print('Test parameters have changed since last execution. Stopping to avoid inconsistencies')
             return
 
         print('Preparing test...')
         self.test.save_params()
+        self.model.save_params()
         queries_file_exists: bool = (self.test.run_folder / self.test.prepared_queries_file_name).exists()
         if queries_file_exists:
             print('Restoring already generated queries...')

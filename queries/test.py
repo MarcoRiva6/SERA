@@ -314,7 +314,9 @@ class Test(ABC):
         """
         Save the test configuration to a JSON file.
         """
-        with open(self.run_folder / self.params_file_name, 'w') as f:
+        path: Path = self.run_folder / self.params_file_name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, 'w') as f:
             json.dump(asdict(self.params), f, indent=4)
 
     def same_params(self) -> bool:
@@ -380,6 +382,7 @@ class Test(ABC):
             print('Warning: No destination folder provided for evaluations CSV. Using run_folder.')
             dest = self.run_folder
         df = pd.DataFrame([self.evaluations], index=[0])
+        dest.mkdir(parents=True, exist_ok=True)
         df.to_csv(dest / file_name, index=False, decimal=',', sep=';')
 
     def queries_to_df(self) -> pd.DataFrame:
@@ -395,6 +398,7 @@ class Test(ABC):
         The file name is 'queries_<test_name_path>.csv'.
         """
         import pickle
+        self.run_folder.mkdir(parents=True, exist_ok=True)
         with (self.run_folder / self.prepared_queries_file_name).open("wb") as f:
             pickle.dump(self.queries, f, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -412,6 +416,7 @@ class Test(ABC):
         if dest is None:
             dest = self.run_folder
         df = self.queries_to_df()
+        dest.mkdir(parents=True, exist_ok=True)
         df.to_csv(dest / file_name, index=False, decimal=',', sep=';')
 
     def csv_to_queries(self, query_cls: type, file_name: str, folder: Path = None) -> None:

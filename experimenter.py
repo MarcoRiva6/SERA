@@ -13,9 +13,10 @@ from experiments.experiment import (Experiment)
 from experiments.run_type import (RunType)
 from queries.test import Query, queries_to_df
 
-models_folder: Path = Path('models')
-query_folder: Path = Path('queries')
-runs_folder: Path = Path('runs')
+parent = Path(__file__).resolve().parent
+models_folder: Path = parent / 'models'
+query_folder: Path = parent / 'queries'
+runs_folder: Path = parent / 'runs'
 
 def class_from_path(class_path: str):
     module_path, class_name = class_path.rsplit(".", 1)

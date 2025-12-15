@@ -21,7 +21,7 @@ class Submission:
 class SubmissionError(RuntimeError):
     pass
 
-var_file: Path = Path(__file__).parent.parent / ".env"
+var_file: Path = Path(__file__).resolve().parent.parent / ".env"
 
 
 def write_jsonl(write_to: Path, lines: list[Any]):

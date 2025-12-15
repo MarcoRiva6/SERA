@@ -21,7 +21,7 @@ from scipy.stats import spearmanr
 
 from experiments.run_type import RunType
 
-data_folder: Path = Path(__file__).parent.parent / 'data' # path to the project's data folder
+data_folder: Path = Path(__file__).resolve().parent.parent / 'data' # path to the project's data folder
 
 class Metric(StrEnum):
     """

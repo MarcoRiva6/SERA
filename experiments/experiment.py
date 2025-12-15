@@ -179,8 +179,7 @@ class Experiment:
         if at_least_one_completed:
             print('Evaluating queries...')
             for q in self.test.queries:
-                if q.response is not None:
-                    q.evaluations = self.test.evaluate_query(q)
+                q.evaluations = self.test.evaluate_query(q)
 
             print('Storing answered queries...')
             self.test.queries_to_csv('answered_queries.csv', self.inner_folder)

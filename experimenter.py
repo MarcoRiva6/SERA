@@ -225,21 +225,23 @@ def rename_selected_keys(d: dict, keys_to_change: list[str], prefix: str):
 
 def merge_queries(queries: list[list[Query]], names: list[str]) -> DataFrame:
     q_attributes: list[str] = get_object_attributes_names(queries[0][0])
-    to_drop = ['ground_truth', 'response_json_schema']
-    merge_on = [attr for attr in q_attributes if attr not in ['evaluations', 'response','parsing_failed','ground_truth'] + to_drop]
+    to_drop = ['response_json_schema']
     evaluation_names: list[str] = list(queries[0][0].evaluations.keys())
-    to_separate = evaluation_names + ['response','parsing_failed']
+    to_separate = evaluation_names + ['response','parsed_response','parsing_failed']
+    merge_on = [attr for attr in q_attributes if attr not in to_separate + to_drop + ['evaluations']]
 
     result: DataFrame = None
     for qs, name in zip(queries, names):
-        rename_dict = {k: f"{k}_{name}" for k in to_separate}
-        q_df = queries_to_df(qs).rename(columns=rename_dict)
+        q_df = queries_to_df(qs)
         #drop list columns, needed for merging DF since they are not hashable
         list_columns = [
             col for col in q_df.select_dtypes(include=["object"]).columns
             if q_df[col].map(lambda x: isinstance(x, list)).any()
         ]
-        q_df = q_df.drop(columns=to_drop + list_columns)
+        q_df = q_df.drop(columns=to_drop + list_columns, errors='ignore')
+        # renaming evaluations to contain models names
+        rename_dict = {k: f"{k}_{name}" for k in to_separate}
+        q_df = q_df.rename(columns=rename_dict)
 
         if result is None:
             result = q_df

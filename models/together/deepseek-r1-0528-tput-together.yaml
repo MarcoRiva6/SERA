@@ -2,4 +2,5 @@
 name: 'DeepSeek R1 0528 Tput (Together)'
 name_api: 'deepseek-ai/DeepSeek-R1-0528-tput'
 supports_batched: true
-max_tokens: 0
+max_tokens: 8000
+supports_structured_output: true

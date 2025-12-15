@@ -3,3 +3,4 @@ name: 'GPT OSS 20B'
 name_api: 'openai/gpt-oss-20b'
 max_tokens: 0
 supports_batched: true
+supports_structured_output: true

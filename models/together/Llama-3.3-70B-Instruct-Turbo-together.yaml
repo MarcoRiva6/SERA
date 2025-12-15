@@ -3,3 +3,4 @@ name: 'Llama 3.3 70B Instruct Turbo'
 name_api: 'meta-llama/Llama-3.3-70B-Instruct-Turbo'
 max_tokens: 0
 supports_batched: true
+supports_structured_output: true

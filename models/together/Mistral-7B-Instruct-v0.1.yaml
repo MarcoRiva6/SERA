@@ -3,3 +3,4 @@ name: 'Mistral 7B Instruct v0.1'
 name_api: 'mistralai/Mistral-7B-Instruct-v0.1'
 max_tokens: 0
 supports_batched: true
+supports_structured_output: true

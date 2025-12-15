@@ -3,3 +3,4 @@ name: 'Gemma 3n E4B it Together'
 name_api: 'google/gemma-3n-E4B-it'
 max_tokens: 0
 supports_batched: true
+supports_structured_output: true

@@ -8,13 +8,14 @@ from pathlib import Path
 
 import together
 
-from models.model import Model, write_jsonl
+from models.model import Model, write_jsonl, SubmissionError
 from queries.test import Query
 
 @dataclass
 class TogetherModel(Model):
-    client: together.Client
+    client: together.Client = None
     supports_batched: bool = True
+    supports_structured_output: bool = False
     @dataclass
     class Params(Model.Params):
         batched: bool = True
@@ -69,11 +70,9 @@ class TogetherModel(Model):
                         "body": {
                             "model": self.name_api,
                             "messages": [{"role": "user", "content": q.prompt}],
-                            "reasoning": {"enable": False} # supportato solo da DS V3.1
                         },
                         "max_tokens": self.max_tokens
                     }
-                    # notare che questo serve solamente a verificare che l'output rispetti lo schema, e non forza il modello a rispondere in quel modo
                     if q.response_json_schema is not None and q.response_json_schema != '':
                         r['body']['response_format'] = {"type": "json_schema", "schema": q.response_json_schema}
                     requests.append(r)
@@ -142,9 +141,13 @@ class TogetherModel(Model):
         return True
 
     def _submit_direct(self, queries: list[Query]) -> None:
+        if any(q.response_json_schema is not None for q in queries) and not self.supports_structured_output:
+            raise SubmissionError(f"Model {self.name} does not support structured output required by some queries.")
+
         if not self.supports_batched and self.params.batched:
             print(f"Model {self.name} does not support batched submissions. Submitting direct.")
             self.params.batched = False
+
         if self.params.batched:
             if not self._submit_direct_batched(self.run_folder, queries):
                 print("Not waiting for submission to complete...")

@@ -3,3 +3,4 @@ name: 'Qwen 2.5 7B Instruct Turbo'
 name_api: 'Qwen/Qwen2.5-7B-Instruct-Turbo'
 max_tokens: 0
 supports_batched: true
+supports_structured_output: true

@@ -20,7 +20,7 @@ def compute_ground_truth(df: DataFrame, top_k: int = None) -> DataFrame:
 
 
 class MostSimilarPlanets(BaseModel):
-    top_k: list[str] = Field(description="The ordered list of top k most similar planets.")
+    top_k: list[str] = Field(description="The ordered list of the most similar planets.")
 
 class PlanetScore(BaseModel):
     planet_name: str = Field(description="The name of the planet.")
@@ -31,14 +31,8 @@ class MostSimilarPlanetsScore(BaseModel):
 
 def create_prompt(df: DataFrame, prompt_level: str, top_k: int, json_schema: bool) -> str:
     if json_schema:
-        if prompt_level == 'generic':
-            output_string = f"""Your output MUST contain only a sorted list of the most similar planets (represented by their 'Name')
-from most to least similar, as per the following JSON schema:
-{json.dumps(MostSimilarPlanets.model_json_schema())}"""
-        else:
-            output_string = f"""Your output MUST contain only a sorted list of the most similar planets (represented by their 'Name' and
- the computed similarity score) from most to least similar, as per the following JSON schema:
-{json.dumps(MostSimilarPlanetsScore.model_json_schema())}"""
+        output_string = f"""Your output MUST contain only a sorted list of the most similar planets (represented by their 'Name')
+from most to least similar."""
     else:
         output_string = f"""Your output MUST contain only a sorted list of the most similar planets (represented by their 'Name'),
 from most to least similar, separated by the character '|'."""
@@ -115,7 +109,7 @@ class esi(Test):
         n_queries: int = 10
         planets_per_query: int = 50
         top_k: int = 10
-        enforce_json_schema: bool = False
+        enforce_json_schema: bool = True
     params: Params = field(default_factory=Params)
         
 
@@ -262,7 +256,7 @@ class esi(Test):
                         ground_truth=ground_truth,
                         response=None,
                         evaluations=Evaluations(),
-                        response_json_schema=response_schema if self.params.enforce_json_schema else None,
+                        response_json_schema=MostSimilarPlanets.model_json_schema() if self.params.enforce_json_schema else None,
                         parsing_failed=None,
                         parsed_response=None
                     )

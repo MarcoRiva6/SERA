@@ -169,9 +169,8 @@ class MostSimilarCustomers(BaseModel):
 
 def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: str, json_schema: bool) -> str:
     if json_schema:
-        output_string = f"""Your output MUST contain only a sorted list of the most similar customers (represented by their customer_id),
-from most to least similar, as per the following JSON schema:
-{json.dumps(MostSimilarCustomers.model_json_schema())}"""
+        output_string = f"""Your output MUST be the sorted list of the most similar customers (represented by their customer_id),
+from most to least similar."""
     else:
         output_string = f"""Your output MUST contain only a sorted list of the most similar customers (represented by their customer_id),
 from most to least similar, separated by the character '{CHOSEN_SEPARATOR}'."""

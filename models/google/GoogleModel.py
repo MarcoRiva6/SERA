@@ -37,7 +37,7 @@ class GoogleModel(Model):
     @dataclass
     class Params(Model.Params):
         batched: bool = True
-        reasoning: bool = False
+        reasoning: bool = True
     params: Params = field(default_factory=Params)
 
     def __init_google_client(self):
@@ -207,7 +207,10 @@ class GoogleModel(Model):
                 if response['response']['candidates'][0]['finishReason'] != 'STOP':
                     q_id = getattr(q, 'id', response['key'])
                     print(f"Warning: Response for query {q_id} didn't finish.")
-                q.response = response['response']['candidates'][0]['content']['parts'][0]['text']
+                try:
+                    q.response = response['response']['candidates'][0]['content']['parts'][0]['text']
+                except KeyError:
+                    q.response = None
                 total_token_consumed += response['response']['usageMetadata']['totalTokenCount']
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")

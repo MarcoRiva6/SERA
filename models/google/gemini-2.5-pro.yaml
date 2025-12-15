@@ -1,0 +1,6 @@
+name: 'Gemini 2.5 Pro'
+name_api: 'gemini-2.5-pro'
+supports_batched: true
+supports_reasoning: true
+max_tokens: 100000
+batch_max_tokens: 5000000 # 3 million tokens per batch

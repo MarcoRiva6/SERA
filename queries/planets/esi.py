@@ -1,5 +1,3 @@
-import json
-import os
 import re
 from dataclasses import dataclass, field
 from enum import auto
@@ -11,7 +9,7 @@ from pandas import DataFrame
 from pydantic import BaseModel, Field
 
 from queries.test import Test, data_folder, Query, Evaluations, download_csv, Metric, extract_json, extract_list, \
-    hallucination_rate, extract_pipe_sequence, mare_k, spearman_rho_k, ndcg_k
+    hallucination_rate, extract_pipe_sequence, mare_k, spearman_rho_k, ndcg_k, mark_duplicates, kendall_tau_k
 
 
 def compute_ground_truth(df: DataFrame, top_k: int = None) -> DataFrame:
@@ -170,6 +168,8 @@ class esi(Test):
 
         ground_truth_names: list[str] = [item['planet_name'] for item in query.ground_truth]
         ground_truth_scores: list[float] = [item['esi'] for item in query.ground_truth]
+        llm_names_with_duplicates = llm_names
+        llm_names = mark_duplicates(llm_names, ground_truth_names[:self.params.top_k])
         llm_scores: list[float] = []
         for i, pred_planet in enumerate(llm_names):
             score = 0.0
@@ -189,7 +189,7 @@ class esi(Test):
                            kendall_k = kendall_tau_k(llm_names, ground_truth_names, self.params.top_k),
                            spearman=spearman_rho_k(llm_names, ground_truth_names),
                            spearman_k=spearman_rho_k(llm_names, ground_truth_names, self.params.top_k),
-                           hallucination_rate=hallucination_rate(llm_names, ground_truth_names))
+                           hallucination_rate=hallucination_rate(llm_names_with_duplicates, ground_truth_names))
 
     def prepare_df(self) -> None:
         def clean_html_tags(text: str) -> str:

@@ -349,11 +349,13 @@ class customer_segmentation(Test):
         if not self.parse_query(query):
             return failing_scores
 
+        response_marked_duplicates = mark_duplicates(query.parsed_response, query.ground_truth)
+
         temp_vals: list[float] = [x + 1 for x in query.ground_truth_values]
         ndcg_scores: list[float] = [temp_vals[query.ground_truth.index(cust)]
                                     if cust in query.ground_truth
                                     else 0
-                                    for cust in query.parsed_response]
+                                    for cust in response_marked_duplicates]
 
         return Evaluations(
                             kendall = kendall_tau_k(response_marked_duplicates, query.ground_truth),
@@ -362,11 +364,11 @@ class customer_segmentation(Test):
                            ndcg_k=ndcg_k(
                                relevance_scores=[self.params.top_k - i if cust in query.ground_truth[:self.params.top_k] else 0 for
                                                  i, cust in
-                                                 enumerate(query.parsed_response)], k=self.params.top_k),
-                           mare=mare_k(query.parsed_response, query.ground_truth),
-                           mare_k=mare_k(query.parsed_response, query.ground_truth, self.params.top_k),
-                           spearman=spearman_rho_k(query.parsed_response, query.ground_truth),
-                           spearman_k=spearman_rho_k(query.parsed_response, query.ground_truth, self.params.top_k),
+                                                 enumerate(response_marked_duplicates)], k=self.params.top_k),
+                           mare=mare_k(response_marked_duplicates, query.ground_truth),
+                           mare_k=mare_k(response_marked_duplicates, query.ground_truth, self.params.top_k),
+                           spearman=spearman_rho_k(response_marked_duplicates, query.ground_truth),
+                           spearman_k=spearman_rho_k(response_marked_duplicates, query.ground_truth, self.params.top_k),
                            hallucination_rate=hallucination_rate(query.parsed_response, query.ground_truth))
 
     def init_queries(self) -> None:

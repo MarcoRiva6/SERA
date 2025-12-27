@@ -5,11 +5,11 @@ import os
 import re
 import shutil
 from abc import abstractmethod, ABC
-from dataclasses import dataclass, fields, asdict, field
+from dataclasses import dataclass, field, asdict
 from enum import StrEnum
 from numbers import Number
 from pathlib import Path
-from typing import TypeAlias, Any, get_type_hints, get_origin, Counter
+from typing import TypeAlias, Any, get_type_hints, get_origin, Counter, TypeVar
 
 import kagglehub
 import math
@@ -30,6 +30,28 @@ class Metric(StrEnum):
     pass
 
 Evaluations: TypeAlias = dict[Metric, Number] # A dictionary mapping metrics to their numeric evaluation values.
+
+def mark_duplicates(llm_response: list[Any], ground_truth: list[Any]) -> list[Any]:
+    """
+    Mark duplicated values in llm_response that are not in the correct position according to ground_truth.
+    Duplicated values are replaced with the string "<duplicated>".
+    """
+    # Count occurrences in llm_response
+    counts = Counter(llm_response)
+
+    # Map ground_truth value -> its index
+    gt_index = {value: i for i, value in enumerate(ground_truth)}
+
+    result = llm_response.copy()
+
+    for i, value in enumerate(llm_response):
+        # Only care about duplicated values
+        if counts[value] > 1 and value in gt_index:
+            # If this is NOT the correct position, mark as duplicated
+            if i != gt_index[value]:
+                result[i] = "<duplicated>"
+
+    return result
 
 def extract_json(text: str, q_id=None) -> dict:
     """
@@ -221,6 +243,41 @@ def spearman_rho_k(llm_ranking: list[Any], ground_truth: list[Any], k: int = Non
     if np.isnan(rho): # constant list, but should not happen due to previous check
         return 0.0
     return float(rho)
+
+def kendall_tau_k(llm_ranking: list[Any], ground_truth: list[Any], k: int = None) -> float:
+    """
+    Kendall's Tau @ k.
+    It computes the kendall tau ranking correlation between *llm_ranking* and *ground_truth* rankings. It penalizes missing
+    elements in *llm_ranking* with *k* or *len(ground_truth)* (see below).
+
+    :param llm_ranking: predicted ranking list from the LLM
+    :param ground_truth: ranking list sorted by true similarity
+    :param k: consider only the top-k elements for both *llm_ranking* and *ground_truth*.
+        If not specified, uses the full length of both; in this case, if an element from *llm_ranking* is still missing
+            in *ground_truth*, it is penalized with *len(ground_truth)*.
+    """
+    if k is None:
+        llm = llm_ranking
+        gt = ground_truth
+    else:
+        llm = llm_ranking[:k]
+        gt = ground_truth[:k]
+    penality = len(ground_truth)
+
+    if len(llm_ranking) < 2:
+        return 0.0  # cannot compute correlation with <2 points
+    # Position lookup
+    gt_position_map = {c: i for i, c in enumerate(gt)}
+    # Build rank position vectors
+    llm_order = [gt_position_map[c] if c in gt else penality
+                 for c in llm]
+    gt_order = range(len(llm_order))
+
+    from scipy.stats import kendalltau
+    tau, _ = kendalltau(gt_order, llm_order)
+    if np.isnan(tau):
+        return 0.0
+    return float(tau)
 
 def ensure_kaggle_ds(ds_name: str, file_path: Path) -> None:
     """

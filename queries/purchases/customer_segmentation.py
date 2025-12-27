@@ -16,7 +16,7 @@ from sklearn.preprocessing import StandardScaler
 
 from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, extract_list, \
     ensure_kaggle_ds, hallucination_rate, mare_k, spearman_rho_k, ndcg_k, \
-    extract_separator_sequence
+    extract_separator_sequence, mark_duplicates, kendall_tau_k
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
@@ -247,6 +247,8 @@ class CustomerSegmentationMetrics(Metric):
     MARE_K = auto() # MARE considerando solo i primi k elementi della ground truth
     SPEARMAN = auto() # Spearman considerando tutti gli elementi della ground truth
     SPEARMAN_K = auto() # Spearman considerando solo i primi k elementi della ground truth
+    KENDALL = auto()
+    KENDALL_K = auto()
     HALLUCINATION_RATE = auto()
 
 @dataclass
@@ -342,7 +344,7 @@ class customer_segmentation(Test):
 
 
     def evaluate_query(self, query: CustomerSegmentationQuery) -> Evaluations:
-        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.params.top_k, mare_k=self.params.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.params.top_k)
+        failing_scores = Evaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=self.params.top_k, mare_k=self.params.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.params.top_k)
 
         if not self.parse_query(query):
             return failing_scores
@@ -353,7 +355,10 @@ class customer_segmentation(Test):
                                     else 0
                                     for cust in query.parsed_response]
 
-        return Evaluations(ndcg_scores=ndcg_k(ndcg_scores, temp_vals, self.params.top_k),
+        return Evaluations(
+                            kendall = kendall_tau_k(response_marked_duplicates, query.ground_truth),
+                            kendall_k = kendall_tau_k(response_marked_duplicates, query.ground_truth, self.params.top_k),
+                        ndcg_scores=ndcg_k(ndcg_scores, temp_vals, self.params.top_k),
                            ndcg_k=ndcg_k(
                                relevance_scores=[self.params.top_k - i if cust in query.ground_truth[:self.params.top_k] else 0 for
                                                  i, cust in

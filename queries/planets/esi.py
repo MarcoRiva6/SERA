@@ -87,6 +87,8 @@ class PlanetMetrics(Metric):
     MARE_K = auto() # MARE considerando solo i primi k elementi della ground truth
     SPEARMAN = auto()
     SPEARMAN_K = auto()
+    KENDALL = auto()
+    KENDALL_K = auto()
     HALLUCINATION_RATE = auto()
 
 @dataclass
@@ -124,7 +126,7 @@ class esi(Test):
         self.simplified_df = pd.read_csv(simplified_ds_path)
 
     def evaluate_query(self, query: PlanetQuery) -> Evaluations:
-        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.params.top_k, mare_k=self.params.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.params.top_k)
+        failing_scores = Evaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=self.params.top_k, mare_k=self.params.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.params.top_k)
 
         if query.response_json_schema:
             try:
@@ -183,6 +185,8 @@ class esi(Test):
             k=self.params.top_k),
                            mare=mare_k(llm_names, ground_truth_names),
                            mare_k=mare_k(llm_names, ground_truth_names, self.params.top_k),
+                           kendall = kendall_tau_k(llm_names, ground_truth_names),
+                           kendall_k = kendall_tau_k(llm_names, ground_truth_names, self.params.top_k),
                            spearman=spearman_rho_k(llm_names, ground_truth_names),
                            spearman_k=spearman_rho_k(llm_names, ground_truth_names, self.params.top_k),
                            hallucination_rate=hallucination_rate(llm_names, ground_truth_names))

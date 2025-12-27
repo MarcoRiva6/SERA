@@ -7,7 +7,7 @@ import pandas as pd
 from pydantic import BaseModel, Field
 
 from queries.test import Test, data_folder, Query, Evaluations, Metric, ndcg_k, mare_k, spearman_rho_k, \
-    hallucination_rate, mark_duplicates
+    hallucination_rate, mark_duplicates, kendall_tau_k
 
 named_index_col = 'City'
 index_col = 'Rank'
@@ -113,7 +113,7 @@ class global_liveability(Test):
         return False
 
     def evaluate_query(self, query: CityQuery) -> Evaluations:
-        failing_scores = Evaluations(ndcg_scores=0.0, ndcg_k=0.0, mare=self.params.top_k, mare_k=self.params.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.params.top_k)
+        failing_scores = Evaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=self.params.top_k, mare_k=self.params.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.params.top_k)
         query.parsing_failed = not self._parse_query(query)
         if query.parsing_failed:
             return failing_scores
@@ -128,6 +128,8 @@ class global_liveability(Test):
                            mare_k=mare_k(marked_duplicate_response, query.ground_truth, self.params.top_k),
                            spearman=spearman_rho_k(marked_duplicate_response, query.ground_truth),
                            spearman_k=spearman_rho_k(marked_duplicate_response, query.ground_truth, self.params.top_k),
+                           kendall=kendall_tau_k(marked_duplicate_response, query.ground_truth),
+                           kendall_k=kendall_tau_k(marked_duplicate_response, query.ground_truth, self.params.top_k),
                            hallucination_rate=hallucination_rate(query.parsed_response, query.ground_truth))
 
     def prepare_queries_for_direct(self):

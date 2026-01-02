@@ -134,7 +134,7 @@ class TogetherModel(Model):
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")
         batch_token_usage_path.write_text(f"{total_token_consumed}")
-
+        #TODO: handle errors per query (non capita mai che non venga data risposta, al massimo fallisce)
         for bq in batch_queries.values():
             if not bq.response:
                 print(f"Warning: No response for query with prompt hash {hash(bq.prompt)}")

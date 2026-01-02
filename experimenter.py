@@ -12,6 +12,7 @@ from pandas import DataFrame
 
 from queries.test import Test
 
+import models.model
 from experiments.experiment import (Experiment)
 from experiments.run_type import (RunType)
 from queries.test import Query, queries_to_df
@@ -169,24 +170,7 @@ def load_experiments() -> list[Experiment]:
                     # instantiate test object
                     test_obj = q_class(**test_base_args, parameters=test_params)
 
-                    # instantiate model object
-                    model_name_split = m['name'].split('/')
-                    model_family = model_name_split[0]
-                    model_class_path = 'models.' + model_family + '.' + model_family.capitalize() + 'Model' + '.' + model_family.capitalize() + 'Model'
-                    model_class = class_from_path(model_class_path)
-                    model_name_path = model_name_split[1]
-                    model_base_args = {
-                        'name_path': model_name_path,
-                        'family': model_family,
-                        'file': models_folder / model_family / (model_name_path + '.yaml'),
-                        'run_type': rt,
-                        'run_folder': inner_run_folder / 'results' / model_name_path / rt,
-                    }
-                    # instantiate model parameters object
-                    model_param_class = getattr(model_class, 'Params')
-                    model_external_args = {k: v for k, v in m.items() if k != 'name'}
-                    model_params = model_param_class(seed=exp_seed, **model_external_args)
-                    model = model_class.from_yaml_file(**model_base_args, params=model_params)
+                    model = instantiate_model(exp_seed, inner_run_folder, m, rt)
                     # instantiate experiment object
                     experiment = Experiment(
                         name=f"{test_file.stem}: {model.name}, {rt}, {test_family} - {test_obj.name}",
@@ -199,51 +183,26 @@ def load_experiments() -> list[Experiment]:
     return results
 
 
-def merge_many_dataframes(
-        dfs: Sequence[pd.DataFrame],
-        commons: Iterable[str],
-        separate: Iterable[str],
-        prefixes: Sequence[str],
-) -> pd.DataFrame:
-    """
-    Merge a variable number of dataframes column-wise.
-
-    - `commons`: columns that are shared and should appear only once (taken from the first df).
-    - `separate`: columns that should be kept distinct for each df, with suffixes.
-    - columns not listed in either `commons` or `separate` are discarded.
-    - assumes all dfs have the same index and are row-aligned.
-    """
-
-    if not dfs:
-        raise ValueError("You must provide at least one DataFrame")
-
-    commons = list(commons)
-    separate = list(separate)
-
-    n = len(dfs)
-
-    if len(prefixes) != n:
-        raise ValueError("Length of suffixes must match number of dataframes")
-
-    # --- Common columns: take only from the first df ---
-    first = dfs[0]
-    missing_common = [c for c in commons if c not in first.columns]
-    if missing_common:
-        raise KeyError(f"Commons columns missing in first dataframe: {missing_common}")
-
-    result = first[commons].copy()
-
-    # --- Separate columns: one per df with prefix ---
-    for suffix, df in zip(prefixes, dfs):
-        # Check columns exist
-        missing_sep = [c for c in separate if c not in df.columns]
-        if missing_sep:
-            raise KeyError(f"Separate columns missing in dataframe with suffix {suffix}: {missing_sep}")
-
-        for col in separate:
-            result[f"{suffix}_{col}"] = df[col].values
-
-    return result
+def instantiate_model(exp_seed, inner_run_folder: Path, model_dictionary: dict, rt: RunType) -> models.model.Model:
+    # instantiate model object
+    model_name_split = model_dictionary['name'].split('/')
+    model_family = model_name_split[0]
+    model_class_path = 'models.' + model_family + '.' + model_family.capitalize() + 'Model' + '.' + model_family.capitalize() + 'Model'
+    model_class = class_from_path(model_class_path)
+    model_name_path = model_name_split[1]
+    model_base_args = {
+        'name_path': model_name_path,
+        'family': model_family,
+        'file': models_folder / model_family / (model_name_path + '.yaml'),
+        'run_type': rt,
+        'run_folder': inner_run_folder / 'results' / model_name_path / rt,
+    }
+    # instantiate model parameters object
+    model_param_class = getattr(model_class, 'Params')
+    model_external_args = {k: v for k, v in model_dictionary.items() if k != 'name'}
+    model_params = model_param_class(seed=exp_seed, **model_external_args)
+    model = model_class.from_yaml_file(**model_base_args, params=model_params)
+    return model
 
 def get_object_attributes_names(obj) -> list[str]:
     return [f.name for f in fields(obj)]

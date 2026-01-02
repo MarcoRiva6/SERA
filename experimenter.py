@@ -84,7 +84,7 @@ def load_experiments() -> list[Experiment]:
         queries: list[dict] = []
 
         for attr in [{'folder': models_folder, 'lst': models, 'attr_name': 'models', 'extension': '.yaml', 'exclude': ['model.py', 'global.yaml']},
-                     {'folder': query_folder, 'lst': queries, 'attr_name': 'queries', 'extension': '.py', 'exclude': ['test.py']}]:
+                     {'folder': query_folder, 'lst': queries, 'attr_name': 'queries', 'extension': '.py', 'exclude': ['test.py','metrics.py']}]:
             pattern  = data.get(attr['attr_name'], '*')
             if pattern is None: # attr:
                 print("Warning: No queries defined in experiment file:", test_file)
@@ -249,9 +249,6 @@ if __name__ == "__main__":
     if not experiments:
         print("No (valid) experiments found.")
         exit(1)
-    a = input(f"Produced {len(experiments)} experiments:{[e.name for e in experiments]}\nPress Enter to continue...")
-    if a != '':
-        exit(0)
     unique_test_names = set([e.test.name_path for e in experiments])
 
     for test_name in unique_test_names:

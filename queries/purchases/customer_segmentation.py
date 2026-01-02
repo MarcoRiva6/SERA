@@ -12,8 +12,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 
 from queries.test import Query, Test, Evaluations, data_folder, extract_json, extract_list, \
-    ensure_kaggle_ds, hallucination_rate, mare_k, spearman_rho_k, ndcg_k, \
-    extract_separator_sequence, mark_duplicates, kendall_tau_k, QueryParameters, TestParameters
+    ensure_kaggle_ds, extract_separator_sequence, mark_duplicates, QueryParameters, TestParameters
+from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)

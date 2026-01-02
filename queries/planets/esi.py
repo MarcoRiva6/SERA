@@ -8,8 +8,8 @@ from pandas import DataFrame
 from pydantic import BaseModel, Field
 
 from queries.test import Test, data_folder, Query, Evaluations, download_csv, extract_json, extract_list, \
-    hallucination_rate, extract_pipe_sequence, mare_k, spearman_rho_k, ndcg_k, mark_duplicates, kendall_tau_k, \
-    QueryParameters, TestParameters
+    extract_pipe_sequence, mark_duplicates, QueryParameters, TestParameters
+from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
 
 
 def compute_ground_truth(df: DataFrame, top_k: int = None) -> DataFrame:

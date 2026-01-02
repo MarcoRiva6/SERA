@@ -6,8 +6,8 @@ from pandas import DataFrame
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from queries.test import Test, data_folder, Query, Evaluations, ndcg_k, mare_k, spearman_rho_k, \
-    hallucination_rate, mark_duplicates, kendall_tau_k, QueryParameters, TestParameters
+from queries.test import Test, data_folder, Query, Evaluations, mark_duplicates, QueryParameters, TestParameters
+from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
 
 named_index_col = 'City'
 index_col = 'Rank'

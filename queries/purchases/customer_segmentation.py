@@ -4,7 +4,6 @@ import random
 import re
 from dataclasses import dataclass, field
 from datetime import timedelta
-from enum import auto
 from json import JSONDecodeError
 from pathlib import Path
 
@@ -14,9 +13,9 @@ from pydantic import BaseModel, Field
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 
-from queries.test import Query, Test, Evaluations, data_folder, extract_json, Metric, extract_list, \
+from queries.test import Query, Test, Evaluations, data_folder, extract_json, extract_list, \
     ensure_kaggle_ds, hallucination_rate, mare_k, spearman_rho_k, ndcg_k, \
-    extract_separator_sequence, mark_duplicates, kendall_tau_k
+    extract_separator_sequence, mark_duplicates, kendall_tau_k, QueryParameters, TestParameters
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
@@ -233,41 +232,45 @@ Identify the top {top_k} customers who are most similar to the given customer, w
     return prompt
 
 @dataclass
-class CustomerSegmentationQuery(Query):
+class CustomerSegmentationEvaluations(Evaluations):
+    ndcg_scores: float
+    ndcg_k: float
+    mare: float
+    mare_k: float
+    spearman: float
+    spearman_k: float
+    kendall: float
+    kendall_k: float
+    hallucination_rate: float
+
+@dataclass
+class CustomerSegmentationParameters(QueryParameters):
+    prompt_level: str
+
+@dataclass
+class CustomerSegmentationQuery(Query[CustomerSegmentationParameters, CustomerSegmentationEvaluations]):
     customer_id: int
     ground_truth: list[int]
     ground_truth_values: list[float]
-    prompt_level: str
     parsed_response: list[int]
 
-class CustomerSegmentationMetrics(Metric):
-    NDCG_SCORES = auto() # NDCG considerando i punteggi reali, indipendentemente da k
-    NDCG_K = auto() # NDCG considerando k-i se l'elemento i-esimo dilla lista predetta è presente nella k-ground truth (indipendentemente dalla sua posizione)
-    MARE = auto() # MARE considerando tutti gli elementi della ground truth
-    MARE_K = auto() # MARE considerando solo i primi k elementi della ground truth
-    SPEARMAN = auto() # Spearman considerando tutti gli elementi della ground truth
-    SPEARMAN_K = auto() # Spearman considerando solo i primi k elementi della ground truth
-    KENDALL = auto()
-    KENDALL_K = auto()
-    HALLUCINATION_RATE = auto()
+@dataclass
+class CustomerSegmentationTestParameters(TestParameters):
+    alpha: float = ALPHA
+    top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
+    n_customers_per_query: int = N_CUSTOMERS_PER_QUERY
+    top_k: int = TOP_K
+    n_queries: int = N_QUERIES
+    rows_in_prompt_limit: int = 2000
+    prompt_levels: list[str] = field(default_factory=lambda: ['medium']) # generic, medium, formula
+    enforce_json_schema: bool = True
 
 @dataclass
-class customer_segmentation(Test):
+class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentationTestParameters, CustomerSegmentationEvaluations]):
     name: str = "Customer Segmentation"
     full_df: DataFrame = None
     clean_df: DataFrame = None
     pre_queries_df: DataFrame = None
-    @dataclass
-    class Params(Test.Params):
-        alpha: float = ALPHA
-        top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
-        n_customers_per_query: int = N_CUSTOMERS_PER_QUERY
-        top_k: int = TOP_K
-        n_queries: int = N_QUERIES
-        rows_in_prompt_limit: int = 2000
-        prompt_levels: list[str] = field(default_factory=lambda: ['medium']) # generic, medium, formula
-        enforce_json_schema: bool = True
-    params: Params = field(default_factory=Params)
 
     def load_csv(self, file_path: Path = None) -> None:
         if file_path is None:
@@ -296,7 +299,7 @@ class customer_segmentation(Test):
                     print(f"Cannot parse query {query.id}: {e}")
                     query.parsing_failed = True
         else:
-            matched_lists: list[list[str]] = extract_separator_sequence(query.response, CHOSEN_SEPARATOR, self.params.top_k)
+            matched_lists: list[list[str]] = extract_separator_sequence(query.response, CHOSEN_SEPARATOR, self.parameters.top_k)
             matched_lists_len = len(matched_lists)
             if matched_lists_len == 0:
                 print(f"Cannot parse query {query.id}: no '{CHOSEN_SEPARATOR}'-separated list found in the response.")
@@ -319,7 +322,7 @@ class customer_segmentation(Test):
                             else: # ambiguous part in the middle of the list
                                 valid_parts = [] # invalidate the entire list
                                 break
-                    if len(valid_parts) == self.params.top_k:
+                    if len(valid_parts) == self.parameters.top_k:
                         candidate_lists.append(valid_parts)
                 if len(candidate_lists) == 0:
                     print(f"Cannot parse query {query.id}: no valid '{CHOSEN_SEPARATOR}'-separated list with enough customer IDs found in the response.")
@@ -330,7 +333,7 @@ class customer_segmentation(Test):
                 else:
                     top_k_list: list[str] = candidate_lists[0]
 
-        if query.parsing_failed or top_k_list is None or len(top_k_list) != self.params.top_k:
+        if query.parsing_failed or top_k_list is None or len(top_k_list) != self.parameters.top_k:
             query.parsing_failed = True
             return False
         try:
@@ -343,8 +346,8 @@ class customer_segmentation(Test):
             return False
 
 
-    def evaluate_query(self, query: CustomerSegmentationQuery) -> Evaluations:
-        failing_scores = Evaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=self.params.top_k, mare_k=self.params.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.params.top_k)
+    def evaluate_query(self, query: CustomerSegmentationQuery) -> CustomerSegmentationEvaluations:
+        failing_scores = CustomerSegmentationEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=self.parameters.top_k, mare_k=self.parameters.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.parameters.top_k)
 
         if not self.parse_query(query):
             return failing_scores
@@ -357,40 +360,40 @@ class customer_segmentation(Test):
                                     else 0
                                     for cust in response_marked_duplicates]
 
-        return Evaluations(
+        return CustomerSegmentationEvaluations(
                             kendall = kendall_tau_k(response_marked_duplicates, query.ground_truth),
-                            kendall_k = kendall_tau_k(response_marked_duplicates, query.ground_truth, self.params.top_k),
-                        ndcg_scores=ndcg_k(ndcg_scores, temp_vals, self.params.top_k),
+                            kendall_k = kendall_tau_k(response_marked_duplicates, query.ground_truth, self.parameters.top_k),
+                        ndcg_scores=ndcg_k(ndcg_scores, temp_vals, self.parameters.top_k),
                            ndcg_k=ndcg_k(
-                               relevance_scores=[self.params.top_k - i if cust in query.ground_truth[:self.params.top_k] else 0 for
+                               relevance_scores=[self.parameters.top_k - i if cust in query.ground_truth[:self.parameters.top_k] else 0 for
                                                  i, cust in
-                                                 enumerate(response_marked_duplicates)], k=self.params.top_k),
+                                                 enumerate(response_marked_duplicates)], k=self.parameters.top_k),
                            mare=mare_k(response_marked_duplicates, query.ground_truth),
-                           mare_k=mare_k(response_marked_duplicates, query.ground_truth, self.params.top_k),
+                           mare_k=mare_k(response_marked_duplicates, query.ground_truth, self.parameters.top_k),
                            spearman=spearman_rho_k(response_marked_duplicates, query.ground_truth),
-                           spearman_k=spearman_rho_k(response_marked_duplicates, query.ground_truth, self.params.top_k),
+                           spearman_k=spearman_rho_k(response_marked_duplicates, query.ground_truth, self.parameters.top_k),
                            hallucination_rate=hallucination_rate(query.parsed_response, query.ground_truth))
 
     def init_queries(self) -> None:
-        current_seed = self.params.seed
+        current_seed = self.parameters.seed
 
         self.queries: list[CustomerSegmentationQuery] = []
         cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
         counter = 0
 
-        for _ in range(self.params.n_queries):
-            if self.params.seed != 0:
+        for _ in range(self.parameters.n_queries):
+            if self.parameters.seed != 0:
                 random.seed(current_seed)
             # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
             while True:
-                selected_cids = select_random_customer_ids(self.params.n_customers_per_query, cids_unique_full)
+                selected_cids = select_random_customer_ids(self.parameters.n_customers_per_query, cids_unique_full)
 
                 temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
-                if len(temp_df) > self.params.rows_in_prompt_limit:
+                if len(temp_df) > self.parameters.rows_in_prompt_limit:
                     current_seed += 1
                     continue
 
-                basket = build_basket_matrix(temp_df, self.params.top_n_items_min_purchases)
+                basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
                 if count_row_sums(basket) < 15: # n of interesting rows
                     current_seed += 1
                     continue
@@ -402,24 +405,24 @@ class customer_segmentation(Test):
             rfm = build_rfm_features(df)
             rfm_sim = compute_rfm_similarity(rfm)
 
-            hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.params.alpha)
+            hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.parameters.alpha)
 
             selected_cid = random.choice(selected_cids)
-            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=self.params.n_customers_per_query)
+            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=self.parameters.n_customers_per_query)
             sorted_cids = top_similar_df.index.tolist()
             ground_truth_vals = top_similar_df.values.tolist()
 
-            for p_level in self.params.prompt_levels:
+            for p_level in self.parameters.prompt_levels:
                 self.queries.append(CustomerSegmentationQuery(
                     id=counter,
                     customer_id=selected_cid,
-                    prompt=create_prompt(df, selected_cid, self.params.top_k, self.params.alpha, p_level, self.params.enforce_json_schema),
+                    prompt=create_prompt(df, selected_cid, self.parameters.top_k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
                     ground_truth=sorted_cids,
                     ground_truth_values=ground_truth_vals,
-                    prompt_level=p_level,
+                    parameters=CustomerSegmentationParameters(prompt_level=p_level),
                     response=None,
-                    evaluations=Evaluations(),
-                    response_json_schema=MostSimilarCustomers.model_json_schema() if self.params.enforce_json_schema else None,
+                    evaluations=None,
+                    response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,
                     parsing_failed=None,
                     parsed_response=None
                 ))

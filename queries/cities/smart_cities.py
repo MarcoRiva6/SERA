@@ -53,7 +53,7 @@ class smart_cities(Test):
         top_k: int = 5
         enforce_json_schema: bool = True
         pass
-    params: Params = field(default_factory=Params)
+    parameters: Params = field(default_factory=Params)
 
     def _load_dataset(self):
         self.full_ds = pd.read_excel(data_folder / 'cities' / 'smart_cities.xlsx', index_col='Rank')

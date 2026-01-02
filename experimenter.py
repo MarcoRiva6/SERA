@@ -1,13 +1,16 @@
 import importlib
 import importlib.util
-from dataclasses import fields
+import inspect
+from dataclasses import fields, asdict
 from pathlib import Path
-from typing import Iterable, Sequence
+from typing import get_origin, get_args
 
 import pandas as pd
 import yaml
 from huggingface_hub.hub_mixin import DataclassInstance
 from pandas import DataFrame
+
+from queries.test import Test
 
 from experiments.experiment import (Experiment)
 from experiments.run_type import (RunType)
@@ -17,6 +20,35 @@ parent = Path(__file__).resolve().parent
 models_folder: Path = parent / 'models'
 query_folder: Path = parent / 'queries'
 runs_folder: Path = parent / 'runs'
+
+def get_subclasses(module_path, base_cls) -> list:
+    module = importlib.import_module(module_path)
+    return [
+        cls
+        for name, cls in inspect.getmembers(module, inspect.isclass)
+        if issubclass(cls, base_cls)
+           and cls is not base_cls
+           and cls.__module__ == module.__name__
+    ]
+
+def get_test_class(modul_path):
+    candidates = get_subclasses(modul_path, Test)
+    if not candidates:
+        raise Exception(f'No test class found for {modul_path}')
+    if len(candidates) != 1:
+        raise Exception(f'Found {len(candidates)} test classes for {modul_path}')
+    return candidates[0]
+
+def get_test_generic_types(test_cls: type):
+    """
+    Returns (T_Query, T_TestParameters, T_Evaluations) for a concrete Test subclass.
+    """
+    # Look at the generic base used in the class definition
+    for base in getattr(test_cls, "__orig_bases__", ()):
+        if get_origin(base) is Test:
+            return get_args(base)
+
+    raise TypeError(f"{test_cls.__name__} does not directly specify Test[...] generics")
 
 def class_from_path(class_path: str):
     module_path, class_name = class_path.rsplit(".", 1)
@@ -125,15 +157,17 @@ def load_experiments() -> list[Experiment]:
                         'run_type': rt,
                         'run_folder': inner_run_folder / 'data',
                     }
-                    q_class_path = 'queries.' + q['name'].replace('/', '.') + '.' + test_name_path
-                    q_class = class_from_path(q_class_path)
+                    q_module_path = 'queries.' + q['name'].replace('/', '.')
+                    q_class_path = q_module_path + '.' + test_name_path
+                    q_class = get_test_class(q_module_path)
+
+                    _, q_param_class, _ = get_test_generic_types(q_class)
 
                     #instanciate test parameters object
-                    q_param_class = getattr(q_class, 'Params')
                     q_external_params = {k: v for k, v in q.items() if k != 'name'}
                     test_params = q_param_class(seed=exp_seed, **q_external_params)
                     # instantiate test object
-                    test_obj = q_class(**test_base_args, params=test_params)
+                    test_obj = q_class(**test_base_args, parameters=test_params)
 
                     # instantiate model object
                     model_name_split = m['name'].split('/')
@@ -225,10 +259,11 @@ def rename_selected_keys(d: dict, keys_to_change: list[str], prefix: str):
 
 def merge_queries(queries: list[list[Query]], names: list[str]) -> DataFrame:
     q_attributes: list[str] = get_object_attributes_names(queries[0][0])
-    to_drop = ['response_json_schema']
-    evaluation_names: list[str] = list(queries[0][0].evaluations.keys())
+    to_drop = ['response_json_schema', 'parameters', 'evaluations']
+    evaluation_names: list[str] = list(asdict(queries[0][0].evaluations).keys())
+    params_names: list[str] = list(asdict(queries[0][0].parameters).keys())
     to_separate = evaluation_names + ['response','parsed_response','parsing_failed']
-    merge_on = [attr for attr in q_attributes if attr not in to_separate + to_drop + ['evaluations']]
+    merge_on = [attr for attr in q_attributes + params_names if attr not in to_separate + to_drop]
 
     result: DataFrame = None
     for qs, name in zip(queries, names):

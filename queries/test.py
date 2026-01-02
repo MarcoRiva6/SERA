@@ -9,7 +9,7 @@ from dataclasses import dataclass, field, asdict
 from enum import StrEnum
 from numbers import Number
 from pathlib import Path
-from typing import TypeAlias, Any, get_type_hints, get_origin, Counter, TypeVar
+from typing import TypeAlias, Any, get_type_hints, get_origin, Counter, TypeVar, Generic
 
 import kagglehub
 import math
@@ -23,13 +23,30 @@ from experiments.run_type import RunType
 
 data_folder: Path = Path(__file__).resolve().parent.parent / 'data' # path to the project's data folder
 
-class Metric(StrEnum):
+@dataclass
+class TestParameters(ABC):
     """
-    Enumeration of possible metrics for a test.
+    Base class for test parameters.
+    All configuration parameters that could be changed via the yaml file should be declared here.
+    """
+    seed: int = 0 # if set to 0, a random seed is used
+
+T_TestParameters = TypeVar('T_TestParameters', bound=TestParameters)
+
+@dataclass
+class QueryParameters(ABC):
+    """
+    Base class for query parameters.
     """
     pass
 
-Evaluations: TypeAlias = dict[Metric, Number] # A dictionary mapping metrics to their numeric evaluation values.
+T_QueryParameters = TypeVar('T_QueryParameters', bound=QueryParameters)
+
+@dataclass
+class Evaluations(ABC):
+    pass
+
+T_Evaluations = TypeVar('T_Evaluations', bound=Evaluations)
 
 def mark_duplicates(llm_response: list[Any], ground_truth: list[Any]) -> list[Any]:
     """
@@ -309,7 +326,7 @@ def download_csv(url: str, dest_path: Path) -> None:
         raise Exception(response.text)
 
 @dataclass
-class Query(ABC):
+class Query(ABC, Generic[T_QueryParameters, T_Evaluations]):
     """
     A single query consisting of a prompt, a response, and its evaluations.
     Prompt can be of any type, including a DataFrame (useful for lotus).
@@ -317,32 +334,47 @@ class Query(ABC):
     id: int # must be unique within a test
     prompt: Any
     response: str
-    evaluations: Evaluations
+    parameters: T_QueryParameters
+    evaluations: T_Evaluations
     response_json_schema: dict
     parsing_failed: bool
 
     def to_dict(self) -> dict:
-        base: dict = {
-            k: v
-            for k, v in vars(self).items()
-            if not k.startswith("_")  # skip private/internal stuff, optional
-        }
+        base: dict = asdict(self)
         # Normalize the prompt
         if isinstance(self.prompt, DataFrame):
             base["prompt"] = self.prompt["prompt"]
         else:
             base["prompt"] = str(self.prompt)
+        # Extract and flatten parameters, if present
+        try:
+            parameters = base["parameters"]
+            if not parameters:
+                raise KeyError
+            params = {
+                (k.value if hasattr(k, "value") else str(k)): v
+                for k, v in parameters.items()
+            }
+        except KeyError:
+            params = {}
         # Extract and flatten evaluations, if present
-        evaluations = base.pop("evaluations", None)
-        evals = {
-            (k.value if hasattr(k, "value") else str(k)): v
-            for k, v in (evaluations or {}).items()
-        }
+        try:
+            evaluations = base["evaluations"]
+            if not evaluations:
+                raise KeyError
+            evals = {
+                (k.value if hasattr(k, "value") else str(k)): v
+                for k, v in evaluations.items()
+            }
+        except KeyError:
+            evals = {}
 
-        return base | evals
+        return base | params | evals
+
+T_Query = TypeVar("T_Query", bound=Query)
 
 @dataclass
-class Test(ABC):
+class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
     """
     Represents a single test, used to build queries.
     """
@@ -351,20 +383,10 @@ class Test(ABC):
     run_type: RunType
     run_folder: Path # /data
     debug: bool = True
-    queries: list[Query] = None # The list of queries generated for this test.
+    queries: list[T_Query] = None # The list of queries generated for this test.
     prepared_queries_file_name: str = "prepared_queries.pkl" # Path to the file where prepared queries are stored.
-    evaluations: Evaluations = None # Aggregated evaluations across all queries for this test.
-    @dataclass
-    class Params(ABC):
-        """
-        Parameters for the test.
-        All configuration parameters that could be changed via the yaml file should be declared here.
-        This class should be extended in subclasses, to add specific parameters, with name 'Params'.
-
-        A single instance of this class should be stored in the variable 'params' of the test, as shown below.
-        """
-        seed: int = 0 # random seed
-    params: Params = field(default_factory=Params)
+    parameters: T_TestParameters = None
+    evaluations: T_Evaluations = None # Aggregated evaluations across all queries for this test.
     params_file_name: str = 'test_params.json'
 
     def save_params(self) -> None:
@@ -374,7 +396,7 @@ class Test(ABC):
         path: Path = self.run_folder / self.params_file_name
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, 'w') as f:
-            json.dump(asdict(self.params), f, indent=4)
+            json.dump(asdict(self.parameters), f, indent=4)
 
     def same_params(self) -> bool:
         """
@@ -383,7 +405,7 @@ class Test(ABC):
         """
         with open(self.run_folder / self.params_file_name, 'r') as f:
             saved_params = json.load(f)
-        current_params = asdict(self.params)
+        current_params = asdict(self.parameters)
         return saved_params == current_params
 
     def generate_queries(self) -> None:
@@ -400,7 +422,7 @@ class Test(ABC):
                 f'Run mode {self.run_type} not implemented for this test (method {method_name} does not exists).')
 
     @abstractmethod
-    def evaluate_query(self, query: Query) -> Evaluations:
+    def evaluate_query(self, query: Query) -> T_Evaluations:
         """
         Evaluate a single query after submission.
         :param query: the query to evaluate
@@ -415,18 +437,18 @@ class Test(ABC):
         :return: A dictionary with the aggregated evaluation metrics.
         """
         # accumulator for sums
-        totals: Evaluations = {}
+        totals = {}
 
         # sum all metrics across queries
         for q in self.queries:
-            for metric, value in q.evaluations.items():
+            for metric, value in asdict(q.evaluations).items():
                 totals.update({metric: totals.get(metric, 0) + value})
 
         # compute mean values
         n = len(self.queries)
-        aggregated: Evaluations = {metric: totals[metric] / n for metric in totals}
+        aggregated = {metric: totals[metric] / n for metric in totals}
 
-        self.evaluations = aggregated
+        self.evaluations = self.queries[0].evaluations.__class__(**aggregated)
         return aggregated
 
     def evaluations_to_csv(self, file_name: str = 'test_evaluations.csv', dest: Path = None) -> None:

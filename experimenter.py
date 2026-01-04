@@ -1,15 +1,15 @@
 import importlib
 import importlib.util
 import inspect
-from dataclasses import fields, asdict
+from dataclasses import fields, asdict, dataclass
 from pathlib import Path
 from typing import get_origin, get_args
 
 import pandas as pd
 import yaml
-from huggingface_hub.hub_mixin import DataclassInstance
 from pandas import DataFrame
 
+from dashboard import run_multi_set_dashboard
 from queries.test import Test
 
 import models.model
@@ -21,6 +21,24 @@ parent = Path(__file__).resolve().parent
 models_folder: Path = parent / 'models'
 query_folder: Path = parent / 'queries'
 runs_folder: Path = parent / 'runs'
+
+@dataclass
+class Run:
+    name_path: str
+    run_folder: Path
+    @dataclass
+    class Query:
+        name: str
+        @dataclass
+        class RunTypeExperiments:
+            run_type: RunType
+            experiments: list[Experiment]
+            all_evaluated: bool = False
+        run_type_experiments: list[RunTypeExperiments]
+    queries: list[Query]
+    seed: int = 0
+    create_aggregated_csv: bool = False
+    show_dashboard: bool = False
 
 def get_subclasses(module_path, base_cls) -> list:
     module = importlib.import_module(module_path)
@@ -56,14 +74,8 @@ def class_from_path(class_path: str):
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
 
-def instantiate_from_yaml(cls, data: dict) -> DataclassInstance:
-    field_names = {f.name for f in fields(cls)}
-    kwargs = {k: v for k, v in data.items() if k in field_names}
-
-    return cls(**kwargs)
-
-def load_experiments() -> list[Experiment]:
-    results = []
+def load_experiments() -> list[Run]:
+    results: list[Run] = []
 
     for test_file in Path('experiments').glob('*'):
         if test_file.is_dir() or test_file.name == 'experiment.py' or '__pycache__' in test_file.parts or '.DS_Store' in test_file.parts or 'run_type.py' in test_file.parts:
@@ -78,7 +90,25 @@ def load_experiments() -> list[Experiment]:
         if data.get('disabled', False):
             print("Skipping disabled experiment file:", test_file)
             continue
-        exp_seed = data.get('seed', 0)
+
+        test_file_name_path = test_file.stem
+        this_run_folder = runs_folder / test_file_name_path
+        r = Run(name_path=test_file_name_path, run_folder=this_run_folder, queries=[])
+        results.append(r)
+
+        try:
+            r.seed = data['seed']
+        except KeyError:
+            pass
+        try:
+            r.create_aggregated_csv = data['create_aggregated_csv']
+        except KeyError:
+            pass
+        try:
+            r.show_dashboard = data['show_dashboard']
+        except KeyError:
+            pass
+
 
         models: list[dict] = []
         queries: list[dict] = []
@@ -144,46 +174,53 @@ def load_experiments() -> list[Experiment]:
             print("Warning: No run types matched for experiment file:", test_file)
             continue
 
-        this_run_folder = runs_folder / test_file.stem
-        for m in models:
+        for q in queries:
+            r_test = Run.Query(name=q['name'], run_type_experiments=[])
+            r.queries.append(r_test)
             for rt in run_types:
-                for q in queries:
+                r_run_type_experiments = Run.Query.RunTypeExperiments(run_type=rt, experiments=[])
+                r_test.run_type_experiments.append(r_run_type_experiments)
+                for m in models:
                     # instantiate test object
                     q_name_split = q['name'].split('/')
                     test_family, test_name_path = q_name_split[0], q_name_split[1]
                     inner_run_folder = this_run_folder / test_family / test_name_path
-                    test_base_args = {
-                        'family': test_family,
-                        'name_path': test_name_path,
-                        'run_type': rt,
-                        'run_folder': inner_run_folder / 'data',
-                    }
-                    q_module_path = 'queries.' + q['name'].replace('/', '.')
-                    q_class_path = q_module_path + '.' + test_name_path
-                    q_class = get_test_class(q_module_path)
+                    test = instantiate_test(r.seed, inner_run_folder, q, rt, test_family, test_name_path)
+                    test_dict = asdict(test)
 
-                    _, q_param_class, _ = get_test_generic_types(q_class)
-
-                    #instanciate test parameters object
-                    q_external_params = {k: v for k, v in q.items() if k != 'name'}
-                    test_params = q_param_class(seed=exp_seed, **q_external_params)
-                    # instantiate test object
-                    test_obj = q_class(**test_base_args, parameters=test_params)
-
-                    model = instantiate_model(exp_seed, inner_run_folder, m, rt)
+                    model = instantiate_model(r.seed, inner_run_folder, m, rt)
                     # instantiate experiment object
                     experiment = Experiment(
-                        name=f"{test_file.stem}: {model.name}, {rt}, {test_family} - {test_obj.name}",
+                        name=f"{test_dict.get('name', test_dict.get('name_path'))}: {model.name} - {rt}",
                         run_folder=this_run_folder,
                         model=model,
                         run_type=rt,
-                        test=test_obj
+                        test=test
                     )
-                    results.append(experiment)
+                    r_run_type_experiments.experiments.append(experiment)
     return results
 
+def instantiate_test(exp_seed: int, inner_run_folder: Path, query_dictionary: dict, rt: RunType, test_family: str,
+                     test_name_path: str) -> Test:
+    test_base_args = {
+        'family': test_family,
+        'name_path': test_name_path,
+        'run_type': rt,
+        'run_folder': inner_run_folder / 'data',
+    }
+    q_module_path = 'queries.' + query_dictionary['name'].replace('/', '.')
+    q_class = get_test_class(q_module_path)
 
-def instantiate_model(exp_seed, inner_run_folder: Path, model_dictionary: dict, rt: RunType) -> models.model.Model:
+    _, q_param_class, _ = get_test_generic_types(q_class)
+
+    # instantiate test parameters object
+    q_external_params = {k: v for k, v in query_dictionary.items() if k != 'name'}
+    test_params = q_param_class(seed=exp_seed, **q_external_params)
+    # instantiate test object
+    test_obj = q_class(**test_base_args, parameters=test_params)
+    return test_obj
+
+def instantiate_model(exp_seed: int, inner_run_folder: Path, model_dictionary: dict, rt: RunType) -> models.model.Model:
     # instantiate model object
     model_name_split = model_dictionary['name'].split('/')
     model_family = model_name_split[0]
@@ -245,28 +282,42 @@ def merge_queries(queries: list[list[Query]], names: list[str]) -> DataFrame:
 
 
 if __name__ == "__main__":
-    experiments = load_experiments()
-    if not experiments:
+    runs: list[Run] = load_experiments()
+    if len(runs) == 0:
         print("No (valid) experiments found.")
         exit(1)
-    unique_test_names = set([e.test.name_path for e in experiments])
 
-    for test_name in unique_test_names:
-        matches = [e for e in experiments if e.test.name_path == test_name]
-        for exp in matches:
-            if (exp.inner_folder / 'queries.parquet').exists():
-                exp.display()
-                print(f"Skipping experiment (already executed): {exp.name}")
-                continue
-            print(f"Running experiment: {exp.name}")
-            exp.execute()
-            print('\n')
+    for run in runs: # per ogni run folder
+        print(f"*** Running experiments for run: {run.name_path} ***\n")
+        for_dashboard: dict[str, dict[str, list[Query]]] = {}
+        for query in run.queries:
+            print(f"=== Test: {query.name} ===\n")
+            for run_type_experiment in query.run_type_experiments:
+                print(f"--- Run type: {run_type_experiment.run_type} ---\n")
+                experiments = run_type_experiment.experiments
+                for experiment in experiments:
+                    if (experiment.inner_folder / 'queries.parquet').exists():
+                        experiment.display()
+                        print(f"Skipping experiment (already executed): {experiment.name}\n")
+                        continue
+                    print(f"Running experiment: {experiment.name}\n")
+                    experiment.execute()
+                    print('\n')
+                run_type_experiment.all_evaluated = all(e.test.queries and all(q.evaluations is not None
+                                                                  for q in e.test.queries)
+                                           for e in experiments)
+                if run_type_experiment.all_evaluated:
+                    for_dashboard[query.name] = {e.model.name_path: e.test.queries for e in experiments}
 
-        evaluated_matches = [e for e in matches if e.test.queries and all(q.evaluations is not None for q in e.test.queries)]
-        if len(evaluated_matches) <= 1 or len(set([e.test.run_type for e in evaluated_matches])) != 1:
-            print('\n')
-            continue
-        print(f"aggregating results for test: {test_name}")
-        merged_df = merge_queries([e.test.queries for e in evaluated_matches], [e.model.name_path for e in evaluated_matches])
-        merged_df.to_csv(evaluated_matches[0].test.run_folder.parent / 'results' / 'aggregated_queries.csv', index=False, decimal=',', sep=';')
-        print('\n')
+                    if run.create_aggregated_csv:
+                        if len(experiments) <= 1 or len(set([e.test.run_type for e in experiments])) != 1:
+                            print("Not enough evaluated experiments with the same run type to aggregate results, skipping aggregation.")
+                        else:
+                            print(f"aggregating results for test: {query.name} - {run_type_experiment.run_type}")
+                            merged_df = merge_queries([e.test.queries for e in experiments], [e.model.name_path for e in experiments])
+                            merged_df.to_csv(experiments[0].test.run_folder.parent / 'results' / 'aggregated_queries.csv', index=False, decimal=',', sep=';')
+                else:
+                    print(f"Some experiments for test {query.name} were not evaluated, skipping dashboard{" and aggregation" if run.create_aggregated_csv else ""}.")
+                print('\n')
+        if run.show_dashboard:
+            run_multi_set_dashboard(for_dashboard)

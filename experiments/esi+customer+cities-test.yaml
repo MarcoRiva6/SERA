@@ -1,0 +1,18 @@
+models:
+  - name: 'lmstudio/gpt-oss-20b'
+    no_waiting: true
+run_types: 'direct'
+seed: 678901234
+disabled: true
+show_dashboard: true
+queries:
+  - name: 'planets/esi'
+    n_queries: 2
+    top_k: 5
+    plant_names_mods:
+      - 'real'
+      - 'fake'
+    prompt_levels:
+      - 'esi_instruct'
+      - 'esi_formula'
+      - 'generic'

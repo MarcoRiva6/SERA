@@ -13,6 +13,7 @@ from models.model import Model, write_jsonl, _split_queries
 from queries.test import Query
 
 def convert_schema_to_gemini(schema):
+    #TODO: rimuovere warning di pydantic
     if isinstance(schema, dict):
         new_schema = {}
         for key, value in schema.items():
@@ -231,13 +232,17 @@ class GoogleModel(Model):
         if not self.supports_batched and self.params.batched:
             print(f"Model {self.name} does not support batched submissions. Submitting inline.")
             self.params.batched = False
+        #TODO: parallelize batch submissions
         if self.params.batched:
             batches = _split_queries(self._count_tokens, self.batch_max_tokens, queries) if self.batch_max_tokens else None
+            all_completed = True
             for i, b in enumerate(batches):
                 print(f"Submitting batch {i + 1}/{len(batches)} with {len(b)} queries...")
-                if not self._submit_direct_batched(self.run_folder / f"batch_{i + 1}", b):
-                    print("Not waiting for submission to complete...")
-                    return
+                completed = self._submit_direct_batched(self.run_folder / f"batch_{i + 1}", b)
+                all_completed = all_completed and completed
+            if not all_completed:
+                print("Not waiting for submission to complete...")
+            return
         else:
             for q in queries:
                 q.response = self._submit_direct_inline(q.prompt)

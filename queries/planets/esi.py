@@ -18,7 +18,7 @@ def compute_ground_truth(df: DataFrame, top_k: int = None) -> DataFrame:
 
 
 class MostSimilarPlanets(BaseModel):
-    top_k: list[str] = Field(description="The ordered list of the most similar planets.")
+    top_k: list[str] = Field(description="The ordered list of the top k most similar planets.")
 
 class PlanetScore(BaseModel):
     planet_name: str = Field(description="The name of the planet.")
@@ -29,10 +29,10 @@ class MostSimilarPlanetsScore(BaseModel):
 
 def create_prompt(df: DataFrame, prompt_level: str, top_k: int, json_schema: bool) -> str:
     if json_schema:
-        output_string = f"""Your output MUST contain only a sorted list of the most similar planets (represented by their 'Name')
+        output_string = f"""Your output MUST contain only a sorted list of the top k (k={top_k}) most similar planets (represented by their 'Name')
 from most to least similar."""
     else:
-        output_string = f"""Your output MUST contain only a sorted list of the most similar planets (represented by their 'Name'),
+        output_string = f"""Your output MUST contain only a sorted list of the top k (k={top_k}) most similar planets (represented by their 'Name'),
 from most to least similar, separated by the character '|'."""
 
     if prompt_level == 'generic':
@@ -68,7 +68,7 @@ using the following formula as THE ONLY criterion for similarity:
 
 The formula takes as input a planet's radius (R) and solar flux (S).
 it is computed as follows:
-1. compute the solar flux ratio (SR): SF = ( (S - 1) / (S + 1) )^2
+1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
 2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
 3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )
 

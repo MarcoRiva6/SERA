@@ -190,6 +190,7 @@ class Query(ABC, Generic[T_QueryParameters, T_Evaluations]):
                 (k.value if hasattr(k, "value") else str(k)): v
                 for k, v in parameters.items()
             }
+            del base["parameters"]
         except KeyError:
             params = {}
         # Extract and flatten evaluations, if present
@@ -201,6 +202,7 @@ class Query(ABC, Generic[T_QueryParameters, T_Evaluations]):
                 (k.value if hasattr(k, "value") else str(k)): v
                 for k, v in evaluations.items()
             }
+            del base["evaluations"]
         except KeyError:
             evals = {}
 

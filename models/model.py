@@ -120,7 +120,7 @@ class Model(ABC):
 
     def run(self, queries: list[Query], df=None):
         self._init_model()
-        print(f"Submitting {len(queries)} queries...")
+        print(f"Model processing {len(queries)} queries...")
         try:
             if self.run_type == RunType.DIRECT:
                 self._submit_direct(queries)

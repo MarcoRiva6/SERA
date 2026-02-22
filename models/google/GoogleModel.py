@@ -8,6 +8,7 @@ from pathlib import Path
 
 import google.genai
 from google.genai.types import BatchJob, ThinkingConfig, GenerationConfig, Content, Part
+from tqdm import tqdm
 
 from models.model import Model, write_jsonl, _split_queries
 from queries.test import Query
@@ -236,8 +237,9 @@ class GoogleModel(Model):
         if self.params.batched:
             batches = _split_queries(self._count_tokens, self.batch_max_tokens, queries) if self.batch_max_tokens else None
             all_completed = True
-            for i, b in enumerate(batches):
-                print(f"Submitting batch {i + 1}/{len(batches)} with {len(b)} queries...")
+            pbar = tqdm(batches, desc="Uploading batches", unit="batch")
+            for i, b in enumerate(pbar):
+                pbar.set_postfix(queries=len(b))
                 completed = self._submit_direct_batched(self.run_folder / f"batch_{i + 1}", b)
                 all_completed = all_completed and completed
             if not all_completed:

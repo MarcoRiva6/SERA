@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from tqdm import tqdm
+
 from models.model import Model, SubmissionError
 from queries.test import Test
 
@@ -164,7 +166,7 @@ class Experiment:
         print('test ready.')
         try:
             self.model.run(self.test.queries)
-            print('test submission complete.')
+            print('Model processing complete.')
         except NotImplementedError as e:
             print(e)
             return
@@ -177,12 +179,11 @@ class Experiment:
 
         at_least_one_completed = any(q.response is not None for q in self.test.queries)
         if at_least_one_completed:
-            print('Evaluating queries...')
-            for q in self.test.queries:
+            for q in tqdm(self.test.queries, desc='Evaluating queries', unit='query', colour='blue'):
                 q.evaluations = self.test.evaluate_query(q)
 
             print('Storing answered queries...')
-            self.test.queries_to_csv('answered_queries.csv', self.inner_folder)
+            self.test.queries_to_csv('evaluated_queries.csv', self.inner_folder)
             print('queries saved to csv.')
             self.test.evaluate()
             print('test evaluation:', self.test.evaluations)

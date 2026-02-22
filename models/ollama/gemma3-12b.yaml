@@ -1,0 +1,4 @@
+name: 'Gemma 3 12B'
+name_api: 'gemma3:12b'
+max_tokens: 10000
+supports_thinking: false

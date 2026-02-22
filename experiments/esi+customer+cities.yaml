@@ -9,7 +9,7 @@ models:
     no_waiting: true
 run_types: 'direct'
 seed: 678901234
-disabled: false
+disabled: true
 show_dashboard: true
 queries:
   - name: 'planets/esi'

@@ -306,20 +306,25 @@ class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
         """
         return queries_to_df(self.queries)
 
+    def queries_to_pickle(self, path: Path) -> None:
+        import pickle
+        with path.open("wb") as f:
+            pickle.dump(self.queries, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    def pickle_to_queries(self, path: Path) -> None:
+        import pickle
+        with path.open("rb") as f:
+            self.queries = pickle.load(f)
+
     def store_queries(self) -> None:
         """
         Store the variable queries as a CSV file in the run folder.
-        The file name is 'queries_<test_name_path>.csv'.
         """
-        import pickle
         self.run_folder.mkdir(parents=True, exist_ok=True)
-        with (self.run_folder / self.prepared_queries_file_name).open("wb") as f:
-            pickle.dump(self.queries, f, protocol=pickle.HIGHEST_PROTOCOL)
+        self.queries_to_pickle(self.run_folder / self.prepared_queries_file_name)
 
     def restore_queries(self) -> None:
-        import pickle
-        with (self.run_folder / self.prepared_queries_file_name).open("rb") as f:
-            self.queries = pickle.load(f)
+        self.pickle_to_queries(self.run_folder / self.prepared_queries_file_name)
 
     def queries_to_csv(self, file_name: str, dest: Path = None) -> None:
         """

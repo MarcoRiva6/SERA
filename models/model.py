@@ -112,6 +112,18 @@ class Model(ABC):
         """
         raise NotImplementedError(f"Lotus submission not implemented for model {self.name}.")
 
+    def _query_fits_limit(self, query: Query) -> bool:
+        """
+        Check if the prompt of a single query fits within the model's token limit.
+        """
+        raise NotImplementedError(f"Token counting method not implemented for model {self.name}.")
+
+    def queries_fits_limit(self, queries: list[Query]) -> bool:
+        for q in queries:
+            if not self._query_fits_limit(q):
+                return False
+        return True
+
     @classmethod
     def from_yaml_file(cls, **kwargs) -> 'Model':
         with open(kwargs.get('file')) as f:

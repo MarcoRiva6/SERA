@@ -1,4 +1,4 @@
 name: 'Qwen 3 32B'
 name_api: 'qwen3:32b'
-max_tokens: 10000
+max_tokens: 40000
 supports_thinking: true

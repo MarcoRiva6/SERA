@@ -4,6 +4,7 @@ import os
 import sys
 import time
 
+import requests
 from tqdm import tqdm
 from dataclasses import dataclass, field
 from io import TextIOWrapper
@@ -40,7 +41,7 @@ def monitor_remote_running(host, user, password, file_name: str = "run.log"):
 
 def launch_remote_job(ssh_client: paramiko.SSHClient, run_file_path: str) -> None:
     venv_name = "venv_similarity"
-    requirements = ["ollama", "tqdm"]
+    requirements = ["ollama", "tqdm", "requests"]
     remote_command = f"""
 # Crea il venv solo se non esiste la cartella
 if [ ! -d "{venv_name}" ]; then
@@ -151,6 +152,7 @@ from io import TextIOWrapper
 from dataclasses import dataclass, field
 from ollama import Client
 from tqdm import tqdm
+import requests
 """
         run_code = f"""
 if __name__ == "__main__":
@@ -323,3 +325,14 @@ if __name__ == "__main__":
 
         else:
             self._submit_direct_local(queries)
+
+    def _query_fits_limit(self, query: Query) -> bool:
+        url = f"http://{self.ollama_address}/api/tokenize"
+        payload = {
+            "model": self.name_api,
+            "prompt": query.prompt
+        }
+        response = requests.post(url, json=payload).json()
+
+        n_tokens = len(response.get("tokens", []))
+        return self.max_tokens >= n_tokens

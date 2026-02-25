@@ -1,0 +1,4 @@
+name: 'Qwen 3 30B'
+name_api: 'qwen3:30b'
+max_tokens: 256000
+supports_thinking: true

@@ -165,6 +165,9 @@ class Experiment:
             self.test.queries_to_csv('prepared_queries.csv')
         print('test ready.')
         try:
+            # if not self.model.queries_fits_limit(self.test.queries):
+            #     print('Queries exceed model token limit of', self.model.max_tokens, 'tokens. Skipping.')
+            #     return
             self.model.run(self.test.queries)
             print('Model processing complete.')
         except NotImplementedError as e:

@@ -1,4 +1,4 @@
 name: 'Gemma 3 27B'
 name_api: 'gemma3:27b'
-max_tokens: 10000
+max_tokens: 128000
 supports_thinking: false

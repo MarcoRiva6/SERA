@@ -95,7 +95,7 @@ class PlanetEvaluations(Evaluations):
 class PlanetQueryParameters(QueryParameters):
     k: int
     prompt_level: str
-    names_domain: str
+    names_level: str
 
 @dataclass
 class PlanetQuery(Query[PlanetQueryParameters, PlanetEvaluations]):
@@ -106,7 +106,7 @@ class PlanetQuery(Query[PlanetQueryParameters, PlanetEvaluations]):
 class PlanetTestParameters(TestParameters):
     kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
     prompt_levels: list[str] = field(default_factory=lambda: ['generic']) # 'generic', 'esi_instruct', 'esi_formula'
-    names_domains: list[str] = field(default_factory=lambda: ['real']) # 'real', 'fake'
+    names_levels: list[str] = field(default_factory=lambda: ['real']) # 'real', 'fake'
     n_queries: int = 10
     planets_per_query: int = 50 #70 tot
     enforce_json_schema: bool = True
@@ -231,7 +231,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
         self.queries = []
         current_seed = self.parameters.seed
         counter = 0
-        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.kp)*len(self.parameters.prompt_levels)*len(self.parameters.names_domains),
+        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.kp)*len(self.parameters.prompt_levels)*len(self.parameters.names_levels),
                     desc="Generating queries",
                     unit="query",
                     colour='green')
@@ -242,7 +242,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
             for kp in self.parameters.kp:
                 k = max(1, math.ceil(kp * self.parameters.planets_per_query))
 
-                for planet_name_mod in self.parameters.names_domains:
+                for planet_name_mod in self.parameters.names_levels:
                     if planet_name_mod == 'real':
                         q_df = selected_planets
                     elif planet_name_mod == 'fake':
@@ -268,7 +268,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
                             id=counter,
                             ds_id=i,
                             prompt=create_prompt(prompt_df, prompt_level, k, self.parameters.enforce_json_schema),
-                            parameters=PlanetQueryParameters(k=k, prompt_level=prompt_level, names_domain=planet_name_mod),
+                            parameters=PlanetQueryParameters(k=k, prompt_level=prompt_level, names_level=planet_name_mod),
                             ground_truth=ground_truth,
                             response=None,
                             evaluations=None,

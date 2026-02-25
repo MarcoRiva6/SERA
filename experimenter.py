@@ -319,5 +319,5 @@ if __name__ == "__main__":
                 else:
                     print(f"Some experiments for test {query.name} were not evaluated, skipping dashboard{" and aggregation" if run.create_aggregated_csv else ""}.")
                 print('\n')
-        if run.show_dashboard:
+        if run.show_dashboard and len(for_dashboard) != 0:
             run_multi_set_dashboard(for_dashboard)

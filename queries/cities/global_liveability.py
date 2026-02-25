@@ -156,7 +156,7 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
                     unit="query",
                     colour='green')
 
-        for _ in range(self.parameters.n_queries):
+        for i in range(self.parameters.n_queries):
             if self.parameters.seed != 0:
                 random.seed(curr_seed)
 
@@ -184,6 +184,7 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
                         gt_df: DataFrame = closest_cities(curr_df, target)
                         q = CityQuery(
                             id=counter,
+                            ds_id=i,
                             prompt=create_prompt(curr_df.drop(columns=score_col), target, k, prompt_level),
                             ground_truth=gt_df[named_index_col].tolist(),
                             ground_truth_scores=(1-gt_df['diff']).tolist(),

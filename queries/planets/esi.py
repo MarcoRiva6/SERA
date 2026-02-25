@@ -236,7 +236,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
                     unit="query",
                     colour='green')
 
-        for _ in range(self.parameters.n_queries):
+        for i in range(self.parameters.n_queries):
             selected_planets = self.clean_df.sample(n=self.parameters.planets_per_query, replace=False, random_state=current_seed if self.parameters.seed != 0 else None)
 
             for kp in self.parameters.kp:
@@ -266,6 +266,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
                             raise ValueError(f"Unknown prompt_level: {prompt_level}")
                         query = PlanetQuery(
                             id=counter,
+                            ds_id=i,
                             prompt=create_prompt(prompt_df, prompt_level, k, self.parameters.enforce_json_schema),
                             parameters=PlanetQueryParameters(k=k, prompt_level=prompt_level, names_domain=planet_name_mod),
                             ground_truth=ground_truth,

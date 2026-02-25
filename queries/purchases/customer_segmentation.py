@@ -385,7 +385,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                     unit="query",
                     colour='green')
 
-        for _ in range(self.parameters.n_queries):
+        for i in range(self.parameters.n_queries):
             if self.parameters.seed != 0:
                 random.seed(current_seed)
             # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
@@ -422,6 +422,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                 for p_level in self.parameters.prompt_levels:
                     self.queries.append(CustomerSegmentationQuery(
                         id=counter,
+                        ds_id=i,
                         customer_id=selected_cid,
                         prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
                         ground_truth=sorted_cids,

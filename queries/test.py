@@ -167,6 +167,7 @@ class Query(ABC, Generic[T_QueryParameters, T_Evaluations]):
     Prompt can be of any type, including a DataFrame (useful for lotus).
     """
     id: int # must be unique within a test
+    ds_id: int
     prompt: Any
     response: str
     parameters: T_QueryParameters

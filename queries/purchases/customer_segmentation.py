@@ -246,6 +246,7 @@ class CustomerSegmentationEvaluations(Evaluations):
 class CustomerSegmentationParameters(QueryParameters):
     k: int
     prompt_level: str
+    names_level: str
 
 @dataclass
 class CustomerSegmentationQuery(Query[CustomerSegmentationParameters, CustomerSegmentationEvaluations]):
@@ -263,6 +264,7 @@ class CustomerSegmentationTestParameters(TestParameters):
     n_queries: int = N_QUERIES
     rows_in_prompt_limit: int = 5500
     prompt_levels: list[str] = field(default_factory=lambda: ['medium']) # generic, medium, formula
+    names_levels: list[str] = field(default_factory=lambda: ['fake']) # generic, medium, formula
     enforce_json_schema: bool = True
 
 @dataclass
@@ -380,7 +382,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
         self.queries: list[CustomerSegmentationQuery] = []
         cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
         counter = 0
-        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.kp)*len(self.parameters.prompt_levels),
+        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.kp)*len(self.parameters.names_levels)*len(self.parameters.prompt_levels),
                     desc="Generating queries",
                     unit="query",
                     colour='green')
@@ -419,23 +421,27 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
             for kp in self.parameters.kp:
                 k = max(1, math.ceil(kp * self.parameters.n_customers_per_query))
 
-                for p_level in self.parameters.prompt_levels:
-                    self.queries.append(CustomerSegmentationQuery(
-                        id=counter,
-                        ds_id=i,
-                        customer_id=selected_cid,
-                        prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
-                        ground_truth=sorted_cids,
-                        ground_truth_values=ground_truth_vals,
-                        parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level),
-                        response=None,
-                        evaluations=None,
-                        response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,
-                        parsing_failed=None,
-                        parsed_response=None
-                    ))
-                    counter += 1
-                    pbar.update(1)
+                for n_level in self.parameters.names_levels:
+                    if n_level != 'fake':
+                        Exception(f"Unsupported names_level {n_level} in parameters.")
+
+                    for p_level in self.parameters.prompt_levels:
+                        self.queries.append(CustomerSegmentationQuery(
+                            id=counter,
+                            ds_id=i,
+                            customer_id=selected_cid,
+                            prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
+                            ground_truth=sorted_cids,
+                            ground_truth_values=ground_truth_vals,
+                            parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level),
+                            response=None,
+                            evaluations=None,
+                            response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,
+                            parsing_failed=None,
+                            parsed_response=None
+                        ))
+                        counter += 1
+                        pbar.update(1)
 
             current_seed += 1
 

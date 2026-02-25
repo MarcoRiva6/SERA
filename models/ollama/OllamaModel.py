@@ -27,9 +27,7 @@ def monitor_remote_running(host, user, password, file_name: str = "run.log"):
     try:
         while not channel.closed or channel.recv_ready():
             if channel.recv_ready():
-                # Leggiamo i dati crudi man mano che arrivano
                 data = channel.recv(1024)
-                # Scriviamo direttamente sul terminale locale senza aggiungere a capo automatici
                 sys.stdout.write(data.decode('utf-8'))
                 sys.stdout.flush()
             else:
@@ -101,7 +99,7 @@ class OllamaModel(Model):
     supports_thinking: bool = False
     responses_file_name: str = 'responses.jsonl'
     questions_file_name: str = 'questions.jsonl'
-    run_file_name: str = 'remote_run.py'
+    remote_run_file_name: str = 'remote_run.py'
     @dataclass
     class Params(Model.Params):
         remote_job: bool = False
@@ -127,8 +125,15 @@ class OllamaModel(Model):
     def __remote_run_folder(self, os_type: str) -> str:
         return build_remote_path(os_type, "/home/***REMOVED***", *self.run_folder.parts[self.run_folder.parts.index('runs'):])
 
+    def __can_launch_remote(self, ssh_client: paramiko.SSHClient) -> bool:
+        command = f"pgrep -f 'python.*{self.remote_run_file_name}'"
+        stdin, stdout, stderr = ssh_client.exec_command(command)
+        # Se stdout contiene qualcosa, significa che ha trovato il PID del processo
+        pid = stdout.read().decode('utf-8').strip()
+        return len(pid) == 0
+
     def __build_remote_python_file(self, os_type: str = "posix") -> None:
-        remote_file_path = self.run_folder / self.run_file_name
+        remote_file_path = self.run_folder / self.remote_run_file_name
 
         ollama_model_code = inspect.getsource(OllamaModel)
         model_code = inspect.getsource(Model)
@@ -163,23 +168,23 @@ if __name__ == "__main__":
         """
 
         remote_code = f"{imports_code}\n\n{run_type_code}\n\n{model_code}\n\n{ollama_model_code}\n\n{run_code}"
-        remote_code = remote_code.replace("Query", "Any").replace("DataFrame", "Any").replace("paramiko.SSHClient", "Any") # per evitare problemi di import nei file remoti, visto che non servono per l'esecuzione
+        # per evitare problemi di import nei file remoti, visto che non servono per l'esecuzione
+        remote_code = (remote_code.replace("Query", "Any")
+                       .replace("DataFrame", "Any")
+                       .replace("paramiko.SSHClient", "Any"))
         with open(remote_file_path, 'w', encoding='utf-8') as f:
             f.write(remote_code)
             f.flush()
 
-    def _prepare_remote_job(self, remote_os_type: str, hostname: str, user: str, password: str, queries: list[Query]) -> paramiko.SSHClient:
+    def _prepare_remote_job(self, remote_os_type: str, ssh_client: paramiko.SSHClient, queries: list[Query]) -> None:
         self.__write_questions_file(queries)
-        ssh_client = spawn_client_ssh(hostname, user, password)
         self.__build_remote_python_file(remote_os_type)
         remote_question_path = build_remote_path(remote_os_type, "/home/***REMOVED***", self.__remote_run_folder(remote_os_type), self.questions_file_name)
-        remote_run_path = build_remote_path(remote_os_type, "/home/***REMOVED***", 'remote_run.py')
+        remote_run_file_path = build_remote_path(remote_os_type, "/home/***REMOVED***", self.__remote_run_folder(remote_os_type), self.remote_run_file_name)
         send_files_ssh(ssh_client, [
             (self.run_folder / self.questions_file_name, remote_question_path),
-            (self.run_folder / 'remote_run.py', remote_run_path)
+            (self.run_folder / self.remote_run_file_name, remote_run_file_path)
         ])
-
-        return ssh_client
 
     def __submit_prompt(self, prompt: str, schema: dict) -> str:
         response = self.client.generate(
@@ -213,9 +218,8 @@ if __name__ == "__main__":
                         processed_queries[data['id']] = data['response']
             if len(processed_queries) > 0:
                 print(f"Retrieved {len(processed_queries)} already processed answer{"s" if len(processed_queries) > 1 else ""}.")
-            return processed_queries
 
-        return None
+        return processed_queries
 
     def _submit_direct_remote(self):
         questions_file_path: Path = self.run_folder / self.questions_file_name
@@ -269,40 +273,53 @@ if __name__ == "__main__":
 
     def _submit_direct(self, queries: list[Query]) -> None:
         if self.params.remote_job:
-            print("Submitting remotely...")
-            os_type = 'posix'
-            hostname = "***REMOVED***"
-            user = "***REMOVED***"
-            password = "***REMOVED***"
-
-            try:
+            # check if already completed
+            processed_queries = self.__retrieve_responses()
+            if len(processed_queries) == len(queries):
+                for q in queries:
+                    if q.prompt != processed_queries[q.id]:
+                        SubmissionError("Remote error: prompt mismatch for query id " + str(q.id))
+                    q.response = processed_queries[q.id]
+                return
+            else:
+                print("Submitting remotely...")
+                os_type = 'posix'
+                hostname = "***REMOVED***"
+                user = "***REMOVED***"
+                password = "***REMOVED***"
                 ssh_client = spawn_client_ssh(hostname, user, password)
-                remote_response_file_path = build_remote_path(os_type,self.__remote_run_folder(os_type), self.responses_file_name)
-                get_files_ssh(ssh_client, [(remote_response_file_path, self.run_folder / self.responses_file_name)])
-                processed_queries = self.__retrieve_responses()
-                if len(processed_queries) == len(queries):
-                    print("All queries completed.")
-                    for q in queries:
-                        if q.prompt != processed_queries[q.id]:
-                            SubmissionError("Remote error: prompt mismatch for query id " + str(q.id))
-                        q.response = processed_queries[q.id]
-                    return
-                elif self.params.no_waiting:
-                    print(f"Remote job already running but only {len(processed_queries)}/{len(queries)} queries completed. Not waiting.")
-                    return
-                else:
-                    print("Remote job already running but not all queries completed. Attaching to stdout...")
-                    monitor_remote_running(hostname, user, password)
 
-            except FileNotFoundError as e:
-                ssh_client = self._prepare_remote_job(os_type, hostname, user, password, queries)
-                launch_remote_job(ssh_client, self.run_file_name)
-                if self.params.no_waiting:
-                    print("Remote job launched. Not waiting.")
-                    return
-                else:
-                    print("Remote job launched. Attaching to stdout...")
-                    monitor_remote_running(hostname, user, password)
+                try:
+                    remote_response_file_path = build_remote_path(os_type,self.__remote_run_folder(os_type), self.responses_file_name)
+                    get_files_ssh(ssh_client, [(remote_response_file_path, self.run_folder / self.responses_file_name)])
+                    processed_queries = self.__retrieve_responses()
+                    if len(processed_queries) == len(queries):
+                        print("All queries completed.")
+                        for q in queries:
+                            if q.prompt != processed_queries[q.id]:
+                                SubmissionError("Remote error: prompt mismatch for query id " + str(q.id))
+                            q.response = processed_queries[q.id]
+                        return
+                    elif self.params.no_waiting:
+                        print(f"Remote job already running but only {len(processed_queries)}/{len(queries)} queries completed. Not waiting.")
+                        return
+                    else:
+                        print("Remote job already running but not all queries completed. Attaching to stdout...")
+                        monitor_remote_running(hostname, user, password)
+                except FileNotFoundError as _:
+                    if not self.__can_launch_remote(ssh_client):
+                        ssh_client.close()
+                        print("A remote job already running. Not launching this one.")
+                        return
+                    self._prepare_remote_job(os_type, ssh_client, queries)
+                    remote_run_file_path = build_remote_path(os_type,self.__remote_run_folder(os_type), self.remote_run_file_name)
+                    launch_remote_job(ssh_client, remote_run_file_path)
+                    if self.params.no_waiting:
+                        print("Remote job launched. Not waiting.")
+                        return
+                    else:
+                        print("Remote job launched. Attaching to stdout...")
+                        monitor_remote_running(hostname, user, password)
 
         else:
             self._submit_direct_local(queries)

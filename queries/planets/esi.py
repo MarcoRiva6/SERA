@@ -6,6 +6,7 @@ import math
 import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
+from tqdm import tqdm
 
 from queries.test import Test, data_folder, Query, Evaluations, download_csv, extract_json, extract_list, \
     extract_pipe_sequence, mark_duplicates, QueryParameters, TestParameters
@@ -92,8 +93,9 @@ class PlanetEvaluations(Evaluations):
 
 @dataclass
 class PlanetQueryParameters(QueryParameters):
+    k: int
     prompt_level: str
-    plant_names_mod: str
+    names_domain: str
 
 @dataclass
 class PlanetQuery(Query[PlanetQueryParameters, PlanetEvaluations]):
@@ -102,11 +104,11 @@ class PlanetQuery(Query[PlanetQueryParameters, PlanetEvaluations]):
 
 @dataclass
 class PlanetTestParameters(TestParameters):
+    kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
     prompt_levels: list[str] = field(default_factory=lambda: ['generic']) # 'generic', 'esi_instruct', 'esi_formula'
-    plant_names_mods: list[str] = field(default_factory=lambda: ['real']) # 'real', 'fake'
+    names_domains: list[str] = field(default_factory=lambda: ['real']) # 'real', 'fake'
     n_queries: int = 10
-    planets_per_query: int = 50
-    top_k: int = 10
+    planets_per_query: int = 50 #70 tot
     enforce_json_schema: bool = True
 
 @dataclass
@@ -126,7 +128,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
         self.simplified_df = pd.read_csv(simplified_ds_path)
 
     def evaluate_query(self, query: PlanetQuery) -> PlanetEvaluations:
-        failing_scores = PlanetEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=self.parameters.top_k, mare_k=self.parameters.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.parameters.top_k)
+        failing_scores = PlanetEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=query.parameters.k)
 
         if query.response_json_schema:
             try:
@@ -147,7 +149,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
                 query.parsing_failed = True
                 return failing_scores
             elif len(matched_lists) > 1:
-                matched_lists = [lst for lst in matched_lists if len(lst) == self.parameters.top_k]
+                matched_lists = [lst for lst in matched_lists if len(lst) == query.parameters.k]
                 if len(matched_lists) == 0:
                     print(f"Cannot evaluate query {query.id}: no valid pipe-separated list found in the response.")
                     query.parsing_failed = True
@@ -171,7 +173,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
         ground_truth_names: list[str] = [item['planet_name'] for item in query.ground_truth]
         ground_truth_scores: list[float] = [item['esi'] for item in query.ground_truth]
         llm_names_with_duplicates = llm_names
-        llm_names = mark_duplicates(llm_names, ground_truth_names[:self.parameters.top_k])
+        llm_names = mark_duplicates(llm_names, ground_truth_names[:query.parameters.k])
         llm_scores: list[float] = []
         for i, pred_planet in enumerate(llm_names):
             score = 0.0
@@ -181,16 +183,16 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
                     break
             llm_scores.append(score)
 
-        return PlanetEvaluations(ndcg_scores=ndcg_k(llm_scores, ground_truth_scores, self.parameters.top_k),
+        return PlanetEvaluations(ndcg_scores=ndcg_k(llm_scores, ground_truth_scores, query.parameters.k),
                            ndcg_k=ndcg_k(
-            [self.parameters.top_k - i if p in ground_truth_names[:self.parameters.top_k] else 0 for i, p in enumerate(llm_names)],
-            k=self.parameters.top_k),
+            [query.parameters.k - i if p in ground_truth_names[:query.parameters.k] else 0 for i, p in enumerate(llm_names)],
+            k=query.parameters.k),
                            mare=mare_k(llm_names, ground_truth_names),
-                           mare_k=mare_k(llm_names, ground_truth_names, self.parameters.top_k),
+                           mare_k=mare_k(llm_names, ground_truth_names, query.parameters.k),
                            kendall = kendall_tau_k(llm_names, ground_truth_names),
-                           kendall_k = kendall_tau_k(llm_names, ground_truth_names, self.parameters.top_k),
+                           kendall_k = kendall_tau_k(llm_names, ground_truth_names, query.parameters.k),
                            spearman=spearman_rho_k(llm_names, ground_truth_names),
-                           spearman_k=spearman_rho_k(llm_names, ground_truth_names, self.parameters.top_k),
+                           spearman_k=spearman_rho_k(llm_names, ground_truth_names, query.parameters.k),
                            hallucination_rate=hallucination_rate(llm_names_with_duplicates, ground_truth_names))
 
     def prepare_df(self) -> None:
@@ -229,46 +231,57 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
         self.queries = []
         current_seed = self.parameters.seed
         counter = 0
+        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.kp)*len(self.parameters.prompt_levels)*len(self.parameters.names_domains),
+                    desc="Generating queries",
+                    unit="query",
+                    colour='green')
 
         for _ in range(self.parameters.n_queries):
             selected_planets = self.clean_df.sample(n=self.parameters.planets_per_query, replace=False, random_state=current_seed if self.parameters.seed != 0 else None)
 
-            for planet_name_mod in self.parameters.plant_names_mods:
-                if planet_name_mod == 'real':
-                    q_df = selected_planets
-                elif planet_name_mod == 'fake':
-                    fake_selected_planets = selected_planets.copy()
-                    fake_selected_planets['Name'] = "Planet " + fake_selected_planets.index.astype(str)
-                    q_df = fake_selected_planets
-                else:
-                    raise ValueError(f"Unknown planet_name_mod: {planet_name_mod}")
-                ground_truth_df = compute_ground_truth(q_df)
-                prompt_df = q_df.drop(columns='ESI', inplace=False)
-                ground_truth = [{'planet_name': row['Name'],
-                                 'esi': row['ESI']} for _, row
-                                in ground_truth_df.iterrows()]
-                for prompt_level in self.parameters.prompt_levels:
-                    if prompt_level == 'generic':
-                        response_schema = MostSimilarPlanets.model_json_schema()
-                    elif prompt_level in ['esi_instruct', 'esi_formula']:
-                        response_schema = MostSimilarPlanetsScore.model_json_schema()
+            for kp in self.parameters.kp:
+                k = max(1, math.ceil(kp * self.parameters.planets_per_query))
+
+                for planet_name_mod in self.parameters.names_domains:
+                    if planet_name_mod == 'real':
+                        q_df = selected_planets
+                    elif planet_name_mod == 'fake':
+                        fake_selected_planets = selected_planets.copy()
+                        fake_selected_planets['Name'] = "Planet " + fake_selected_planets.index.astype(str)
+                        q_df = fake_selected_planets
                     else:
-                        raise ValueError(f"Unknown prompt_level: {prompt_level}")
-                    query = PlanetQuery(
-                        id=counter,
-                        prompt=create_prompt(prompt_df, prompt_level, self.parameters.top_k, self.parameters.enforce_json_schema),
-                        parameters=PlanetQueryParameters(prompt_level=prompt_level,plant_names_mod=planet_name_mod),
-                        ground_truth=ground_truth,
-                        response=None,
-                        evaluations=None,
-                        response_json_schema=MostSimilarPlanets.model_json_schema() if self.parameters.enforce_json_schema else None,
-                        parsing_failed=None,
-                        parsed_response=None
-                    )
-                    self.queries.append(query)
-                    counter += 1
+                        raise ValueError(f"Unknown planet_name_mod: {planet_name_mod}")
+                    ground_truth_df = compute_ground_truth(q_df)
+                    prompt_df = q_df.drop(columns='ESI', inplace=False)
+                    ground_truth = [{'planet_name': row['Name'],
+                                     'esi': row['ESI']} for _, row
+                                    in ground_truth_df.iterrows()]
+
+                    for prompt_level in self.parameters.prompt_levels:
+                        if prompt_level == 'generic':
+                            response_schema = MostSimilarPlanets.model_json_schema()
+                        elif prompt_level in ['esi_instruct', 'esi_formula']:
+                            response_schema = MostSimilarPlanetsScore.model_json_schema()
+                        else:
+                            raise ValueError(f"Unknown prompt_level: {prompt_level}")
+                        query = PlanetQuery(
+                            id=counter,
+                            prompt=create_prompt(prompt_df, prompt_level, k, self.parameters.enforce_json_schema),
+                            parameters=PlanetQueryParameters(k=k, prompt_level=prompt_level, names_domain=planet_name_mod),
+                            ground_truth=ground_truth,
+                            response=None,
+                            evaluations=None,
+                            response_json_schema=MostSimilarPlanets.model_json_schema() if self.parameters.enforce_json_schema else None,
+                            parsing_failed=None,
+                            parsed_response=None
+                        )
+                        self.queries.append(query)
+                        counter += 1
+                        pbar.update(1)
 
             current_seed = current_seed + 1
+
+        pbar.close()
 
     def prepare_queries_for_direct(self) -> None:
         print('loading dataset...')

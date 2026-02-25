@@ -1,3 +1,4 @@
+import math
 import random
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -5,6 +6,7 @@ from enum import StrEnum
 from pandas import DataFrame
 import pandas as pd
 from pydantic import BaseModel, Field
+from tqdm import tqdm
 
 from queries.test import Test, data_folder, Query, Evaluations, mark_duplicates, QueryParameters, TestParameters
 from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
@@ -31,7 +33,7 @@ class NamesLevels(StrEnum):
     real = 'real'
 
 class MostSimilarCities(BaseModel):
-    most_similar_cities: list[str]  = Field(description="Ordered list of the most similar cities to the target city.")
+    most_similar_cities: list[str]  = Field(description="Ordered list of the k most similar cities to the target city.")
 
 def closest_cities(df: DataFrame, target_city: str) -> DataFrame:
     mask = df[named_index_col] == target_city
@@ -71,6 +73,7 @@ def create_prompt(df: DataFrame, target: str, top_k: int, prompt_level: PromptLe
 class CityParameters(QueryParameters):
     prompt_level: PromptLevel
     names_level: NamesLevels
+    k: int
 
 @dataclass
 class CityEvaluations(Evaluations):
@@ -93,9 +96,9 @@ class CityQuery(Query[CityParameters, CityEvaluations]):
 
 @dataclass
 class CityTestParameters(TestParameters):
-    cities_per_query: int = 80
+    cities_per_query: int = 80 #140 tot
     n_queries: int = 10
-    top_k: int = 5
+    kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
     prompt_levels: list[PromptLevel] = field(default_factory=lambda: [pl for pl in PromptLevel])
     names_levels: list[NamesLevels] = field(default_factory=lambda: [cn for cn in NamesLevels])
     enforce_json_schema: bool = True
@@ -119,23 +122,23 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
         return False
 
     def evaluate_query(self, query: CityQuery) -> CityEvaluations:
-        failing_scores = CityEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=self.parameters.top_k, mare_k=self.parameters.top_k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=self.parameters.top_k)
+        failing_scores = CityEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=query.parameters.k)
         query.parsing_failed = not self._parse_query(query)
         if query.parsing_failed:
             return failing_scores
-        marked_duplicate_response = mark_duplicates(query.parsed_response, query.ground_truth[:self.parameters.top_k])
+        marked_duplicate_response = mark_duplicates(query.parsed_response, query.ground_truth[:query.parameters.k])
 
-        return CityEvaluations(ndcg_scores=ndcg_k([query.ground_truth_scores[query.ground_truth.index(city)] if city in query.ground_truth else 0 for city in marked_duplicate_response], query.ground_truth_scores, self.parameters.top_k),
+        return CityEvaluations(ndcg_scores=ndcg_k([query.ground_truth_scores[query.ground_truth.index(city)] if city in query.ground_truth else 0 for city in marked_duplicate_response], query.ground_truth_scores, query.parameters.k),
                            ndcg_k=ndcg_k(
-                               relevance_scores=[self.parameters.top_k - i if city in query.ground_truth[:self.parameters.top_k] else 0 for
+                               relevance_scores=[query.parameters.k - i if city in query.ground_truth[:query.parameters.k] else 0 for
                                                  i, city in
-                                                 enumerate(marked_duplicate_response)], k=self.parameters.top_k),
+                                                 enumerate(marked_duplicate_response)], k=query.parameters.k),
                            mare=mare_k(marked_duplicate_response, query.ground_truth),
-                           mare_k=mare_k(marked_duplicate_response, query.ground_truth, self.parameters.top_k),
+                           mare_k=mare_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
                            spearman=spearman_rho_k(marked_duplicate_response, query.ground_truth),
-                           spearman_k=spearman_rho_k(marked_duplicate_response, query.ground_truth, self.parameters.top_k),
+                           spearman_k=spearman_rho_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
                            kendall=kendall_tau_k(marked_duplicate_response, query.ground_truth),
-                           kendall_k=kendall_tau_k(marked_duplicate_response, query.ground_truth, self.parameters.top_k),
+                           kendall_k=kendall_tau_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
                            hallucination_rate=hallucination_rate(query.parsed_response, query.ground_truth))
 
     def prepare_queries_for_direct(self):
@@ -148,42 +151,54 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
 
         curr_seed = self.parameters.seed
         counter = 0
+        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.kp)*len(self.parameters.prompt_levels)*len(self.parameters.names_levels),
+                    desc="Generating queries",
+                    unit="query",
+                    colour='green')
 
         for _ in range(self.parameters.n_queries):
             if self.parameters.seed != 0:
                 random.seed(curr_seed)
+
             sampled_cities: list[str] = random.sample(k=self.parameters.cities_per_query, population=df[named_index_col].tolist())
             fake_name_mapping = {c: "City " + str(i) for i, c in enumerate(sampled_cities, start=1)}
             df_sampled = df[df[named_index_col].isin(sampled_cities)]
             target_city = random.choice(sampled_cities)
 
-            for prompt_level in self.parameters.prompt_levels:
-                for names_level in self.parameters.names_levels:
-                    if names_level == NamesLevels.fake:
-                        curr_df = df_sampled.copy()
-                        curr_df = curr_df.drop(columns='Country')
-                        curr_df[named_index_col] = curr_df[named_index_col].map(fake_name_mapping)
-                        target = fake_name_mapping[target_city]
-                    elif names_level == NamesLevels.real:
-                        curr_df = df_sampled.copy()
-                        target = target_city
-                    else:
-                        raise ValueError(f"Unknown cities name: {names_level}")
-                    gt_df: DataFrame = closest_cities(curr_df, target)
-                    q = CityQuery(
-                        id=counter,
-                        prompt=create_prompt(curr_df.drop(columns=score_col), target, self.parameters.top_k, prompt_level),
-                        ground_truth=gt_df[named_index_col].tolist(),
-                        ground_truth_scores=(1-gt_df['diff']).tolist(),
-                        target_city=target,
-                        response=None,
-                        parsed_response=None,
-                        parameters=CityParameters(prompt_level=prompt_level,names_level=names_level),
-                        response_json_schema=MostSimilarCities.model_json_schema() if self.parameters.enforce_json_schema else None,
-                        evaluations=None,
-                        parsing_failed=None
-                    )
-                    self.queries.append(q)
-                    counter += 1
+            for kp in self.parameters.kp:
+                k = max(1, math.ceil(kp * self.parameters.cities_per_query))
+
+                for prompt_level in self.parameters.prompt_levels:
+                    for names_level in self.parameters.names_levels:
+                        if names_level == NamesLevels.fake:
+                            curr_df = df_sampled.copy()
+                            curr_df = curr_df.drop(columns='Country')
+                            curr_df[named_index_col] = curr_df[named_index_col].map(fake_name_mapping)
+                            target = fake_name_mapping[target_city]
+                        elif names_level == NamesLevels.real:
+                            curr_df = df_sampled.copy()
+                            target = target_city
+                        else:
+                            raise ValueError(f"Unknown cities name: {names_level}")
+
+                        gt_df: DataFrame = closest_cities(curr_df, target)
+                        q = CityQuery(
+                            id=counter,
+                            prompt=create_prompt(curr_df.drop(columns=score_col), target, k, prompt_level),
+                            ground_truth=gt_df[named_index_col].tolist(),
+                            ground_truth_scores=(1-gt_df['diff']).tolist(),
+                            target_city=target,
+                            response=None,
+                            parsed_response=None,
+                            parameters=CityParameters(k=k, prompt_level=prompt_level,names_level=names_level),
+                            response_json_schema=MostSimilarCities.model_json_schema() if self.parameters.enforce_json_schema else None,
+                            evaluations=None,
+                            parsing_failed=None
+                        )
+                        self.queries.append(q)
+                        counter += 1
+                        pbar.update(1)
 
             curr_seed += 1
+
+        pbar.close()

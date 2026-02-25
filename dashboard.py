@@ -133,7 +133,9 @@ def run_multi_set_dashboard(
         schemas[set_name] = compute_set_schema(datasets)
 
     # Assume evaluation fields are the same across sets; if not, we take union
-    all_eval_fields = sorted({m for (ds_names, pf, ef, vbp) in schemas.values() for m in ef})
+    all_eval_fields = sorted(
+        {m for (ds_names, pf, ef, vbp) in schemas.values() for m in ef if m != "hallucination_rate"}
+    )
     if not all_eval_fields:
         raise ValueError("No evaluation fields found in any set.")
 

@@ -335,9 +335,13 @@ class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
         :param dest: the destination folder to save the CSV file to.
         :param file_name: the name of the CSV file to save the queries to (with extension).
         """
+        exclude_columns = ['response_json_schema']
         if dest is None:
             dest = self.run_folder
+
         df = self.queries_to_df()
+        df = df.drop(columns=exclude_columns)
+
         dest.mkdir(parents=True, exist_ok=True)
         df.to_csv(dest / file_name, index=False, decimal=',', sep=';')
 

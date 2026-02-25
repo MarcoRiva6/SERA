@@ -264,7 +264,7 @@ class CustomerSegmentationTestParameters(TestParameters):
     n_queries: int = N_QUERIES
     rows_in_prompt_limit: int = 5500
     prompt_levels: list[str] = field(default_factory=lambda: ['medium']) # generic, medium, formula
-    names_levels: list[str] = field(default_factory=lambda: ['fake']) # generic, medium, formula
+    names_levels: list[str] = field(default_factory=lambda: ['numberic']) # generic, medium, formula
     enforce_json_schema: bool = True
 
 @dataclass
@@ -422,7 +422,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                 k = max(1, math.ceil(kp * self.parameters.n_customers_per_query))
 
                 for n_level in self.parameters.names_levels:
-                    if n_level != 'fake':
+                    if n_level != 'numeric':
                         Exception(f"Unsupported names_level {n_level} in parameters.")
 
                     for p_level in self.parameters.prompt_levels:
@@ -433,7 +433,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                             prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
                             ground_truth=sorted_cids,
                             ground_truth_values=ground_truth_vals,
-                            parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level),
+                            parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level, names_level=n_level),
                             response=None,
                             evaluations=None,
                             response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,

@@ -96,6 +96,7 @@ class PlanetQueryParameters(QueryParameters):
     k: int
     prompt_level: str
     names_level: str
+    n_elems: int
 
 @dataclass
 class PlanetQuery(Query[PlanetQueryParameters, PlanetEvaluations]):
@@ -108,7 +109,7 @@ class PlanetTestParameters(TestParameters):
     prompt_levels: list[str] = field(default_factory=lambda: ['generic']) # 'generic', 'esi_instruct', 'esi_formula'
     names_levels: list[str] = field(default_factory=lambda: ['real']) # 'real', 'fake'
     n_queries: int = 10
-    planets_per_query: int = 50 #70 tot
+    planets_per_query: list[int] = field(default_factory=lambda: [50]) #70 tot
     enforce_json_schema: bool = True
 
 @dataclass
@@ -225,62 +226,66 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
         self.clean_df = df
 
     def init_queries(self) -> None:
-        if math.comb(len(self.clean_df), self.parameters.planets_per_query) < self.parameters.n_queries:
-            raise ValueError("Not enough unique combinations of planets to generate the requested number of queries.")
+        for p_per_query in self.parameters.planets_per_query:
+            if math.comb(len(self.clean_df), p_per_query) < self.parameters.n_queries:
+                raise ValueError(f"Not enough unique combinations of planets to generate the requested number of queries (planets per query: {p_per_query}).")
 
         self.queries = []
         current_seed = self.parameters.seed
         counter = 0
-        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.kp)*len(self.parameters.prompt_levels)*len(self.parameters.names_levels),
+        ds_id = 0
+        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.planets_per_query)*len(self.parameters.kp)*len(self.parameters.prompt_levels)*len(self.parameters.names_levels),
                     desc="Generating queries",
                     unit="query",
                     colour='green')
 
-        for i in range(self.parameters.n_queries):
-            selected_planets = self.clean_df.sample(n=self.parameters.planets_per_query, replace=False, random_state=current_seed if self.parameters.seed != 0 else None)
+        for _ in range(self.parameters.n_queries):
+            for p_per_query in self.parameters.planets_per_query:
+                selected_planets = self.clean_df.sample(n=p_per_query, replace=False, random_state=current_seed if self.parameters.seed != 0 else None)
 
-            for kp in self.parameters.kp:
-                k = max(1, math.ceil(kp * self.parameters.planets_per_query))
+                for kp in self.parameters.kp:
+                    k = max(1, math.ceil(kp * p_per_query))
 
-                for planet_name_mod in self.parameters.names_levels:
-                    if planet_name_mod == 'real':
-                        q_df = selected_planets
-                    elif planet_name_mod == 'fake':
-                        fake_selected_planets = selected_planets.copy()
-                        fake_selected_planets['Name'] = "Planet " + fake_selected_planets.index.astype(str)
-                        q_df = fake_selected_planets
-                    else:
-                        raise ValueError(f"Unknown planet_name_mod: {planet_name_mod}")
-                    ground_truth_df = compute_ground_truth(q_df)
-                    prompt_df = q_df.drop(columns='ESI', inplace=False)
-                    ground_truth = [{'planet_name': row['Name'],
-                                     'esi': row['ESI']} for _, row
-                                    in ground_truth_df.iterrows()]
-
-                    for prompt_level in self.parameters.prompt_levels:
-                        if prompt_level == 'generic':
-                            response_schema = MostSimilarPlanets.model_json_schema()
-                        elif prompt_level in ['esi_instruct', 'esi_formula']:
-                            response_schema = MostSimilarPlanetsScore.model_json_schema()
+                    for planet_name_mod in self.parameters.names_levels:
+                        if planet_name_mod == 'real':
+                            q_df = selected_planets
+                        elif planet_name_mod == 'fake':
+                            fake_selected_planets = selected_planets.copy()
+                            fake_selected_planets['Name'] = "Planet " + fake_selected_planets.index.astype(str)
+                            q_df = fake_selected_planets
                         else:
-                            raise ValueError(f"Unknown prompt_level: {prompt_level}")
-                        query = PlanetQuery(
-                            id=counter,
-                            ds_id=i,
-                            prompt=create_prompt(prompt_df, prompt_level, k, self.parameters.enforce_json_schema),
-                            parameters=PlanetQueryParameters(k=k, prompt_level=prompt_level, names_level=planet_name_mod),
-                            ground_truth=ground_truth,
-                            response=None,
-                            evaluations=None,
-                            response_json_schema=MostSimilarPlanets.model_json_schema() if self.parameters.enforce_json_schema else None,
-                            parsing_failed=None,
-                            parsed_response=None
-                        )
-                        self.queries.append(query)
-                        counter += 1
-                        pbar.update(1)
+                            raise ValueError(f"Unknown planet_name_mod: {planet_name_mod}")
+                        ground_truth_df = compute_ground_truth(q_df)
+                        prompt_df = q_df.drop(columns='ESI', inplace=False)
+                        ground_truth = [{'planet_name': row['Name'],
+                                         'esi': row['ESI']} for _, row
+                                        in ground_truth_df.iterrows()]
 
-            current_seed = current_seed + 1
+                        for prompt_level in self.parameters.prompt_levels:
+                            if prompt_level == 'generic':
+                                response_schema = MostSimilarPlanets.model_json_schema()
+                            elif prompt_level in ['esi_instruct', 'esi_formula']:
+                                response_schema = MostSimilarPlanetsScore.model_json_schema()
+                            else:
+                                raise ValueError(f"Unknown prompt_level: {prompt_level}")
+                            query = PlanetQuery(
+                                id=counter,
+                                ds_id=ds_id,
+                                prompt=create_prompt(prompt_df, prompt_level, k, self.parameters.enforce_json_schema),
+                                parameters=PlanetQueryParameters(k=k, prompt_level=prompt_level, names_level=planet_name_mod, n_elems=p_per_query),
+                                ground_truth=ground_truth,
+                                response=None,
+                                evaluations=None,
+                                response_json_schema=MostSimilarPlanets.model_json_schema() if self.parameters.enforce_json_schema else None,
+                                parsing_failed=None,
+                                parsed_response=None
+                            )
+                            self.queries.append(query)
+                            counter += 1
+                            pbar.update(1)
+
+                current_seed = current_seed + 1
+                ds_id += 1
 
         pbar.close()
 

@@ -1,24 +1,65 @@
 models:
-  - name: 'ollama/gemma3-12b'
-    no_waiting: true
   - name: 'ollama/gemma3-27b'
     no_waiting: true
-  - name: 'ollama/deepseek-r1-32b'
+    remote_job: true
+  - name: 'ollama/qwen3-30b'
     no_waiting: true
-  - name: 'ollama/qwen3-32b'
+    remote_job: true
+  - name: 'together/deepseek-V3-together'
+    no_waiting: true
+  - name: 'google/gemini-2.5-pro'
     no_waiting: true
 run_types: 'direct'
 seed: 12345
 disabled: false
-show_dashboard: true
+show_dashboard: false
 queries:
   - name: 'planets/esi'
-    n_queries: 10
-    top_k: 5
-    plant_names_mods:
+    n_queries: 30
+    planets_per_query:
+      - 30
+      - 69
+    kp:
+      - 0.05
+      - 0.15
+      - 0.30
+    names_levels:
       - 'real'
       - 'fake'
     prompt_levels:
       - 'esi_instruct'
       - 'esi_formula'
       - 'generic'
+  - name: 'cities/global_liveability'
+    n_queries: 30
+    cities_per_query:
+      - 30
+      - 70
+      - 120
+    kp:
+      - 0.05
+      - 0.15
+      - 0.30
+    names_levels:
+      - 'real'
+      - 'fake'
+    prompt_levels:
+      - 'compute_GLI'
+      - 'similar'
+      - 'formula_GLI'
+  - name: 'purchases/customer_segmentation'
+    n_queries: 30
+    n_customers_per_query:
+      - 30
+      - 70
+    kp:
+      - 0.05
+      - 0.15
+      - 0.30
+    names_levels:
+      - 'numeric'
+    prompt_levels:
+      - 'generic'
+      - 'medium'
+      - 'formula'
+

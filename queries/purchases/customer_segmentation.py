@@ -247,6 +247,7 @@ class CustomerSegmentationParameters(QueryParameters):
     k: int
     prompt_level: str
     names_level: str
+    n_elems: int
 
 @dataclass
 class CustomerSegmentationQuery(Query[CustomerSegmentationParameters, CustomerSegmentationEvaluations]):
@@ -259,7 +260,7 @@ class CustomerSegmentationQuery(Query[CustomerSegmentationParameters, CustomerSe
 class CustomerSegmentationTestParameters(TestParameters):
     alpha: float = ALPHA
     top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
-    n_customers_per_query: int = N_CUSTOMERS_PER_QUERY
+    n_customers_per_query: list[int] = field(default_factory=lambda: [N_CUSTOMERS_PER_QUERY])
     kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
     n_queries: int = N_QUERIES
     rows_in_prompt_limit: int = 5500
@@ -382,68 +383,71 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
         self.queries: list[CustomerSegmentationQuery] = []
         cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
         counter = 0
-        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.kp)*len(self.parameters.names_levels)*len(self.parameters.prompt_levels),
+        ds_id = 0
+        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.n_customers_per_query)*len(self.parameters.kp)*len(self.parameters.names_levels)*len(self.parameters.prompt_levels),
                     desc="Generating queries",
                     unit="query",
                     colour='green')
 
-        for i in range(self.parameters.n_queries):
-            if self.parameters.seed != 0:
-                random.seed(current_seed)
-            # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
-            while True:
-                selected_cids = select_random_customer_ids(self.parameters.n_customers_per_query, cids_unique_full)
+        for _ in range(self.parameters.n_queries):
+            for c_per_query in self.parameters.n_customers_per_query:
+                if self.parameters.seed != 0:
+                    random.seed(current_seed)
+                # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
+                while True:
+                    selected_cids = select_random_customer_ids(c_per_query, cids_unique_full)
 
-                temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
-                if len(temp_df) > self.parameters.rows_in_prompt_limit:
-                    current_seed += 1
-                    continue
+                    temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
+                    if len(temp_df) > self.parameters.rows_in_prompt_limit:
+                        current_seed += 1
+                        continue
 
-                basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
-                if count_row_sums(basket) < 15: # n of interesting rows
-                    current_seed += 1
-                    continue
-                df = temp_df
-                break
+                    basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
+                    if count_row_sums(basket) < 15: # n of interesting rows
+                        current_seed += 1
+                        continue
+                    df = temp_df
+                    break
 
-            basket_sim = compute_basket_similarity(basket)
+                basket_sim = compute_basket_similarity(basket)
 
-            rfm = build_rfm_features(df)
-            rfm_sim = compute_rfm_similarity(rfm)
+                rfm = build_rfm_features(df)
+                rfm_sim = compute_rfm_similarity(rfm)
 
-            hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.parameters.alpha)
+                hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.parameters.alpha)
 
-            selected_cid = random.choice(selected_cids)
-            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=self.parameters.n_customers_per_query)
-            sorted_cids = top_similar_df.index.tolist()
-            ground_truth_vals = top_similar_df.values.tolist()
+                selected_cid = random.choice(selected_cids)
+                top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=c_per_query)
+                sorted_cids = top_similar_df.index.tolist()
+                ground_truth_vals = top_similar_df.values.tolist()
 
-            for kp in self.parameters.kp:
-                k = max(1, math.ceil(kp * self.parameters.n_customers_per_query))
+                for kp in self.parameters.kp:
+                    k = max(1, math.ceil(kp * c_per_query))
 
-                for n_level in self.parameters.names_levels:
-                    if n_level != 'numeric':
-                        Exception(f"Unsupported names_level {n_level} in parameters.")
+                    for n_level in self.parameters.names_levels:
+                        if n_level != 'numeric':
+                            Exception(f"Unsupported names_level {n_level} in parameters.")
 
-                    for p_level in self.parameters.prompt_levels:
-                        self.queries.append(CustomerSegmentationQuery(
-                            id=counter,
-                            ds_id=i,
-                            customer_id=selected_cid,
-                            prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
-                            ground_truth=sorted_cids,
-                            ground_truth_values=ground_truth_vals,
-                            parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level, names_level=n_level),
-                            response=None,
-                            evaluations=None,
-                            response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,
-                            parsing_failed=None,
-                            parsed_response=None
-                        ))
-                        counter += 1
-                        pbar.update(1)
+                        for p_level in self.parameters.prompt_levels:
+                            self.queries.append(CustomerSegmentationQuery(
+                                id=counter,
+                                ds_id=ds_id,
+                                customer_id=selected_cid,
+                                prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
+                                ground_truth=sorted_cids,
+                                ground_truth_values=ground_truth_vals,
+                                parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=c_per_query),
+                                response=None,
+                                evaluations=None,
+                                response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,
+                                parsing_failed=None,
+                                parsed_response=None
+                            ))
+                            counter += 1
+                            pbar.update(1)
 
-            current_seed += 1
+                current_seed += 1
+                ds_id += 1
 
         pbar.close()
 

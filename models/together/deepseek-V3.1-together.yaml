@@ -1,0 +1,5 @@
+name: 'DeepSeek V3.1'
+name_api: 'deepseek-ai/DeepSeek-V3.1'
+max_tokens: 128000
+supports_batched: true
+supports_structured_output: false

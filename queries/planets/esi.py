@@ -5,7 +5,7 @@ from json import JSONDecodeError
 import math
 import pandas as pd
 from pandas import DataFrame
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from tqdm import tqdm
 
 from queries.test import Test, data_folder, Query, Evaluations, download_csv, extract_json, extract_list, \
@@ -100,7 +100,7 @@ class PlanetQueryParameters(QueryParameters):
 
 @dataclass
 class PlanetQuery(Query[PlanetQueryParameters, PlanetEvaluations]):
-    parsed_response: str
+    parsed_response: list[str]
     ground_truth: list[dict]
 
 @dataclass
@@ -128,21 +128,26 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
             download_csv("https://www.hpcf.upr.edu/~abel/phl/hwc/data/hwc.csv", full_ds_path) # full DS
         self.simplified_df = pd.read_csv(simplified_ds_path)
 
+    def _parse_query(self, query: PlanetQuery) -> bool:
+        if query.response is None or query.response == '':
+            return False
+        if query.response_json_schema is not None:
+            try:
+                parsed_response = MostSimilarPlanets.model_validate_json(query.response)
+                query.parsed_response = parsed_response.top_k
+                return True
+            except ValidationError:
+                pass
+
+        return False
+
     def evaluate_query(self, query: PlanetQuery) -> PlanetEvaluations:
         failing_scores = PlanetEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=query.parameters.k)
 
         if query.response_json_schema:
-            try:
-                json_response = extract_json(query.response)
-                top_k_list = json_response['top_k']
-            except (JSONDecodeError, KeyError, TypeError):
-                try:
-                    json_response = {'top_k': extract_list(query.response)}
-                    top_k_list = json_response['top_k']
-                except (JSONDecodeError, KeyError, TypeError) as e:
-                    print(f"Cannot evaluate query: {e}")
-                    query.parsing_failed = True
-                    return failing_scores
+            query.parsing_failed = not self._parse_query(query)
+            if query.parsing_failed or len(query.parsed_response) == 0:
+                return failing_scores
         else:
             matched_lists = extract_pipe_sequence(query.response)
             if len(matched_lists) == 0:
@@ -160,12 +165,12 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
             top_k_list = matched_lists[-1] # use the last matched list
             top_k_list = [s.replace("*", "") for s in top_k_list] # remove possible asterisks
 
-        query.parsing_failed = False
-        query.parsed_response = top_k_list
+            query.parsing_failed = False
+            query.parsed_response = top_k_list
 
         # removes possible prepended numbers
-        llm_names: list[str] = top_k_list
-        for i, llm_name in enumerate(top_k_list):
+        llm_names: list[str] = query.parsed_response
+        for i, llm_name in enumerate(query.parsed_response):
             for gt_name in query.ground_truth:
                 if gt_name['planet_name'].lower() == re.sub(r"^\s*\d+\.\s*", "", llm_name.lower()):
                     llm_names[i] = gt_name['planet_name']

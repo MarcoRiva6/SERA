@@ -5,7 +5,7 @@ from enum import StrEnum
 
 from pandas import DataFrame
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from tqdm import tqdm
 
 from queries.test import Test, data_folder, Query, Evaluations, mark_duplicates, QueryParameters, TestParameters
@@ -116,16 +116,19 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
         if query.response is None or query.response == '':
             return False
         if query.response_json_schema is not None:
-            parsed_response = MostSimilarCities.model_validate_json(query.response)
-            query.parsed_response = parsed_response.most_similar_cities
-            return True
+            try:
+                parsed_response = MostSimilarCities.model_validate_json(query.response)
+                query.parsed_response = parsed_response.most_similar_cities
+                return True
+            except ValidationError:
+                pass
 
         return False
 
     def evaluate_query(self, query: CityQuery) -> CityEvaluations:
         failing_scores = CityEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=query.parameters.k)
         query.parsing_failed = not self._parse_query(query)
-        if query.parsing_failed:
+        if query.parsing_failed or len(query.parsed_response) == 0:
             return failing_scores
         marked_duplicate_response = mark_duplicates(query.parsed_response, query.ground_truth[:query.parameters.k])
 

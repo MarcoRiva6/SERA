@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import together
+from tqdm import tqdm
 
 from models.model import Model, write_jsonl, SubmissionError
 from queries.test import Query
@@ -27,6 +28,25 @@ class TogetherModel(Model):
         api_key = os.getenv("TOGETHER_API_KEY")
         from together import Together
         self.client = Together(api_key=api_key)
+
+    def _split_batches(self, queries: list[Query], total_prompt_length: int = 85000000) -> list[list[Query]]:
+        batches = []
+        current_batch = []
+        current_length = 0
+
+        for q in queries:
+            prompt_length = len(q.prompt)
+            if (current_length + prompt_length) > total_prompt_length and current_batch:
+                batches.append(current_batch)
+                current_batch = []
+                current_length = 0
+            current_batch.append(q)
+            current_length += prompt_length
+
+        if current_batch:
+            batches.append(current_batch)
+
+        return batches
 
     def _submit_direct_inline(self, prompt: str) -> str:
         from together import Together
@@ -149,8 +169,16 @@ class TogetherModel(Model):
             self.params.batched = False
 
         if self.params.batched:
-            if not self._submit_direct_batched(self.run_folder, queries):
+            batches = self._split_batches(queries)
+            all_completed = True
+            pbar = tqdm(batches, desc="Uploading batches", unit="batch")
+            for i, b in enumerate(pbar):
+                pbar.set_postfix(queries=len(b))
+                completed = self._submit_direct_batched(self.run_folder / f"batch_{i + 1}", b)
+                all_completed = all_completed and completed
+            if not all_completed:
                 print("Not waiting for submission to complete...")
+            return
         else:
             for q in queries:
                 q.response = self._submit_direct_inline(q.prompt)

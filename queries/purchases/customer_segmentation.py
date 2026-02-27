@@ -336,7 +336,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                 else:
                     top_k_list: list[str] = candidate_lists[0]
 
-        if query.parsing_failed or top_k_list is None or len(top_k_list) != query.parameters.k:
+        if query.parsing_failed or top_k_list is None or len(top_k_list) < query.parameters.k:
             query.parsing_failed = True
             return False
         try:
@@ -355,7 +355,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
         if not self.parse_query(query):
             return failing_scores
 
-        response_marked_duplicates = mark_duplicates(query.parsed_response, query.ground_truth)
+        response_marked_duplicates = mark_duplicates(query.parsed_response[:query.parameters.k], query.ground_truth)
 
         temp_vals: list[float] = [x + 1 for x in query.ground_truth_values]
         ndcg_scores: list[float] = [temp_vals[query.ground_truth.index(cust)]
@@ -375,7 +375,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                            mare_k=mare_k(response_marked_duplicates, query.ground_truth, query.parameters.k),
                            spearman=spearman_rho_k(response_marked_duplicates, query.ground_truth),
                            spearman_k=spearman_rho_k(response_marked_duplicates, query.ground_truth, query.parameters.k),
-                           hallucination_rate=hallucination_rate(query.parsed_response, query.ground_truth))
+                           hallucination_rate=hallucination_rate(query.parsed_response[:query.parameters.k], query.ground_truth))
 
     def init_queries(self) -> None:
         current_seed = self.parameters.seed

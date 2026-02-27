@@ -128,9 +128,9 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
     def evaluate_query(self, query: CityQuery) -> CityEvaluations:
         failing_scores = CityEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=query.parameters.k)
         query.parsing_failed = not self._parse_query(query)
-        if query.parsing_failed or len(query.parsed_response) == 0:
+        if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
             return failing_scores
-        marked_duplicate_response = mark_duplicates(query.parsed_response, query.ground_truth[:query.parameters.k])
+        marked_duplicate_response = mark_duplicates(query.parsed_response[:query.parameters.k], query.ground_truth[:query.parameters.k])
 
         return CityEvaluations(ndcg_scores=ndcg_k([query.ground_truth_scores[query.ground_truth.index(city)] if city in query.ground_truth else 0 for city in marked_duplicate_response], query.ground_truth_scores, query.parameters.k),
                            ndcg_k=ndcg_k(
@@ -143,7 +143,7 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
                            spearman_k=spearman_rho_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
                            kendall=kendall_tau_k(marked_duplicate_response, query.ground_truth),
                            kendall_k=kendall_tau_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
-                           hallucination_rate=hallucination_rate(query.parsed_response, query.ground_truth))
+                           hallucination_rate=hallucination_rate(query.parsed_response[:query.parameters.k], query.ground_truth))
 
     def prepare_queries_for_direct(self):
         self.queries = []

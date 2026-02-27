@@ -146,7 +146,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
 
         if query.response_json_schema:
             query.parsing_failed = not self._parse_query(query)
-            if query.parsing_failed or len(query.parsed_response) == 0:
+            if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
                 return failing_scores
         else:
             matched_lists = extract_pipe_sequence(query.response)
@@ -169,8 +169,8 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
             query.parsed_response = top_k_list
 
         # removes possible prepended numbers
-        llm_names: list[str] = query.parsed_response
-        for i, llm_name in enumerate(query.parsed_response):
+        llm_names: list[str] = query.parsed_response[:query.parameters.k]
+        for i, llm_name in enumerate(query.parsed_response[:query.parameters.k]):
             for gt_name in query.ground_truth:
                 if gt_name['planet_name'].lower() == re.sub(r"^\s*\d+\.\s*", "", llm_name.lower()):
                     llm_names[i] = gt_name['planet_name']

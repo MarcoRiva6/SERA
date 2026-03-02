@@ -26,6 +26,6 @@ def print_batch(batch):
     print("─" * 80)
     print()
 
-for batch in batches:
+for batch in reversed(batches):
     print_batch(batch)
 

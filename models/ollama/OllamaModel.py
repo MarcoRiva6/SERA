@@ -290,25 +290,23 @@ if __name__ == "__main__":
                 user = "***REMOVED***"
                 password = "***REMOVED***"
                 ssh_client = spawn_client_ssh(hostname, user, password)
+                needs_run = True
 
                 try:
                     remote_response_file_path = build_remote_path(os_type,self.__remote_run_folder(os_type), self.responses_file_name)
                     get_files_ssh(ssh_client, [(remote_response_file_path, self.run_folder / self.responses_file_name)])
                     processed_queries = self.__retrieve_responses()
                     if len(processed_queries) == len(queries):
+                        needs_run = False
                         print("All queries completed.")
                         for q in queries:
                             if q.prompt != processed_queries[q.id]:
                                 SubmissionError("Remote error: prompt mismatch for query id " + str(q.id))
                             q.response = processed_queries[q.id]
                         return
-                    elif self.params.no_waiting:
-                        print(f"Remote job already running but only {len(processed_queries)}/{len(queries)} queries completed. Not waiting.")
-                        return
-                    else:
-                        print("Remote job already running but not all queries completed. Attaching to stdout...")
-                        monitor_remote_running(hostname, user, password)
-                except FileNotFoundError as _:
+                except FileNotFoundError:
+                    pass
+                if needs_run:
                     if not self.__can_launch_remote(ssh_client):
                         ssh_client.close()
                         print("A remote job already running. Not launching this one.")
@@ -322,7 +320,6 @@ if __name__ == "__main__":
                     else:
                         print("Remote job launched. Attaching to stdout...")
                         monitor_remote_running(hostname, user, password)
-
         else:
             self._submit_direct_local(queries)
 

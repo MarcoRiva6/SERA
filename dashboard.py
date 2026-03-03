@@ -11,6 +11,23 @@ from dash import Dash, dcc, html, Input, Output, State, ALL
 # Introspection helpers
 # ----------------------------
 
+def safe_sort_val(v: Any) -> Tuple[int, float, str]:
+    """
+    Ordina in modo sicuro: prima i None, poi i numeri (o stringhe numeriche),
+    infine le stringhe normali.
+    """
+    if v is None:
+        return (0, 0.0, "")
+    if isinstance(v, (int, float)):
+        return (1, float(v), "")
+    try:
+        # Cerca di convertire in numero se è una stringa numerica (es. "11")
+        return (1, float(v), "")
+    except (ValueError, TypeError):
+        # Fallback per le stringhe di puro testo
+        return (2, 0.0, str(v))
+
+
 def dataclass_field_names(dc_type: type) -> List[str]:
     return [f.name for f in fields(dc_type)]
 
@@ -51,7 +68,7 @@ def build_category_keys(queries: List[Any], x_fields: List[str]) -> List[Tuple[A
         keys.add(tuple(get_param_value(q, f) for f in x_fields))
 
     def sort_key(t: Tuple[Any, ...]):
-        return tuple("" if v is None else str(v) for v in t)
+        return tuple(safe_sort_val(v) for v in t)
 
     return sorted(keys, key=sort_key)
 
@@ -97,7 +114,8 @@ def compute_set_schema(datasets: Dict[str, List[Any]]):
         for qs in datasets.values():
             for q in qs:
                 vals.add(get_param_value(q, f))
-        values_by_param[f] = sorted(list(vals), key=lambda x: "" if x is None else str(x))
+        # <-- RIGA MODIFICATA:
+        values_by_param[f] = sorted(list(vals), key=safe_sort_val)
 
     return dataset_names, param_fields, eval_fields, values_by_param
 
@@ -132,10 +150,21 @@ def run_multi_set_dashboard(
     for set_name, datasets in dataset_sets.items():
         schemas[set_name] = compute_set_schema(datasets)
 
-    # Assume evaluation fields are the same across sets; if not, we take union
-    all_eval_fields = sorted(
-        {m for (ds_names, pf, ef, vbp) in schemas.values() for m in ef if m != "hallucination_rate"}
-    )
+    # Ordine desiderato delle metriche
+    preferred_order = ["ndcg_scores", "ndcg_k", "mare", "mare_k", "kendall", "kendall_k", "spearman", "spearman_k"]
+
+    # Raccogli tutte le metriche disponibili (escludendo hallucination_rate se necessario)
+    available_metrics = {m for (ds_names, pf, ef, vbp) in schemas.values() for m in ef if m != "hallucination_rate"}
+
+    # Costruisci la lista finale: prima quelle nell'ordine preferito, se esistono
+    all_eval_fields = []
+    for metric in preferred_order:
+        if metric in available_metrics:
+            all_eval_fields.append(metric)
+            available_metrics.remove(metric) # Rimuovi per non duplicare
+
+    # Poi aggiungi tutte le altre metriche rimanenti, in ordine alfabetico
+    all_eval_fields.extend(sorted(available_metrics))
     if not all_eval_fields:
         raise ValueError("No evaluation fields found in any set.")
 
@@ -239,7 +268,7 @@ def run_multi_set_dashboard(
                         html.Div(f"Filter: {f}", style={"fontWeight": 700, "marginBottom": "6px"}),
                         dcc.Dropdown(
                             id={"type": "filter", "field": f},
-                            options=[{"label": str(v), "value": v} for v in values_by_param[f]],
+                            options=[{"label": str(v), "value": v} for v in sorted(values_by_param[f])],
                             value=[],
                             multi=True,
                             placeholder="All",
@@ -247,6 +276,26 @@ def run_multi_set_dashboard(
                     ],
                 )
             )
+
+        # Add special filter for parsing_failed if it exists
+        filters_ui.append(
+            html.Div(
+                style={"minWidth": "220px"},
+                children=[
+                    html.Div("Filter: parsing_failed", style={"fontWeight": 700, "marginBottom": "6px"}),
+                    dcc.Dropdown(
+                        id={"type": "filter", "field": "parsing_failed"},
+                        options=[
+                            {"label": "True", "value": True},
+                            {"label": "False", "value": False}
+                        ],
+                        value=[],
+                        multi=True,
+                        placeholder="All",
+                    ),
+                ],
+            )
+        )
 
         return ds_options, ds_value, x_options, x_value, filters_ui
 
@@ -276,7 +325,9 @@ def run_multi_set_dashboard(
             for f, allowed in filters.items():
                 if not allowed:
                     continue
-                if get_param_value(q, f) not in allowed:
+
+                val = getattr(q, "parsing_failed", None) if f == "parsing_failed" else get_param_value(q, f)
+                if val not in allowed:
                     return False
             return True
 
@@ -291,7 +342,7 @@ def run_multi_set_dashboard(
             all_keys_set.update(build_category_keys(filtered_by_ds[ds], x_fields=x_fields))
 
         def sort_key(t: Tuple[Any, ...]):
-            return tuple("" if v is None else str(v) for v in t)
+            return tuple(safe_sort_val(v) for v in t)
 
         all_keys = sorted(all_keys_set, key=sort_key)
         x_plotly = plotly_x_from_keys(all_keys, x_fields)

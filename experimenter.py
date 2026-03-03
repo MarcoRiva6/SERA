@@ -3,7 +3,7 @@ import importlib.util
 import inspect
 from dataclasses import fields, asdict, dataclass
 from pathlib import Path
-from typing import get_origin, get_args
+from typing import get_origin, get_args, Any
 
 import pandas as pd
 import yaml
@@ -280,6 +280,52 @@ def merge_queries(queries: list[list[Query]], names: list[str]) -> DataFrame:
             result = pd.merge(result, q_df, on=[c for c in merge_on if c not in list_columns], how='outer', validate='one_to_one')
     return result
 
+def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str, dict[str, list[Any]]]:
+    # trasforma k in percentuale
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            for q in queries:
+                if q.parameters.k is not None and q.parameters.n_elems is not None:
+                    q.parameters.k = round(q.parameters.k / q.parameters.n_elems, 2)
+    # trasforma prompt_level in gradi
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            for q in queries:
+                if q.parameters.prompt_level is not None:
+                    new: str
+                    if q.parameters.prompt_level == 'generic':
+                        new = 'generic'
+                    elif q.parameters.prompt_level == 'esi_instruct':
+                        new = 'instruct'
+                    elif q.parameters.prompt_level == 'esi_formula':
+                        new = 'formula'
+                    elif q.parameters.prompt_level == 'medium':
+                        new = 'instruct'
+                    elif q.parameters.prompt_level == 'formula':
+                        new = 'formula'
+                    elif q.parameters.prompt_level == 'similar':
+                        new = 'generic'
+                    elif q.parameters.prompt_level == 'compute_GLI':
+                        new = 'instruct'
+                    elif q.parameters.prompt_level == 'formula_GLI':
+                        new = 'formula'
+                    else:
+                        print(f"Warning: unknown prompt level {q.parameters.prompt_level}, keeping original value")
+                        return None
+                    q.parameters.prompt_level = new
+        #transforma mare in percentuale
+        for test_name, model_dict in for_charts.items():
+            for model_name, queries in model_dict.items():
+                for q in queries:
+                    try:
+                        val = q.evaluations.mare
+                        q.evaluations.mare = val / q.parameters.n_elems
+                        val = q.evaluations.mare_k
+                        q.evaluations.mare_k = val / q.parameters.n_elems
+                    except (AttributeError, KeyError):
+                        pass
+    return for_charts
+
 
 if __name__ == "__main__":
     runs: list[Run] = load_experiments()
@@ -320,4 +366,4 @@ if __name__ == "__main__":
                     print(f"Some experiments for test {query.name} were not evaluated, skipping dashboard{" and aggregation" if run.create_aggregated_csv else ""}.")
                 print('\n')
         if run.show_dashboard and len(for_dashboard) != 0:
-            run_multi_set_dashboard(for_dashboard)
+            run_multi_set_dashboard(prepare_for_charts(for_dashboard))

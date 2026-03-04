@@ -6,6 +6,9 @@ from typing import Any, Dict, List, Tuple
 import plotly.graph_objects as go
 from dash import Dash, dcc, html, Input, Output, State, ALL
 
+import pandas as pd
+import numpy as np
+
 
 # ----------------------------
 # Introspection helpers
@@ -195,6 +198,7 @@ def run_multi_set_dashboard(
                 children=[
                     dcc.Tab(label="Line Plots (Medie)", value="line"),
                     dcc.Tab(label="Box Plots (Distribuzioni)", value="box"),
+                    dcc.Tab(label="Heatmap (Correlazioni)", value="heatmap"), # <-- IL NUOVO TAB!
                 ],
                 style={"marginTop": "20px", "marginBottom": "5px"}
             ),
@@ -399,6 +403,65 @@ def run_multi_set_dashboard(
                         )
                     )
 
+                elif chart_type == "heatmap":
+                    # --- NUOVA LOGICA: HEATMAP DI CORRELAZIONE ---
+                    z_data = []
+                    y_labels = []
+
+                    for ds in selected_datasets:
+                        qs = filtered_by_ds[ds]
+                        if not qs:
+                            continue
+
+                        # Creiamo un dizionario per convertire i dati in un DataFrame Pandas
+                        df_dict = {}
+                        for p in param_fields:
+                            vals = [get_param_value(q, p) for q in qs]
+                            # Se i parametri sono stringhe (es. 'formula', 'generic'), li mappiamo a numeri (0, 1, 2...)
+                            if vals and isinstance(vals[0], str):
+                                # Li ordiniamo alfabeticamente per coerenza prima di assegnare un numero
+                                unique_sorted = sorted(list(set(vals)))
+                                mapping = {val: i for i, val in enumerate(unique_sorted)}
+                                df_dict[p] = [mapping[v] for v in vals]
+                            else:
+                                df_dict[p] = vals
+
+                        # Aggiungiamo la metrica attuale
+                        m_vals = [get_eval_value(q, metric_name) for q in qs]
+                        df_dict[metric_name] = [float(v) if isinstance(v, (int, float)) else np.nan for v in m_vals]
+
+                        df = pd.DataFrame(df_dict)
+
+                        # Calcoliamo la correlazione (Spearman per supportare relazioni non lineari)
+                        corrs = []
+                        for p in param_fields:
+                            # Evitiamo errori se un parametro è tutto uguale o la metrica è fissa
+                            if df[p].nunique() > 1 and df[metric_name].nunique() > 1:
+                                c = df[p].corr(df[metric_name], method='spearman')
+                                corrs.append(c if not pd.isna(c) else 0.0)
+                            else:
+                                corrs.append(0.0)
+
+                        z_data.append(corrs)
+                        y_labels.append(ds)
+
+                    if z_data:
+                        fig.add_trace(
+                            go.Heatmap(
+                                z=z_data,
+                                x=param_fields,
+                                y=y_labels,
+                                colorscale='RdBu', # Rosso per correlazione negativa, Blu per positiva
+                                zmin=-1,
+                                zmax=1,
+                                zmid=0,
+                                text=[[f"{val:.2f}" for val in row] for row in z_data],
+                                texttemplate="%{text}",
+                                hoverinfo="x+y+z",
+                            )
+                        )
+
+            # --- SETUP LAYOUT FINALE ---
             layout_kwargs = {
                 "title": {"text": f"<b>{metric_name}</b>", "x": 0.5, "y": 0.97, "xanchor": "center", "font": {"size": 16}},
                 "margin": {"l": 50, "r": 20, "t": 90, "b": 90},
@@ -411,18 +474,18 @@ def run_multi_set_dashboard(
 
             fig.update_layout(**layout_kwargs)
 
-            if chart_type == "box":
-                layout_kwargs["boxmode"] = "group"
-
-            fig.update_layout(**layout_kwargs)
-
-            # --- IMPOSTAZIONE ASSI RIPRISTINATA ---
-            if len(x_fields) == 2:
-                fig.update_xaxes(type="multicategory", categoryorder="trace")
+            # La Heatmap non usa i doppi assi X o i rangemode "tozero", quindi li differenziamo
+            if chart_type != "heatmap":
+                if len(x_fields) == 2:
+                    fig.update_xaxes(type="multicategory", categoryorder="trace")
+                else:
+                    fig.update_xaxes(type="category", categoryorder="trace")
+                fig.update_yaxes(rangemode="tozero")
             else:
-                fig.update_xaxes(type="category", categoryorder="trace")
-
-            fig.update_yaxes(rangemode="tozero")
+                # Layout pulito per la Heatmap
+                fig.update_xaxes(type="category")
+                # Ribaltiamo l'asse Y per avere il primo dataset in alto e non in basso
+                fig.update_yaxes(autorange="reversed")
 
             figures.append(fig)
 

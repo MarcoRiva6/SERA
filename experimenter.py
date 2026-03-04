@@ -313,17 +313,15 @@ def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str,
                         print(f"Warning: unknown prompt level {q.parameters.prompt_level}, keeping original value")
                         return None
                     q.parameters.prompt_level = new
-        #transforma mare in percentuale
-        for test_name, model_dict in for_charts.items():
-            for model_name, queries in model_dict.items():
-                for q in queries:
-                    try:
-                        val = q.evaluations.mare
-                        q.evaluations.mare = val / q.parameters.n_elems
-                        val = q.evaluations.mare_k
-                        q.evaluations.mare_k = val / q.parameters.n_elems
-                    except (AttributeError, KeyError):
-                        pass
+    #transforma mare in percentuale
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            for q in queries:
+                try:
+                    q.evaluations.mare = q.evaluations.mare / q.parameters.n_elems
+                    q.evaluations.mare_k = q.evaluations.mare_k / q.parameters.n_elems
+                except (AttributeError, KeyError):
+                    pass
     return for_charts
 
 

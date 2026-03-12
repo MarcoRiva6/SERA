@@ -33,7 +33,15 @@ def get_param_fields_from_queries(queries: List[Any]) -> List[str]:
     params = queries[0].parameters
     if not is_dataclass(params):
         raise TypeError("Query.parameters must be a dataclass instance.")
-    return dataclass_field_names(type(params))
+
+    # Prendi i campi ufficiali della dataclass
+    fields_list = dataclass_field_names(type(params))
+
+    # Se abbiamo iniettato 'experiment_name', aggiungilo alla lista
+    if hasattr(params, "experiment_name") and "experiment_name" not in fields_list:
+        fields_list.append("experiment_name")
+
+    return fields_list
 
 def get_eval_fields_from_queries(queries: List[Any]) -> List[str]:
     if not queries:
@@ -122,6 +130,34 @@ def run_multi_set_dashboard(
 
     if not dataset_sets:
         raise ValueError("dataset_sets is empty")
+
+    # --- NUOVO: CREAZIONE DEL SET GLOBALE "All Experiments" ---
+    # Creiamo una copia profonda per non modificare i dati originali in memoria in modo inaspettato
+    import copy
+    global_datasets = {}
+
+    for set_name, datasets in dataset_sets.items():
+        for ds_name, queries in datasets.items():
+            if ds_name not in global_datasets:
+                global_datasets[ds_name] = []
+
+            # Copiamo le query e "iniettiamo" il nome dell'esperimento nei parametri
+            # in modo che diventi un filtro utilizzabile e un asse X plottabile.
+            for original_q in queries:
+                q = copy.deepcopy(original_q)
+                # Aggiungiamo un nuovo campo alla dataclass Parameters (o usiamo un trucco se è congelata)
+                # Poiché le dataclass in Python possono essere 'frozen', la via più sicura
+                # è usare setattr() se non è frozen, oppure usare una classe wrapper o semplicemente
+                # aggiungere una proprietà "virtuale".
+                # Il trucco più pulito per non rompere la tua dataclass:
+                setattr(q.parameters, "experiment_name", set_name)
+                global_datasets[ds_name].append(q)
+
+    # Inseriamo il set globale come PRIMA opzione (così sarà il tab di default)
+    new_dataset_sets = {"All Experiments": global_datasets}
+    new_dataset_sets.update(dataset_sets)
+    dataset_sets = new_dataset_sets
+    # ---------------------------------------------------------
 
     set_names = list(dataset_sets.keys())
     default_set = set_names[0]

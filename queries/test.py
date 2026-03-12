@@ -345,10 +345,12 @@ class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
         dest.mkdir(parents=True, exist_ok=True)
         df.to_csv(dest / file_name, index=False, decimal=',', sep=';')
 
-    def csv_to_queries(self, query_cls: type, file_name: str, folder: Path = None) -> None:
+    def csv_to_queries(self, query_cls: type, params_cls: type, evals_cls: type, file_name: str, folder: Path = None) -> None:
         """
         Used to restore an already computed list of queries previously saved to a CSV.
         Automatically sets the variable `queries`.
+        :param params_cls:
+        :param evals_cls:
         :param query_cls: the class type to instantiate for each query (subclass of Query)
         :param folder: The directory where the CSV file is located. If None, uses the current run folder.
         :param file_name: the name of the CSV file to load (with extension).
@@ -361,45 +363,57 @@ class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
 
         self.queries = []
 
+        def parse(row, f_name, f_type) -> Any:
+            value = None
+            # 1. If the column doesn't exist → keep it as None
+            try:
+                value = row[f_name]
+            except KeyError:
+                return value
+            # 2. Normalize pandas nulls (NaN, NA) and empty strings to None
+            #    pd.isna handles np.nan, pd.NA, None
+            if pd.isna(value) or (isinstance(value, str) and value.strip() == ""):
+                return None
+            origin = get_origin(f_type)
+            # 3. List fields (e.g. list[int], list[float], list[str])
+            if origin is list:
+                # If it's a string, try to parse it as a Python literal (e.g. "[1, 2, 3]")
+                if isinstance(value, str):
+                    try:
+                        value = ast.literal_eval(value)
+                    except Exception:
+                        # Could not parse; choose your default (None or [])
+                        value = []
+                # optional: could also enforce element types using get_args(field_type)
+            # 4. Booleans from strings like "True"/"False"
+            if f_type is bool and isinstance(value, str):
+                value = value.strip().lower() == "true"
+            # 5. Light type casting for simple types (int, float, str, etc.)
+            #    Skip if it's already of the right type.
+            try:
+                if not isinstance(value, f_type):
+                    value = f_type(value)
+            except Exception:
+                # If casting fails, just leave the original value
+                pass
+
+            return value
+
         for _, row in df.iterrows():
             kwargs = {}
 
             for field_name, field_type in hints.items():
-                # 1. If the column doesn't exist → keep it as None
-                try:
-                    value = row[field_name]
-                except KeyError:
-                    kwargs[field_name] = None
-                    continue
-                # 2. Normalize pandas nulls (NaN, NA) and empty strings to None
-                #    pd.isna handles np.nan, pd.NA, None
-                if pd.isna(value) or (isinstance(value, str) and value.strip() == ""):
-                    kwargs[field_name] = None
-                    continue
-                origin = get_origin(field_type)
-                # 3. List fields (e.g. list[int], list[float], list[str])
-                if origin is list:
-                    # If it's a string, try to parse it as a Python literal (e.g. "[1, 2, 3]")
-                    if isinstance(value, str):
-                        try:
-                            value = ast.literal_eval(value)
-                        except Exception:
-                            # Could not parse; choose your default (None or [])
-                            value = []
-                    # optional: could also enforce element types using get_args(field_type)
-                # 4. Booleans from strings like "True"/"False"
-                if field_type is bool and isinstance(value, str):
-                    value = value.strip().lower() == "true"
-                # 5. Light type casting for simple types (int, float, str, etc.)
-                #    Skip if it's already of the right type.
-                try:
-                    if not isinstance(value, field_type):
-                        value = field_type(value)
-                except Exception:
-                    # If casting fails, just leave the original value
-                    pass
-
-                kwargs[field_name] = value
+                if field_name == 'parameters':
+                    param_kwargs = {}
+                    for field_name, field_type in get_type_hints(params_cls).items():
+                        param_kwargs[field_name] = parse(row, field_name, field_type)
+                    kwargs['parameters'] = params_cls(**param_kwargs)
+                elif field_name == 'evaluations':
+                    eval_kwargs = {}
+                    for field_name, field_type in get_type_hints(evals_cls).items():
+                        eval_kwargs[field_name] = parse(row, field_name, field_type)
+                    kwargs['evaluations'] = evals_cls(**eval_kwargs)
+                kwargs[field_name] = parse(row, field_name, field_type)
 
             self.queries.append(query_cls(**kwargs))
 

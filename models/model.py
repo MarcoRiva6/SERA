@@ -131,6 +131,10 @@ class Model(ABC):
             return cls(**model_args)
 
     def run(self, queries: list[Query], df=None):
+        needs_run = any(q.response is None for q in queries)
+        if not needs_run:
+            print('All queries already have a response. Skipping submission.')
+            return
         self._init_model()
         print(f"Model processing {len(queries)} queries...")
         try:

@@ -404,40 +404,54 @@ def run_multi_set_dashboard(
                     )
 
                 elif chart_type == "heatmap":
-                    # --- NUOVA LOGICA: HEATMAP DI CORRELAZIONE ---
+                    # --- NUOVA LOGICA: HEATMAP CON ONE-HOT ENCODING ---
                     z_data = []
                     y_labels = []
+
+                    # 1. Capiamo quali sono i parametri categorici e creiamo l'asse X "espanso"
+                    expanded_features = []
+                    for p in param_fields:
+                        # Controlliamo il tipo dal primo elemento disponibile nei filtri
+                        sample_val = values_by_param[p][0] if values_by_param[p] else None
+                        if isinstance(sample_val, str):
+                            # Se è testo, creiamo una colonna per ogni possibile valore (One-Hot)
+                            for v in values_by_param[p]:
+                                expanded_features.append(f"{p} == {v}")
+                        else:
+                            expanded_features.append(p)
 
                     for ds in selected_datasets:
                         qs = filtered_by_ds[ds]
                         if not qs:
                             continue
 
-                        # Creiamo un dizionario per convertire i dati in un DataFrame Pandas
-                        df_dict = {}
-                        for p in param_fields:
-                            vals = [get_param_value(q, p) for q in qs]
-                            # Se i parametri sono stringhe (es. 'formula', 'generic'), li mappiamo a numeri (0, 1, 2...)
-                            if vals and isinstance(vals[0], str):
-                                # Li ordiniamo alfabeticamente per coerenza prima di assegnare un numero
-                                unique_sorted = sorted(list(set(vals)))
-                                mapping = {val: i for i, val in enumerate(unique_sorted)}
-                                df_dict[p] = [mapping[v] for v in vals]
-                            else:
-                                df_dict[p] = vals
+                        # 2. Costruiamo i dati per la correlazione
+                        df_dict = {f: [] for f in expanded_features}
+                        m_vals = []
 
-                        # Aggiungiamo la metrica attuale
-                        m_vals = [get_eval_value(q, metric_name) for q in qs]
-                        df_dict[metric_name] = [float(v) if isinstance(v, (int, float)) else np.nan for v in m_vals]
+                        for q in qs:
+                            m_val = get_eval_value(q, metric_name)
+                            m_vals.append(float(m_val) if isinstance(m_val, (int, float)) else np.nan)
 
+                            for p in param_fields:
+                                v = get_param_value(q, p)
+                                if isinstance(v, str):
+                                    # Applichiamo il One-Hot Encoding per i campi testuali
+                                    for possible_v in values_by_param[p]:
+                                        df_dict[f"{p} == {possible_v}"].append(1 if v == possible_v else 0)
+                                else:
+                                    # I numeri (es. k, n_elems) li passiamo così come sono
+                                    df_dict[p].append(v)
+
+                        df_dict[metric_name] = m_vals
                         df = pd.DataFrame(df_dict)
 
-                        # Calcoliamo la correlazione (Spearman per supportare relazioni non lineari)
+                        # 3. Calcoliamo la correlazione (Spearman) per ogni feature espansa
                         corrs = []
-                        for p in param_fields:
-                            # Evitiamo errori se un parametro è tutto uguale o la metrica è fissa
-                            if df[p].nunique() > 1 and df[metric_name].nunique() > 1:
-                                c = df[p].corr(df[metric_name], method='spearman')
+                        for f in expanded_features:
+                            # Controlliamo che ci sia variazione nei dati per evitare divisioni per zero
+                            if df[f].nunique() > 1 and df[metric_name].nunique() > 1:
+                                c = df[f].corr(df[metric_name], method='spearman')
                                 corrs.append(c if not pd.isna(c) else 0.0)
                             else:
                                 corrs.append(0.0)
@@ -449,9 +463,9 @@ def run_multi_set_dashboard(
                         fig.add_trace(
                             go.Heatmap(
                                 z=z_data,
-                                x=param_fields,
+                                x=expanded_features, # L'asse X ora conterrà tutti i sotto-casi
                                 y=y_labels,
-                                colorscale='RdBu', # Rosso per correlazione negativa, Blu per positiva
+                                colorscale='RdBu',
                                 zmin=-1,
                                 zmax=1,
                                 zmid=0,

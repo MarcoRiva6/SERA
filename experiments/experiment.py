@@ -183,7 +183,8 @@ class Experiment:
 
             print('Storing answered queries...')
             self.test.queries_to_csv('evaluated_queries.csv', self.inner_folder)
-            print('queries saved to csv.')
+            self.test.queries_to_pickle(self.inner_folder / 'evaluated_queries.pkl')
+            print('queries saved to csv and pickle.')
             self.test.evaluate()
             print('test evaluation:', self.test.evaluations)
             self.test.evaluations_to_csv(dest=self.inner_folder)

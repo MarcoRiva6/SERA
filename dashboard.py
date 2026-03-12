@@ -509,4 +509,6 @@ def run_multi_set_dashboard(
 
 
 if __name__ == "__main__":
-    raise SystemExit("Replace this with your dataset_sets dict and call run_multi_set_dashboard(dataset_sets).")
+    import experimenter
+
+    run_multi_set_dashboard(experimenter.prepare_for_dashboard())

@@ -9,7 +9,6 @@ import pandas as pd
 import yaml
 from pandas import DataFrame
 
-from dashboard import run_multi_set_dashboard
 from queries.test import Test
 
 import models.model
@@ -331,6 +330,18 @@ def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str,
                     pass
     return for_charts
 
+def prepare_for_dashboard() -> dict[str, dict[str, list[Query]]]:
+    runs = load_experiments()
+    run = runs[0]
+    for_dashboard: dict[str, dict[str, list[Query]]] = {}
+    for query in run.queries:
+        for run_type_experiment in query.run_type_experiments:
+            for e in run_type_experiment.experiments:
+                e.test.pickle_to_queries(e.inner_folder / 'evaluated_queries.pkl')
+            for_dashboard[query.name] = {e.model.name_path: e.test.queries for e in run_type_experiment.experiments}
+
+    return prepare_for_charts(for_dashboard)
+
 
 if __name__ == "__main__":
     runs: list[Run] = load_experiments()
@@ -340,7 +351,6 @@ if __name__ == "__main__":
 
     for run in runs: # per ogni run folder
         print(f"*** Running experiments for run: {run.name_path} ***\n")
-        for_dashboard: dict[str, dict[str, list[Query]]] = {}
         for query in run.queries:
             print(f"=== Test: {query.name} ===\n")
             for run_type_experiment in query.run_type_experiments:
@@ -358,8 +368,6 @@ if __name__ == "__main__":
                                                                   for q in e.test.queries)
                                            for e in experiments)
                 if run_type_experiment.all_evaluated:
-                    for_dashboard[query.name] = {e.model.name_path: e.test.queries for e in experiments}
-
                     if run.create_aggregated_csv:
                         if len(experiments) <= 1 or len(set([e.test.run_type for e in experiments])) != 1:
                             print("Not enough evaluated experiments with the same run type to aggregate results, skipping aggregation.")
@@ -370,5 +378,3 @@ if __name__ == "__main__":
                 else:
                     print(f"Some experiments for test {query.name} were not evaluated, skipping dashboard{" and aggregation" if run.create_aggregated_csv else ""}.")
                 print('\n')
-        if run.show_dashboard and len(for_dashboard) != 0:
-            run_multi_set_dashboard(prepare_for_charts(for_dashboard))

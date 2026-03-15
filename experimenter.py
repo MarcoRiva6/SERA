@@ -280,19 +280,18 @@ def merge_queries(queries: list[list[Query]], names: list[str]) -> DataFrame:
     return result
 
 def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str, dict[str, list[Any]]]:
+    def _round_scalar(v):
+        if isinstance(v, float):
+            r = round(v / 0.05) * 0.05
+            return round(r, 10)
+        return v
     # trasforma k in percentuale
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
             for q in queries:
                 if q.parameters.k is not None and q.parameters.n_elems is not None:
                     pre_round = q.parameters.k / q.parameters.n_elems
-                    if 0.04 <= pre_round <= 0.07:
-                        pre_round = 0.05
-                    elif 0.14 <= pre_round <= 0.17:
-                        pre_round = 0.15
-                    elif 0.29 <= pre_round <= 0.31:
-                        pre_round = 0.3
-                    q.parameters.k = pre_round
+                    q.parameters.k = _round_scalar(pre_round)
     # trasforma prompt_level in gradi
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():

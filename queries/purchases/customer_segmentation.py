@@ -145,22 +145,13 @@ def get_top_k_similar(sim_df: pd.DataFrame,
     # Return top-k
     return sims_sorted.head(k)
 
-def count_row_sums(df: pd.DataFrame) -> int:
+def count_row_sums(df: pd.DataFrame, threshold=1) -> int:
     row_sums = df.sum(axis=1, numeric_only=True)
     counter = 0
     for s in row_sums:
-        if s > 1:
+        if s > threshold:
             counter += 1
     return counter
-
-def select_random_customer_ids(n: int, cid_list):
-    cst_ids = []
-    for _ in range(n):
-        cst_id = random.choice(cid_list)
-        while cst_id in cst_ids:
-            cst_id = random.choice(cid_list)
-        cst_ids.append(cst_id)
-    return cst_ids
 
 class MostSimilarCustomers(BaseModel):
     top_k: list[int] = Field(description="The ordered list of top k most similar customers.")
@@ -175,8 +166,7 @@ from most to least similar, separated by the character '{CHOSEN_SEPARATOR}'."""
 
     if level == 'formula':
         prompt = \
-f"""
-your are given the following dataset of customer purchase histories:
+f"""your are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
 
 Your job is to find the top {top_k} customers who are most similar to the customer {cid}. The similarity score MUST
@@ -193,10 +183,7 @@ be computed following these steps:
 	•	{alpha*100:.0f}% weight for the basket-content similarity
 	•	{(1-alpha)*100:.0f}% weight for the RFM similarity
 
-Do NOT guess or hallucinate missing data.
 Only reason using the purchase histories provided in the dataset.
-
-Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
 {output_string}
 """
     elif level == 'medium':
@@ -210,10 +197,8 @@ A customer is more similar if:
 3.	Their monetary spend is similar
 4.	Their recency of last purchase is similar
 
-Do NOT guess or hallucinate missing data.
-Only reason using the purchase histories provided in the dataset.
-
 Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
+Only reason using the purchase histories provided in the dataset.
 {output_string}
 """
     elif level == 'generic':
@@ -222,10 +207,8 @@ f"""
 Your are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
 
-Do NOT guess or hallucinate missing data.
-Only reason using the purchase histories provided in the dataset.
-
 Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
+Only reason using the purchase histories provided in the dataset.
 {output_string}
 """
     return prompt
@@ -260,12 +243,13 @@ class CustomerSegmentationQuery(Query[CustomerSegmentationParameters, CustomerSe
 class CustomerSegmentationTestParameters(TestParameters):
     alpha: float = ALPHA
     top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
-    n_customers_per_query: list[int] = field(default_factory=lambda: [N_CUSTOMERS_PER_QUERY])
+    n_elems_type: str = 'customers' # customers | rows
+    n_elems_per_query: list[int] = field(default_factory=lambda: [N_CUSTOMERS_PER_QUERY])
     kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
     n_queries: int = N_QUERIES
     rows_in_prompt_limit: int = 5500
     prompt_levels: list[str] = field(default_factory=lambda: ['medium']) # generic, medium, formula
-    names_levels: list[str] = field(default_factory=lambda: ['numberic']) # generic, medium, formula
+    names_levels: list[str] = field(default_factory=lambda: ['numeric']) # numeric
     enforce_json_schema: bool = True
 
 @dataclass
@@ -384,45 +368,79 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
         cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
         counter = 0
         ds_id = 0
-        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.n_customers_per_query)*len(self.parameters.kp)*len(self.parameters.names_levels)*len(self.parameters.prompt_levels),
+        pbar = tqdm(total=self.parameters.n_queries * len(self.parameters.n_elems_per_query) * len(self.parameters.kp) * len(self.parameters.names_levels) * len(self.parameters.prompt_levels),
                     desc="Generating queries",
                     unit="query",
                     colour='green')
 
         for _ in range(self.parameters.n_queries):
-            for c_per_query in self.parameters.n_customers_per_query:
+            # contatori statistici èer debugging
+            failed_n_customers = 0
+            failed_n_rows_interesting = 0
+            failed_similarity_score = 0
+            for elem_per_query in self.parameters.n_elems_per_query:
                 if self.parameters.seed != 0:
                     random.seed(current_seed)
+                k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
+                min_customers_needed = max(k_list) + 1
                 # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
+                temp_df = pd.DataFrame()
                 while True:
-                    selected_cids = select_random_customer_ids(c_per_query, cids_unique_full)
+                    if self.parameters.n_elems_type == 'customers':
+                        selected_cids = random.sample(cids_unique_full, elem_per_query)
+                        temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
+                    elif self.parameters.n_elems_type == 'rows':
+                        selected_cids = random.sample(cids_unique_full, random.choice(range(min_customers_needed, int(elem_per_query / 2))))
+                        temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
+                        if len(temp_df) < elem_per_query:
+                            current_seed += 1
+                            continue
+                        temp_df = temp_df.sample(n=elem_per_query, random_state=current_seed)
 
-                    temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
+                        unique_cids_in_temp = temp_df['CustomerID'].unique().tolist()
+                        if len(unique_cids_in_temp) < min_customers_needed:
+                            current_seed += 1
+                            failed_n_customers += 1
+                            continue
+                    else:
+                        Exception(f"Unsupported n_elems_type {self.parameters.n_elems_type} in parameters.")
+
                     if len(temp_df) > self.parameters.rows_in_prompt_limit:
                         current_seed += 1
                         continue
 
-                    basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
-                    if count_row_sums(basket) < 15: # n of interesting rows
-                        current_seed += 1
-                        continue
                     df = temp_df
+                    basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
+
+                    min_n_interesting_rows = min_customers_needed
+                    if self.parameters.n_elems_type == 'rows':
+                        threshold = 1
+                    elif self.parameters.n_elems_type == 'customers':
+                        threshold = 2
+                    if count_row_sums(basket, threshold) < min_n_interesting_rows: # n of interesting rows
+                        current_seed += 1
+                        failed_n_rows_interesting += 1
+                        continue
+
+                    basket_sim = compute_basket_similarity(basket)
+
+                    rfm = build_rfm_features(df)
+                    rfm_sim = compute_rfm_similarity(rfm)
+
+                    hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.parameters.alpha)
+
+                    selected_cid = random.choice(df['CustomerID'].unique().tolist())
+                    top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=elem_per_query)
+                    if top_similar_df.values.tolist()[0] < 0.4:
+                        current_seed += 1
+                        failed_similarity_score += 1
+                        continue # if the most similar customer has a very low similarity score, the query is not interesting: resample
                     break
 
-                basket_sim = compute_basket_similarity(basket)
-
-                rfm = build_rfm_features(df)
-                rfm_sim = compute_rfm_similarity(rfm)
-
-                hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.parameters.alpha)
-
-                selected_cid = random.choice(selected_cids)
-                top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=c_per_query)
                 sorted_cids = top_similar_df.index.tolist()
                 ground_truth_vals = top_similar_df.values.tolist()
 
-                for kp in self.parameters.kp:
-                    k = max(1, math.ceil(kp * c_per_query))
+                for k in k_list:
 
                     for n_level in self.parameters.names_levels:
                         if n_level != 'numeric':
@@ -436,7 +454,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                                 prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
                                 ground_truth=sorted_cids,
                                 ground_truth_values=ground_truth_vals,
-                                parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=c_per_query),
+                                parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),
                                 response=None,
                                 evaluations=None,
                                 response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,

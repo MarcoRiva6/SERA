@@ -292,32 +292,6 @@ def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str,
                 if q.parameters.k is not None and q.parameters.n_elems is not None:
                     pre_round = q.parameters.k / q.parameters.n_elems
                     q.parameters.k = _round_scalar(pre_round)
-    # trasforma prompt_level in gradi
-    for test_name, model_dict in for_charts.items():
-        for model_name, queries in model_dict.items():
-            for q in queries:
-                if q.parameters.prompt_level is not None:
-                    new: str
-                    if q.parameters.prompt_level == 'generic':
-                        new = 'generic'
-                    elif q.parameters.prompt_level == 'esi_instruct':
-                        new = 'instruct'
-                    elif q.parameters.prompt_level == 'esi_formula':
-                        new = 'formula'
-                    elif q.parameters.prompt_level == 'medium':
-                        new = 'instruct'
-                    elif q.parameters.prompt_level == 'formula':
-                        new = 'formula'
-                    elif q.parameters.prompt_level == 'similar':
-                        new = 'generic'
-                    elif q.parameters.prompt_level == 'compute_GLI':
-                        new = 'instruct'
-                    elif q.parameters.prompt_level == 'formula_GLI':
-                        new = 'formula'
-                    else:
-                        print(f"Warning: unknown prompt level {q.parameters.prompt_level}, keeping original value")
-                        return None
-                    q.parameters.prompt_level = new
     #transforma mare in percentuale
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():

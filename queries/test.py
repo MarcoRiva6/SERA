@@ -6,6 +6,7 @@ import re
 import shutil
 from abc import abstractmethod, ABC
 from dataclasses import dataclass, asdict
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, get_type_hints, get_origin, Counter, TypeVar, Generic
 
@@ -17,6 +18,15 @@ from pandas import DataFrame
 from experiments.run_type import RunType
 
 data_folder: Path = Path(__file__).resolve().parent.parent / 'data' # path to the project's data folder
+
+class PromptLevel(StrEnum):
+    generic = 'generic'
+    instruct = 'instruct'
+    formula = 'formula'
+
+class NamesLevel(StrEnum):
+    fake = 'fake'
+    real = 'real'
 
 @dataclass
 class TestParameters(ABC):
@@ -243,7 +253,7 @@ class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
         """
         with open(self.run_folder / self.params_file_name, 'r') as f:
             saved_params = json.load(f)
-        current_params = asdict(self.parameters)
+        current_params = json.loads(json.dumps(asdict(self.parameters)))
         return saved_params == current_params
 
     def generate_queries(self) -> None:

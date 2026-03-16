@@ -3,6 +3,7 @@ import random
 import re
 from dataclasses import dataclass, field
 from datetime import timedelta
+from enum import StrEnum
 from json import JSONDecodeError
 from pathlib import Path
 
@@ -14,7 +15,8 @@ from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
 from queries.test import Query, Test, Evaluations, data_folder, extract_json, extract_list, \
-    ensure_kaggle_ds, extract_separator_sequence, mark_duplicates, QueryParameters, TestParameters
+    ensure_kaggle_ds, extract_separator_sequence, mark_duplicates, QueryParameters, TestParameters, PromptLevel, \
+    NamesLevel
 from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
 
 ALPHA = 0.7                      # weight for basket-content similarity
@@ -156,7 +158,7 @@ def count_row_sums(df: pd.DataFrame, threshold=1) -> int:
 class MostSimilarCustomers(BaseModel):
     top_k: list[int] = Field(description="The ordered list of top k most similar customers.")
 
-def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: str, json_schema: bool) -> str:
+def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool) -> str:
     if json_schema:
         output_string = f"""Your output MUST be the sorted list of the most similar customers (represented by their customer_id),
 from most to least similar."""
@@ -164,8 +166,9 @@ from most to least similar."""
         output_string = f"""Your output MUST contain only a sorted list of the most similar customers (represented by their customer_id),
 from most to least similar, separated by the character '{CHOSEN_SEPARATOR}'."""
 
-    if level == 'formula':
-        prompt = \
+    match level:
+        case PromptLevel.formula:
+                prompt = \
 f"""your are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
 
@@ -186,8 +189,8 @@ be computed following these steps:
 Only reason using the purchase histories provided in the dataset.
 {output_string}
 """
-    elif level == 'medium':
-        prompt = \
+        case PromptLevel.instruct:
+            prompt = \
 f"""
 your task is to compare customers only based on their purchasing behavior in the following dataset.
 {df.to_string(index=False)}
@@ -201,8 +204,8 @@ Identify the top {top_k} customers who are most similar to the given customer, w
 Only reason using the purchase histories provided in the dataset.
 {output_string}
 """
-    elif level == 'generic':
-        prompt = \
+        case PromptLevel.generic:
+            prompt = \
 f"""
 Your are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
@@ -228,8 +231,8 @@ class CustomerSegmentationEvaluations(Evaluations):
 @dataclass
 class CustomerSegmentationParameters(QueryParameters):
     k: int
-    prompt_level: str
-    names_level: str
+    prompt_level: PromptLevel
+    names_level: NamesLevel
     n_elems: int
 
 @dataclass
@@ -239,17 +242,21 @@ class CustomerSegmentationQuery(Query[CustomerSegmentationParameters, CustomerSe
     ground_truth_values: list[float]
     parsed_response: list[int]
 
+class NElemsType(StrEnum):
+    customers = 'customers'
+    rows = 'rows'
+
 @dataclass
 class CustomerSegmentationTestParameters(TestParameters):
     alpha: float = ALPHA
     top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
-    n_elems_type: str = 'customers' # customers | rows
+    n_elems_type: NElemsType = NElemsType.customers # customers | rows
     n_elems_per_query: list[int] = field(default_factory=lambda: [N_CUSTOMERS_PER_QUERY])
     kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
     n_queries: int = N_QUERIES
     rows_in_prompt_limit: int = 5500
-    prompt_levels: list[str] = field(default_factory=lambda: ['medium']) # generic, medium, formula
-    names_levels: list[str] = field(default_factory=lambda: ['numeric']) # numeric
+    prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
+    names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel.fake)
     enforce_json_schema: bool = True
 
 @dataclass
@@ -386,24 +393,24 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                 # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
                 temp_df = pd.DataFrame()
                 while True:
-                    if self.parameters.n_elems_type == 'customers':
-                        selected_cids = random.sample(cids_unique_full, elem_per_query)
-                        temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
-                    elif self.parameters.n_elems_type == 'rows':
-                        selected_cids = random.sample(cids_unique_full, random.choice(range(min_customers_needed, int(elem_per_query / 2))))
-                        temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
-                        if len(temp_df) < elem_per_query:
-                            current_seed += 1
-                            continue
-                        temp_df = temp_df.sample(n=elem_per_query, random_state=current_seed)
+                    match self.parameters.n_elems_type:
+                        case NElemsType.customers:
+                            selected_cids = random.sample(cids_unique_full, elem_per_query)
+                            temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
+                        case NElemsType.rows:
+                            n_cids = random.choice(range(min_customers_needed, int(elem_per_query / 2)))
+                            selected_cids = random.sample(cids_unique_full, n_cids)
+                            temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
+                            if len(temp_df) < elem_per_query:
+                                current_seed += 1
+                                continue
 
-                        unique_cids_in_temp = temp_df['CustomerID'].unique().tolist()
-                        if len(unique_cids_in_temp) < min_customers_needed:
-                            current_seed += 1
-                            failed_n_customers += 1
-                            continue
-                    else:
-                        Exception(f"Unsupported n_elems_type {self.parameters.n_elems_type} in parameters.")
+                            temp_df = temp_df.sample(n=elem_per_query, random_state=current_seed)
+                            unique_cids_in_temp = temp_df['CustomerID'].unique().tolist()
+                            if len(unique_cids_in_temp) < min_customers_needed:
+                                current_seed += 1
+                                failed_n_customers += 1
+                                continue
 
                     if len(temp_df) > self.parameters.rows_in_prompt_limit:
                         current_seed += 1
@@ -413,10 +420,11 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                     basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
 
                     min_n_interesting_rows = min_customers_needed
-                    if self.parameters.n_elems_type == 'rows':
-                        threshold = 1
-                    elif self.parameters.n_elems_type == 'customers':
-                        threshold = 2
+                    match self.parameters.n_elems_type:
+                        case NElemsType.rows:
+                            threshold = 1
+                        case NElemsType.customers:
+                            threshold = 2
                     if count_row_sums(basket, threshold) < min_n_interesting_rows: # n of interesting rows
                         current_seed += 1
                         failed_n_rows_interesting += 1
@@ -443,7 +451,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                 for k in k_list:
 
                     for n_level in self.parameters.names_levels:
-                        if n_level != 'numeric':
+                        if n_level != NamesLevel.fake:
                             Exception(f"Unsupported names_level {n_level} in parameters.")
 
                         for p_level in self.parameters.prompt_levels:

@@ -8,7 +8,8 @@ import pandas as pd
 from pydantic import BaseModel, Field, ValidationError
 from tqdm import tqdm
 
-from queries.test import Test, data_folder, Query, Evaluations, mark_duplicates, QueryParameters, TestParameters
+from queries.test import Test, data_folder, Query, Evaluations, mark_duplicates, QueryParameters, TestParameters, \
+    PromptLevel, NamesLevel
 from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
 
 named_index_col = 'City'
@@ -22,15 +23,6 @@ wights = {
     'Infrastructure': 0.20
 }
 scoring_cols: list[str] = list(wights.keys())
-
-class PromptLevel(StrEnum):
-    compute_GLI = 'compute_GLI'
-    similar = 'similar'
-    formula_GLI = 'formula_GLI'
-
-class NamesLevels(StrEnum):
-    fake = 'fake'
-    real = 'real'
 
 class MostSimilarCities(BaseModel):
     most_similar_cities: list[str]  = Field(description="Ordered list of the k most similar cities to the target city.")
@@ -53,14 +45,14 @@ def closest_cities(df: DataFrame, target_city: str) -> DataFrame:
 
 def create_prompt(df: DataFrame, target: str, top_k: int, prompt_level: PromptLevel) -> str:
     job = "You are given a dataset of cities, with various attributes:"
-    if prompt_level == PromptLevel.compute_GLI:
-        instruct = f"Return the {top_k} most similar cities to {target}, based on the Global Liveability Index computed using ONLY the provided data."
-    elif prompt_level == PromptLevel.similar:
-        instruct = f"Return the {top_k} most similar cities to {target}, based ONLY on the provided data."
-    elif prompt_level == PromptLevel.formula_GLI:
-        instruct = f"Using the formula GLI = ({" + ".join(["'"+c+"'"+'*'+str(w) for c, w in wights.items()])}), return the {top_k} most similar cities to {target}, based ONLY on the computed GLI scores."
-    else:
-        raise ValueError(f"Unknown prompt level: {prompt_level}")
+
+    match prompt_level:
+        case PromptLevel.instruct:
+            instruct = f"Return the {top_k} most similar cities to {target}, based on the Global Liveability Index computed using ONLY the provided data."
+        case PromptLevel.formula:
+            instruct = f"Using the formula GLI = ({" + ".join(["'"+c+"'"+'*'+str(w) for c, w in wights.items()])}), return the {top_k} most similar cities to {target}, based ONLY on the computed GLI scores."
+        case PromptLevel.generic:
+            instruct = f"Return the {top_k} most similar cities to {target}, based ONLY on the provided data."
 
     prompt = f"""{job}
 
@@ -72,7 +64,7 @@ def create_prompt(df: DataFrame, target: str, top_k: int, prompt_level: PromptLe
 @dataclass
 class CityParameters(QueryParameters):
     prompt_level: PromptLevel
-    names_level: NamesLevels
+    names_level: NamesLevel
     k: int
     n_elems: int
 
@@ -100,8 +92,8 @@ class CityTestParameters(TestParameters):
     cities_per_query: list[int] = field(default_factory=lambda: [80]) #140 tot
     n_queries: int = 10
     kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
-    prompt_levels: list[PromptLevel] = field(default_factory=lambda: [pl for pl in PromptLevel])
-    names_levels: list[NamesLevels] = field(default_factory=lambda: [cn for cn in NamesLevels])
+    prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
+    names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel)
     enforce_json_schema: bool = True
 
 @dataclass
@@ -176,16 +168,15 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
 
                     for prompt_level in self.parameters.prompt_levels:
                         for names_level in self.parameters.names_levels:
-                            if names_level == NamesLevels.fake:
-                                curr_df = df_sampled.copy()
-                                curr_df = curr_df.drop(columns='Country')
-                                curr_df[named_index_col] = curr_df[named_index_col].map(fake_name_mapping)
-                                target = fake_name_mapping[target_city]
-                            elif names_level == NamesLevels.real:
-                                curr_df = df_sampled.copy()
-                                target = target_city
-                            else:
-                                raise ValueError(f"Unknown cities name: {names_level}")
+                            match names_level:
+                                case NamesLevel.fake:
+                                    curr_df = df_sampled.copy()
+                                    curr_df = curr_df.drop(columns='Country')
+                                    curr_df[named_index_col] = curr_df[named_index_col].map(fake_name_mapping)
+                                    target = fake_name_mapping[target_city]
+                                case NamesLevel.real:
+                                    curr_df = df_sampled.copy()
+                                    target = target_city
 
                             gt_df: DataFrame = closest_cities(curr_df, target)
                             q = CityQuery(

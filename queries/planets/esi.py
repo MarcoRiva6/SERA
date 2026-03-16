@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, ValidationError
 from tqdm import tqdm
 
 from queries.test import Test, data_folder, Query, Evaluations, download_csv, extract_json, extract_list, \
-    extract_pipe_sequence, mark_duplicates, QueryParameters, TestParameters
+    extract_pipe_sequence, mark_duplicates, QueryParameters, TestParameters, PromptLevel, NamesLevel
 from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
 
 
@@ -28,7 +28,7 @@ class PlanetScore(BaseModel):
 class MostSimilarPlanetsScore(BaseModel):
     top_k: list[PlanetScore] = Field(description="The ordered list of top k most similar planets.")
 
-def create_prompt(df: DataFrame, prompt_level: str, top_k: int, json_schema: bool) -> str:
+def create_prompt(df: DataFrame, prompt_level: PromptLevel, top_k: int, json_schema: bool) -> str:
     if json_schema:
         output_string = f"""Your output MUST contain only a sorted list of the top k (k={top_k}) most similar planets (represented by their 'Name')
 from most to least similar."""
@@ -36,8 +36,9 @@ from most to least similar."""
         output_string = f"""Your output MUST contain only a sorted list of the top k (k={top_k}) most similar planets (represented by their 'Name'),
 from most to least similar, separated by the character '|'."""
 
-    if prompt_level == 'generic':
-        prompt = \
+    match prompt_level:
+        case PromptLevel.generic:
+            prompt = \
 f"""
 Your task is to identify the most similar planets to Earth based on the provided dataset:
 {df.to_string(index=False)}
@@ -47,8 +48,8 @@ the top {top_k} planets that are most similar to Earth.
 
 {output_string}
 """
-    elif prompt_level == 'esi_instruct':
-        prompt = \
+        case PromptLevel.instruct:
+            prompt = \
 f"""
 Your task is to identify the most similar planets to Earth based on the provided dataset:
 {df.to_string(index=False)}
@@ -58,8 +59,8 @@ using the Earth Similarity Index (ESI) as THE ONLY criterion for similarity.
 
 {output_string}
 """
-    elif prompt_level == 'esi_formula':
-        prompt = \
+        case PromptLevel.formula:
+            prompt = \
 f"""
 Your task is to identify the most similar planets to Earth based on the provided dataset:
 {df.to_string(index=False)}
@@ -75,8 +76,6 @@ it is computed as follows:
 
 {output_string}
 """
-    else:
-        raise ValueError(f"Unknown prompt_level: {prompt_level}")
     return prompt
 
 @dataclass
@@ -94,8 +93,8 @@ class PlanetEvaluations(Evaluations):
 @dataclass
 class PlanetQueryParameters(QueryParameters):
     k: int
-    prompt_level: str
-    names_level: str
+    prompt_level: PromptLevel
+    names_level: NamesLevel
     n_elems: int
 
 @dataclass
@@ -106,8 +105,8 @@ class PlanetQuery(Query[PlanetQueryParameters, PlanetEvaluations]):
 @dataclass
 class PlanetTestParameters(TestParameters):
     kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
-    prompt_levels: list[str] = field(default_factory=lambda: ['generic']) # 'generic', 'esi_instruct', 'esi_formula'
-    names_levels: list[str] = field(default_factory=lambda: ['real']) # 'real', 'fake'
+    prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel) # all types
+    names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel) # all types
     n_queries: int = 10
     planets_per_query: list[int] = field(default_factory=lambda: [50]) #70 tot
     enforce_json_schema: bool = True
@@ -252,14 +251,13 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
                     k = max(1, math.ceil(kp * p_per_query))
 
                     for planet_name_mod in self.parameters.names_levels:
-                        if planet_name_mod == 'real':
-                            q_df = selected_planets
-                        elif planet_name_mod == 'fake':
-                            fake_selected_planets = selected_planets.copy()
-                            fake_selected_planets['Name'] = "Planet " + fake_selected_planets.index.astype(str)
-                            q_df = fake_selected_planets
-                        else:
-                            raise ValueError(f"Unknown planet_name_mod: {planet_name_mod}")
+                        match planet_name_mod:
+                            case NamesLevel.real:
+                                q_df = selected_planets
+                            case NamesLevel.fake:
+                                fake_selected_planets = selected_planets.copy()
+                                fake_selected_planets['Name'] = "Planet " + fake_selected_planets.index.astype(str)
+                                q_df = fake_selected_planets
                         ground_truth_df = compute_ground_truth(q_df)
                         prompt_df = q_df.drop(columns='ESI', inplace=False)
                         ground_truth = [{'planet_name': row['Name'],
@@ -267,12 +265,11 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
                                         in ground_truth_df.iterrows()]
 
                         for prompt_level in self.parameters.prompt_levels:
-                            if prompt_level == 'generic':
-                                response_schema = MostSimilarPlanets.model_json_schema()
-                            elif prompt_level in ['esi_instruct', 'esi_formula']:
-                                response_schema = MostSimilarPlanetsScore.model_json_schema()
-                            else:
-                                raise ValueError(f"Unknown prompt_level: {prompt_level}")
+                            match prompt_level:
+                                case PromptLevel.generic:
+                                    response_schema = MostSimilarPlanets.model_json_schema()
+                                case PromptLevel.instruct | PromptLevel.formula:
+                                    response_schema = MostSimilarPlanetsScore.model_json_schema()
                             query = PlanetQuery(
                                 id=counter,
                                 ds_id=ds_id,

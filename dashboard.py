@@ -440,28 +440,44 @@ def run_multi_set_dashboard(
                     )
 
                 elif chart_type == "heatmap":
-                    # --- NUOVA LOGICA: HEATMAP CON ONE-HOT ENCODING ---
+                    # --- NUOVA LOGICA: HEATMAP DINAMICA PULITA ---
                     z_data = []
                     y_labels = []
 
-                    # 1. Capiamo quali sono i parametri categorici e creiamo l'asse X "espanso"
+                    # 1. Raccogliamo i valori ATTIVI (che esistono davvero nei dati attualmente filtrati)
+                    active_values = {p: set() for p in param_fields}
+                    for ds in selected_datasets:
+                        for q in filtered_by_ds[ds]:
+                            for p in param_fields:
+                                active_values[p].add(get_param_value(q, p))
+
+                    # 2. Costruiamo l'asse X espanso escludendo le colonne inutili
                     expanded_features = []
                     for p in param_fields:
-                        # Controlliamo il tipo dal primo elemento disponibile nei filtri
+                        # Se un parametro ha 1 o 0 valori in tutti i dati filtrati, non ha varianza.
+                        # Essendo costante, la correlazione è sempre 0.00. Lo omettiamo per non sporcare il grafico!
+                        if len(active_values[p]) <= 1:
+                            continue
+
                         sample_val = values_by_param[p][0] if values_by_param[p] else None
                         if isinstance(sample_val, str):
-                            # Se è testo, creiamo una colonna per ogni possibile valore (One-Hot)
+                            # Se è testo, creiamo il One-Hot SOLO per i valori attivi presenti
                             for v in values_by_param[p]:
-                                expanded_features.append(f"{p} == {v}")
+                                if v in active_values[p]:
+                                    expanded_features.append(f"{p} == {v}")
                         else:
                             expanded_features.append(p)
+
+                    # Se filtriamo tutto fino ad avere 0 parametri variabili, usiamo un placeholder per non far crashare Plotly
+                    if not expanded_features:
+                        expanded_features = ["Nessun parametro variabile"]
 
                     for ds in selected_datasets:
                         qs = filtered_by_ds[ds]
                         if not qs:
                             continue
 
-                        # 2. Costruiamo i dati per la correlazione
+                        # Costruiamo i dati dinamicamente solo per le feature valide
                         df_dict = {f: [] for f in expanded_features}
                         m_vals = []
 
@@ -469,24 +485,35 @@ def run_multi_set_dashboard(
                             m_val = get_eval_value(q, metric_name)
                             m_vals.append(float(m_val) if isinstance(m_val, (int, float)) else np.nan)
 
+                            # Evitiamo crash se non ci sono feature variabili
+                            if expanded_features == ["Nessun parametro variabile"]:
+                                df_dict["Nessun parametro variabile"].append(0)
+                                continue
+
                             for p in param_fields:
+                                # Ignoriamo i parametri che abbiamo scartato
+                                if len(active_values[p]) <= 1:
+                                    continue
+
                                 v = get_param_value(q, p)
-                                if isinstance(v, str):
-                                    # Applichiamo il One-Hot Encoding per i campi testuali
+                                sample_val = values_by_param[p][0] if values_by_param[p] else None
+
+                                if isinstance(sample_val, str):
                                     for possible_v in values_by_param[p]:
-                                        df_dict[f"{p} == {possible_v}"].append(1 if v == possible_v else 0)
+                                        if possible_v in active_values[p]:
+                                            df_dict[f"{p} == {possible_v}"].append(1 if v == possible_v else 0)
                                 else:
-                                    # I numeri (es. k, n_elems) li passiamo così come sono
                                     df_dict[p].append(v)
 
                         df_dict[metric_name] = m_vals
                         df = pd.DataFrame(df_dict)
 
-                        # 3. Calcoliamo la correlazione (Spearman) per ogni feature espansa
+                        # 3. Calcoliamo la correlazione (Spearman)
                         corrs = []
                         for f in expanded_features:
-                            # Controlliamo che ci sia variazione nei dati per evitare divisioni per zero
-                            if df[f].nunique() > 1 and df[metric_name].nunique() > 1:
+                            if f == "Nessun parametro variabile":
+                                corrs.append(0.0)
+                            elif df[f].nunique() > 1 and df[metric_name].nunique() > 1:
                                 c = df[f].corr(df[metric_name], method='spearman')
                                 corrs.append(c if not pd.isna(c) else 0.0)
                             else:
@@ -499,7 +526,7 @@ def run_multi_set_dashboard(
                         fig.add_trace(
                             go.Heatmap(
                                 z=z_data,
-                                x=expanded_features, # L'asse X ora conterrà tutti i sotto-casi
+                                x=expanded_features,
                                 y=y_labels,
                                 colorscale='RdBu',
                                 zmin=-1,

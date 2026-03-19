@@ -12,114 +12,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 
-def interactive_plot(df: pd.DataFrame, x: str, y: str, kind: str = "line"):
-    if kind == "line":
-        fig = px.line(df, x=x, y=y)
-    elif kind == "scatter":
-        fig = px.scatter(df, x=x, y=y)
-    elif kind == "bar":
-        fig = px.bar(df, x=x, y=y)
-    else:
-        raise ValueError(f"Unknown kind: {kind}")
-    fig.show()
-    return fig
-
-def more_interactive_plot(df: pd.DataFrame, title: str, columns: list[str] = None, filters: list[str] = []):
-    if columns is None:
-        columns = df.select_dtypes(include="number").columns.tolist()
-    initial_y = columns[0]
-
-    # Create initial plot: x = row numbers
-    fig = go.Figure(
-        data=[
-            go.Scatter(
-                x=df.index,      # row numbers
-                y=df[initial_y], # default y column
-                mode="markers"
-            )
-        ]
-    )
-
-    fig.update_layout(
-        title=title,
-        xaxis_title="Row Number",
-        yaxis_title=initial_y,
-    )
-
-    # ---- Dropdown buttons for Y-axis ----
-    if len(columns) > 1:
-        y_buttons = []
-        for col in columns:
-            y_buttons.append(
-                dict(
-                    label=col,
-                    method="update",
-                    args=[
-                        {"y": [df[col]]},             # update y values
-                        {"yaxis": {"title": col}},    # update y label
-                    ],
-                )
-            )
-
-        # ---- Put dropdown above chart ----
-        fig.update_layout(
-            updatemenus=[
-                dict(
-                    buttons=y_buttons,
-                    direction="down",
-                    showactive=True,
-                    x=0.0,
-                    xanchor="left",
-                    y=1.15,
-                    yanchor="top",
-                )
-            ],
-            margin=dict(t=80)
-        )
-    if len(filters) > 0:
-        for i, f in enumerate(filters):
-            filter_buttons = []
-            filter_buttons.append(
-                dict(
-                    label="All",
-                    method="update",
-                    args=[
-                        {"x": [df.index], "y": [df[initial_y]]},
-                        {"xaxis": {"title": "Row Number"}, "yaxis": {"title": initial_y}},
-                    ],
-                )
-            )
-            unique_values = df[f].unique()
-            for val in unique_values:
-                filtered_df = df[df[f] == val].reset_index(drop=True)
-                filter_buttons.append(
-                    dict(
-                        label=str(val),
-                        method="update",
-                        args=[
-                            {"x": [filtered_df.index], "y": [filtered_df[initial_y]]},
-                            {"xaxis": {"title": "Row Number"}, "yaxis": {"title": initial_y}},
-                        ],
-                    )
-                )
-            # Add filter dropdown to layout
-            fig.update_layout(
-                updatemenus=[
-                    dict(
-                        buttons=filter_buttons,
-                        direction="down",
-                        showactive=True,
-                        x=1.0 + i * 0.2,
-                        xanchor="left",
-                        y=1.15,
-                        yanchor="top",
-                    )
-                ],
-                margin=dict(t=80)
-            )
-
-    fig.show()
-
 @dataclass
 class Experiment:
     """
@@ -131,14 +23,10 @@ class Experiment:
     run_type: RunType
     test: Test
     inner_folder: Path = None
+    skip_model: bool = False
 
     def __post_init__(self):
         self.inner_folder = self.run_folder / self.test.family / self.test.name_path / 'results' / self.model.name_path / self.run_type
-
-    def display(self, df: pd.DataFrame = None) -> None:
-        if df is None:
-            df = pd.read_parquet(self.inner_folder / 'queries.parquet')
-        more_interactive_plot(df=df, title=self.name, columns=['ndcg_k'], filters=['prompt_level'])
 
     def execute(self) -> None:
         """
@@ -164,17 +52,20 @@ class Experiment:
             self.test.store_queries()
             self.test.queries_to_csv('prepared_queries.csv')
         print('test ready.')
-        try:
-            self.model.run(self.test.queries)
-            print('Model processing complete.')
-        except NotImplementedError as e:
-            print(e)
-            return
-        except SubmissionError as e:
-            print('Submission error:', e)
-        except Exception as e:
-            print('An unknown error occurred during submission:', e)
-            return
+        if self.skip_model:
+            print('Skipping model...')
+        else:
+            try:
+                self.model.run(self.test.queries)
+                print('Model processing complete.')
+            except NotImplementedError as e:
+                print(e)
+                return
+            except SubmissionError as e:
+                print('Submission error:', e)
+            except Exception as e:
+                print('An unknown error occurred during submission:', e)
+                return
 
         at_least_one_completed = any(q.response is not None for q in self.test.queries)
         if at_least_one_completed:
@@ -189,7 +80,5 @@ class Experiment:
             print('test evaluation:', self.test.evaluations)
             self.test.evaluations_to_csv(dest=self.inner_folder)
             print('evaluations saved to csv.')
-
-        #self.display(df=q_df)
 
         print('test execution completed.')

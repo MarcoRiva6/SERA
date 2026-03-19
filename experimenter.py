@@ -37,7 +37,7 @@ class Run:
     queries: list[Query]
     seed: int = 0
     create_aggregated_csv: bool = False
-    show_dashboard: bool = False
+    skip_model: bool = False
 
 def get_subclasses(module_path, base_cls) -> list:
     module = importlib.import_module(module_path)
@@ -104,7 +104,7 @@ def load_experiments() -> list[Run]:
         except KeyError:
             pass
         try:
-            r.show_dashboard = data['show_dashboard']
+            r.skip_model = data['skip_model']
         except KeyError:
             pass
 
@@ -194,7 +194,8 @@ def load_experiments() -> list[Run]:
                         run_folder=this_run_folder,
                         model=model,
                         run_type=rt,
-                        test=test
+                        test=test,
+                        skip_model=r.skip_model
                     )
                     r_run_type_experiments.experiments.append(experiment)
     return results
@@ -333,24 +334,21 @@ if __name__ == "__main__":
                 print(f"--- Run type: {run_type_experiment.run_type} ---\n")
                 experiments = run_type_experiment.experiments
                 for experiment in experiments:
-                    if (experiment.inner_folder / 'queries.parquet').exists():
-                        experiment.display()
-                        print(f"Skipping experiment (already executed): {experiment.name}\n")
-                        continue
                     print(f"Running experiment: {experiment.name}\n")
                     experiment.execute()
                     print('\n')
-                run_type_experiment.all_evaluated = all(e.test.queries and all(q.evaluations is not None
-                                                                  for q in e.test.queries)
-                                           for e in experiments)
-                if run_type_experiment.all_evaluated:
-                    if run.create_aggregated_csv:
+
+                if run.create_aggregated_csv:
+                    run_type_experiment.all_evaluated = all(e.test.queries and all(q.evaluations is not None
+                                                                                    for q in e.test.queries)
+                                                            for e in experiments)
+                    if run_type_experiment.all_evaluated:
                         if len(experiments) <= 1 or len(set([e.test.run_type for e in experiments])) != 1:
                             print("Not enough evaluated experiments with the same run type to aggregate results, skipping aggregation.")
                         else:
                             print(f"aggregating results for test: {query.name} - {run_type_experiment.run_type}")
                             merged_df = merge_queries([e.test.queries for e in experiments], [e.model.name_path for e in experiments])
                             merged_df.to_csv(experiments[0].test.run_folder.parent / 'results' / 'aggregated_queries.csv', index=False, decimal=',', sep=';')
-                else:
-                    print(f"Some experiments for test {query.name} were not evaluated, skipping dashboard{" and aggregation" if run.create_aggregated_csv else ""}.")
+                    else:
+                        print(f"Some experiments for test {query.name} were not evaluated, skipping aggregation")
                 print('\n')

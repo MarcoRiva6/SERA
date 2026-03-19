@@ -303,17 +303,20 @@ def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str,
                     pass
     return for_charts
 
-def prepare_for_dashboard() -> dict[str, dict[str, list[Query]]]:
+def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
     runs = load_experiments()
-    run = runs[0]
-    for_dashboard: dict[str, dict[str, list[Query]]] = {}
-    for query in run.queries:
-        for run_type_experiment in query.run_type_experiments:
-            for e in run_type_experiment.experiments:
-                e.test.pickle_to_queries(e.inner_folder / 'evaluated_queries.pkl')
-            for_dashboard[query.name] = {e.model.name_path: e.test.queries for e in run_type_experiment.experiments}
+    result = {}
+    for run in runs:
+        for_dashboard: dict[str, dict[str, list[Query]]] = {}
+        for query in run.queries:
+            for run_type_experiment in query.run_type_experiments:
+                for e in run_type_experiment.experiments:
+                    e.test.pickle_to_queries(e.inner_folder / 'evaluated_queries.pkl')
+                for_dashboard[query.name] = {e.model.name_path: e.test.queries for e in run_type_experiment.experiments}
 
-    return prepare_for_charts(for_dashboard)
+        result[run.name_path] = prepare_for_charts(for_dashboard)
+
+    return result
 
 
 if __name__ == "__main__":

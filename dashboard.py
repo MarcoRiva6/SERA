@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import is_dataclass, fields
 from typing import Any, Dict, List, Tuple
 
-import plotly.graph_objects as go
-from dash import Dash, dcc, html, Input, Output, State, ALL
-
 import pandas as pd
 import numpy as np
+import plotly.graph_objects as go
+import dash
+from dash import Dash, dcc, html, Input, Output, State, ALL
 
 
 # ----------------------------
@@ -34,10 +35,9 @@ def get_param_fields_from_queries(queries: List[Any]) -> List[str]:
     if not is_dataclass(params):
         raise TypeError("Query.parameters must be a dataclass instance.")
 
-    # Prendi i campi ufficiali della dataclass
     fields_list = dataclass_field_names(type(params))
 
-    # Se abbiamo iniettato 'experiment_name', aggiungilo alla lista
+    # Supporto per l'attributo iniettato per il tab "All Experiments"
     if hasattr(params, "experiment_name") and "experiment_name" not in fields_list:
         fields_list.append("experiment_name")
 
@@ -117,57 +117,51 @@ def compute_set_schema(datasets: Dict[str, List[Any]]):
 
 
 # ----------------------------
-# Main: multi-set dashboard
+# Main: MULTI-SUITE DASHBOARD
 # ----------------------------
 
-def run_multi_set_dashboard(
-        dataset_sets: Dict[str, Dict[str, List[Any]]],
+def run_dashboard(
+        experiment_suites: Dict[str, Dict[str, Dict[str, List[Any]]]], # <-- Nuova struttura a 3 livelli!
         *,
         host: str = "127.0.0.1",
         port: int = 8050,
         debug: bool = True,
 ):
+    if not experiment_suites:
+        raise ValueError("experiment_suites is empty")
 
-    if not dataset_sets:
-        raise ValueError("dataset_sets is empty")
-
-    # --- NUOVO: CREAZIONE DEL SET GLOBALE "All Experiments" ---
-    # Creiamo una copia profonda per non modificare i dati originali in memoria in modo inaspettato
-    import copy
-    global_datasets = {}
-
-    for set_name, datasets in dataset_sets.items():
-        for ds_name, queries in datasets.items():
-            if ds_name not in global_datasets:
-                global_datasets[ds_name] = []
-
-            # Copiamo le query e "iniettiamo" il nome dell'esperimento nei parametri
-            # in modo che diventi un filtro utilizzabile e un asse X plottabile.
-            for original_q in queries:
-                q = copy.deepcopy(original_q)
-                # Aggiungiamo un nuovo campo alla dataclass Parameters (o usiamo un trucco se è congelata)
-                # Poiché le dataclass in Python possono essere 'frozen', la via più sicura
-                # è usare setattr() se non è frozen, oppure usare una classe wrapper o semplicemente
-                # aggiungere una proprietà "virtuale".
-                # Il trucco più pulito per non rompere la tua dataclass:
-                setattr(q.parameters, "experiment_name", set_name)
-                global_datasets[ds_name].append(q)
-
-    # Inseriamo il set globale come PRIMA opzione (così sarà il tab di default)
-    new_dataset_sets = {"All Experiments": global_datasets}
-    new_dataset_sets.update(dataset_sets)
-    dataset_sets = new_dataset_sets
-    # ---------------------------------------------------------
-
-    set_names = list(dataset_sets.keys())
-    default_set = set_names[0]
-
+    # --- PRE-PROCESSING DELLE SUITE ---
+    processed_suites = {}
     schemas = {}
-    for set_name, datasets in dataset_sets.items():
-        schemas[set_name] = compute_set_schema(datasets)
 
+    for suite_name, dataset_sets in experiment_suites.items():
+        # Creiamo il tab "All Experiments" per CIASCUNA suite
+        global_datasets = {}
+        for set_name, datasets in dataset_sets.items():
+            for ds_name, queries in datasets.items():
+                if ds_name not in global_datasets:
+                    global_datasets[ds_name] = []
+                for original_q in queries:
+                    q = copy.deepcopy(original_q)
+                    setattr(q.parameters, "experiment_name", set_name)
+                    global_datasets[ds_name].append(q)
+
+        new_dataset_sets = {"All Experiments": global_datasets}
+        new_dataset_sets.update(dataset_sets)
+        processed_suites[suite_name] = new_dataset_sets
+
+        schemas[suite_name] = {}
+        for set_name, datasets in new_dataset_sets.items():
+            schemas[suite_name][set_name] = compute_set_schema(datasets)
+
+    # Impostazioni di default iniziali
+    suite_names = list(processed_suites.keys())
+    default_suite = suite_names[0]
+    default_set = list(processed_suites[default_suite].keys())[0]
+
+    # Trova tutte le metriche globalmente
     preferred_order = ["ndcg_scores", "ndcg_k", "mare", "mare_k", "kendall", "kendall_k", "spearman", "spearman_k"]
-    available_metrics = {m for (ds_names, pf, ef, vbp) in schemas.values() for m in ef if m != "hallucination_rate"}
+    available_metrics = {m for suite in schemas.values() for (ds_names, pf, ef, vbp) in suite.values() for m in ef if m != "hallucination_rate"}
 
     all_eval_fields = []
     for metric in preferred_order:
@@ -177,9 +171,8 @@ def run_multi_set_dashboard(
 
     all_eval_fields.extend(sorted(available_metrics))
     if not all_eval_fields:
-        raise ValueError("No evaluation fields found in any set.")
+        raise ValueError("No evaluation fields found in any suite.")
 
-    # Aggiunto suppress_callback_exceptions=True per gestire i filtri dinamici senza warning
     app = Dash(__name__, suppress_callback_exceptions=True)
 
     app.layout = html.Div(
@@ -187,79 +180,75 @@ def run_multi_set_dashboard(
         children=[
             html.H2("Queries Dashboard", style={"margin": "0 0 10px 0"}),
 
+            # LIVELLO 1: I MACRO-TAB (Le Suite di esperimenti)
+            dcc.Tabs(
+                id="suite-tabs",
+                value=default_suite,
+                children=[dcc.Tab(label=name, value=name) for name in suite_names],
+                style={"marginBottom": "10px", "fontWeight": "bold"}
+            ),
+
+            # LIVELLO 2: I TAB DEGLI ESPERIMENTI (Cambiano in base alla suite scelta)
             dcc.Tabs(
                 id="set-tabs",
                 value=default_set,
-                children=[dcc.Tab(label=name, value=name) for name in set_names],
+                children=[dcc.Tab(label=name, value=name) for name in processed_suites[default_suite].keys()],
             ),
 
             html.Div(
                 id="controls-bar",
                 style={
-                    "display": "flex",
-                    "flexWrap": "wrap",
-                    "gap": "14px",
-                    "alignItems": "flex-end",
-                    "border": "1px solid #ddd",
-                    "borderRadius": "10px",
-                    "padding": "12px",
-                    "marginTop": "10px",
+                    "display": "flex", "flexWrap": "wrap", "gap": "14px", "alignItems": "flex-end",
+                    "border": "1px solid #ddd", "borderRadius": "10px", "padding": "12px", "marginTop": "10px",
                 },
                 children=[
-                    html.Div(
-                        style={"minWidth": "320px"},
-                        children=[
-                            html.Div("Datasets (lines)", style={"fontWeight": 700, "marginBottom": "6px"}),
-                            dcc.Dropdown(id="datasets-select", multi=True, clearable=False),
-                        ],
-                    ),
-                    html.Div(
-                        style={"minWidth": "420px"},
-                        children=[
-                            html.Div("X-axis categories (choose 1–2)", style={"fontWeight": 700, "marginBottom": "6px"}),
-                            dcc.Dropdown(id="x-fields-select", multi=True, clearable=False),
-                        ],
-                    ),
-                    html.Div(
-                        id="filters-container",
-                        style={"display": "flex", "flexWrap": "wrap", "gap": "14px", "alignItems": "flex-end"},
-                    ),
+                    html.Div(style={"minWidth": "320px"}, children=[
+                        html.Div("Datasets (lines)", style={"fontWeight": 700, "marginBottom": "6px"}),
+                        dcc.Dropdown(id="datasets-select", multi=True, clearable=False),
+                    ]),
+                    html.Div(style={"minWidth": "420px"}, children=[
+                        html.Div("X-axis categories (choose 1–2)", style={"fontWeight": 700, "marginBottom": "6px"}),
+                        dcc.Dropdown(id="x-fields-select", multi=True, clearable=False),
+                    ]),
+                    html.Div(id="filters-container", style={"display": "flex", "flexWrap": "wrap", "gap": "14px", "alignItems": "flex-end"}),
                 ],
             ),
 
-            # NUOVI TABS PER SELEZIONARE IL TIPO DI GRAFICO
+            # LIVELLO 3: I TAB DEI GRAFICI
             dcc.Tabs(
                 id="chart-type-tabs",
                 value="line",
                 children=[
                     dcc.Tab(label="Line Plots (Medie)", value="line"),
                     dcc.Tab(label="Box Plots (Distribuzioni)", value="box"),
-                    dcc.Tab(label="Heatmap (Correlazioni)", value="heatmap"), # <-- IL NUOVO TAB!
+                    dcc.Tab(label="Heatmap (Correlazioni)", value="heatmap"),
                 ],
                 style={"marginTop": "20px", "marginBottom": "5px"}
             ),
 
             html.Div(
                 id="charts-grid",
-                style={
-                    "display": "grid",
-                    "gridTemplateColumns": "repeat(2, minmax(0, 1fr))",
-                    "gap": "14px",
-                    "marginTop": "14px",
-                },
+                style={"display": "grid", "gridTemplateColumns": "repeat(2, minmax(0, 1fr))", "gap": "14px", "marginTop": "14px"},
                 children=[
-                    dcc.Graph(
-                        id={"type": "metric-graph", "metric": m},
-                        config={"displayModeBar": True},
-                        style={"height": "420px"},
-                    )
+                    dcc.Graph(id={"type": "metric-graph", "metric": m}, config={"displayModeBar": True}, style={"height": "420px"})
                     for m in all_eval_fields
                 ],
             ),
         ],
     )
 
-    # --- Update controls (questo era il pezzo sparito!) ---
+    # --- CALLBACK 1: Aggiorna i tab degli esperimenti quando cambi la Suite ---
+    @app.callback(
+        Output("set-tabs", "children"),
+        Output("set-tabs", "value"),
+        Input("suite-tabs", "value")
+    )
+    def update_set_tabs(active_suite):
+        suite_data = processed_suites[active_suite]
+        tabs = [dcc.Tab(label=name, value=name) for name in suite_data.keys()]
+        return tabs, list(suite_data.keys())[0]
+
+    # --- CALLBACK 2: Aggiorna i controlli in base a Suite ed Esperimento ---
     @app.callback(
         Output("datasets-select", "options"),
         Output("datasets-select", "value"),
@@ -267,10 +256,15 @@ def run_multi_set_dashboard(
         Output("x-fields-select", "value"),
         Output("filters-container", "children"),
         Input("set-tabs", "value"),
+        Input("suite-tabs", "value"),
     )
-    def update_controls(active_set: str):
-        datasets = dataset_sets[active_set]
-        dataset_names, param_fields, eval_fields, values_by_param = schemas[active_set]
+    def update_controls(active_set: str, active_suite: str):
+        # Protezione per stati transitori durante il caricamento
+        if not active_set or active_set not in processed_suites.get(active_suite, {}):
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
+
+        datasets = processed_suites[active_suite][active_set]
+        dataset_names, param_fields, eval_fields, values_by_param = schemas[active_suite][active_set]
 
         ds_options = [{"label": d, "value": d} for d in dataset_names]
         ds_value = dataset_names[:]
@@ -280,44 +274,27 @@ def run_multi_set_dashboard(
 
         filters_ui = []
         for f in param_fields:
-            filters_ui.append(
-                html.Div(
-                    style={"minWidth": "220px"},
-                    children=[
-                        html.Div(f"Filter: {f}", style={"fontWeight": 700, "marginBottom": "6px"}),
-                        dcc.Dropdown(
-                            id={"type": "filter", "field": f},
-                            options=[{"label": str(v), "value": v} for v in values_by_param[f]],
-                            value=[],
-                            multi=True,
-                            placeholder="All",
-                        ),
-                    ],
-                )
-            )
+            filters_ui.append(html.Div(style={"minWidth": "220px"}, children=[
+                html.Div(f"Filter: {f}", style={"fontWeight": 700, "marginBottom": "6px"}),
+                dcc.Dropdown(
+                    id={"type": "filter", "field": f},
+                    options=[{"label": str(v), "value": v} for v in values_by_param[f]],
+                    value=[], multi=True, placeholder="All"
+                ),
+            ]))
 
-        filters_ui.append(
-            html.Div(
-                style={"minWidth": "220px"},
-                children=[
-                    html.Div("Filter: parsing_failed", style={"fontWeight": 700, "marginBottom": "6px"}),
-                    dcc.Dropdown(
-                        id={"type": "filter", "field": "parsing_failed"},
-                        options=[
-                            {"label": "True", "value": True},
-                            {"label": "False", "value": False}
-                        ],
-                        value=[],
-                        multi=True,
-                        placeholder="All",
-                    ),
-                ],
-            )
-        )
+        filters_ui.append(html.Div(style={"minWidth": "220px"}, children=[
+            html.Div("Filter: parsing_failed", style={"fontWeight": 700, "marginBottom": "6px"}),
+            dcc.Dropdown(
+                id={"type": "filter", "field": "parsing_failed"},
+                options=[{"label": "True", "value": True}, {"label": "False", "value": False}],
+                value=[], multi=True, placeholder="All"
+            ),
+        ]))
 
         return ds_options, ds_value, x_options, x_value, filters_ui
 
-    # --- Update all figures (Line e Box unificati) ---
+    # --- CALLBACK 3: Aggiorna i grafici ---
     @app.callback(
         Output({"type": "metric-graph", "metric": all_eval_fields[0]}, "figure"),
         *[Output({"type": "metric-graph", "metric": m}, "figure") for m in all_eval_fields[1:]],
@@ -326,11 +303,16 @@ def run_multi_set_dashboard(
         Input("datasets-select", "value"),
         Input("x-fields-select", "value"),
         Input({"type": "filter", "field": ALL}, "value"),
+        Input("suite-tabs", "value"), # <- Nuovo Input per la suite
         State({"type": "filter", "field": ALL}, "id"),
     )
-    def update_figures(active_set: str, chart_type: str, selected_datasets, x_fields, filter_values, filter_ids):
-        datasets = dataset_sets[active_set]
-        dataset_names, param_fields, eval_fields, values_by_param = schemas[active_set]
+    def update_figures(active_set, chart_type, selected_datasets, x_fields, filter_values, active_suite, filter_ids):
+        # Protezione per stati transitori
+        if not active_set or active_set not in processed_suites.get(active_suite, {}):
+            return tuple([dash.no_update] * len(all_eval_fields))
+
+        datasets = processed_suites[active_suite][active_set]
+        dataset_names, param_fields, eval_fields, values_by_param = schemas[active_suite][active_set]
 
         selected_datasets = selected_datasets or dataset_names
         x_fields = (x_fields or param_fields[:1])[:]
@@ -350,14 +332,9 @@ def run_multi_set_dashboard(
 
         filtered_by_ds: Dict[str, List[Any]] = {}
         for ds in selected_datasets:
-            # 1. Filtra le query
             _qs = [q for q in datasets[ds] if matches_filters(q)]
-
-            # 2. Ordinale in base ai valori selezionati sull'asse X
             def q_sort_key(q):
                 return tuple(safe_sort_val(get_param_value(q, f)) for f in x_fields)
-
-            # 3. Salva la lista già perfettamente ordinata
             filtered_by_ds[ds] = sorted(_qs, key=q_sort_key)
 
         all_keys_set = set()
@@ -374,6 +351,13 @@ def run_multi_set_dashboard(
 
         for metric_name in all_eval_fields:
             fig = go.Figure()
+
+            # Traccia fantasma per allineare gli assi multicategorici in Plotly
+            if all_keys:
+                if chart_type == "line":
+                    fig.add_trace(go.Scatter(x=x_plotly, y=[None]*len(all_keys), showlegend=False, hoverinfo="skip"))
+                elif chart_type == "box":
+                    fig.add_trace(go.Box(x=x_plotly, y=[None]*len(all_keys), showlegend=False, hoverinfo="skip"))
 
             for ds in selected_datasets:
                 qs = filtered_by_ds[ds]
@@ -392,15 +376,7 @@ def run_multi_set_dashboard(
 
                     y_aligned = [y_map.get(k) for k in all_keys]
 
-                    fig.add_trace(
-                        go.Scatter(
-                            x=x_plotly,
-                            y=y_aligned,
-                            mode="lines+markers",
-                            name=ds,
-                            connectgaps=False,
-                        )
-                    )
+                    fig.add_trace(go.Scatter(x=x_plotly, y=y_aligned, mode="lines+markers", name=ds, connectgaps=False))
 
                 elif chart_type == "box":
                     ds_y = []
@@ -425,73 +401,52 @@ def run_multi_set_dashboard(
                     if not ds_y:
                         continue
 
-                    if len(x_fields) == 2:
-                        x_plot_box = [ds_x_outer, ds_x_inner]
-                    else:
-                        x_plot_box = ds_x_single
-
-                    fig.add_trace(
-                        go.Box(
-                            x=x_plot_box,
-                            y=ds_y,
-                            name=ds,
-                            boxpoints="outliers",
-                        )
-                    )
+                    x_plot_box = [ds_x_outer, ds_x_inner] if len(x_fields) == 2 else ds_x_single
+                    fig.add_trace(go.Box(x=x_plot_box, y=ds_y, name=ds, boxpoints="outliers"))
 
                 elif chart_type == "heatmap":
-                    # --- NUOVA LOGICA: HEATMAP DINAMICA PULITA ---
                     z_data = []
                     y_labels = []
 
-                    # 1. Raccogliamo i valori ATTIVI (che esistono davvero nei dati attualmente filtrati)
                     active_values = {p: set() for p in param_fields}
-                    for ds in selected_datasets:
-                        for q in filtered_by_ds[ds]:
+                    for tds in selected_datasets:
+                        for q in filtered_by_ds[tds]:
                             for p in param_fields:
                                 active_values[p].add(get_param_value(q, p))
 
-                    # 2. Costruiamo l'asse X espanso escludendo le colonne inutili
                     expanded_features = []
                     for p in param_fields:
-                        # Se un parametro ha 1 o 0 valori in tutti i dati filtrati, non ha varianza.
-                        # Essendo costante, la correlazione è sempre 0.00. Lo omettiamo per non sporcare il grafico!
                         if len(active_values[p]) <= 1:
                             continue
 
                         sample_val = values_by_param[p][0] if values_by_param[p] else None
                         if isinstance(sample_val, str):
-                            # Se è testo, creiamo il One-Hot SOLO per i valori attivi presenti
                             for v in values_by_param[p]:
                                 if v in active_values[p]:
                                     expanded_features.append(f"{p} == {v}")
                         else:
                             expanded_features.append(p)
 
-                    # Se filtriamo tutto fino ad avere 0 parametri variabili, usiamo un placeholder per non far crashare Plotly
                     if not expanded_features:
                         expanded_features = ["Nessun parametro variabile"]
 
-                    for ds in selected_datasets:
-                        qs = filtered_by_ds[ds]
-                        if not qs:
+                    for tds in selected_datasets:
+                        tqs = filtered_by_ds[tds]
+                        if not tqs:
                             continue
 
-                        # Costruiamo i dati dinamicamente solo per le feature valide
                         df_dict = {f: [] for f in expanded_features}
                         m_vals = []
 
-                        for q in qs:
+                        for q in tqs:
                             m_val = get_eval_value(q, metric_name)
                             m_vals.append(float(m_val) if isinstance(m_val, (int, float)) else np.nan)
 
-                            # Evitiamo crash se non ci sono feature variabili
                             if expanded_features == ["Nessun parametro variabile"]:
                                 df_dict["Nessun parametro variabile"].append(0)
                                 continue
 
                             for p in param_fields:
-                                # Ignoriamo i parametri che abbiamo scartato
                                 if len(active_values[p]) <= 1:
                                     continue
 
@@ -508,7 +463,6 @@ def run_multi_set_dashboard(
                         df_dict[metric_name] = m_vals
                         df = pd.DataFrame(df_dict)
 
-                        # 3. Calcoliamo la correlazione (Spearman)
                         corrs = []
                         for f in expanded_features:
                             if f == "Nessun parametro variabile":
@@ -520,23 +474,15 @@ def run_multi_set_dashboard(
                                 corrs.append(0.0)
 
                         z_data.append(corrs)
-                        y_labels.append(ds)
+                        y_labels.append(tds)
 
                     if z_data:
-                        fig.add_trace(
-                            go.Heatmap(
-                                z=z_data,
-                                x=expanded_features,
-                                y=y_labels,
-                                colorscale='RdBu',
-                                zmin=-1,
-                                zmax=1,
-                                zmid=0,
-                                text=[[f"{val:.2f}" for val in row] for row in z_data],
-                                texttemplate="%{text}",
-                                hoverinfo="x+y+z",
-                            )
-                        )
+                        fig.add_trace(go.Heatmap(
+                            z=z_data, x=expanded_features, y=y_labels,
+                            colorscale='RdBu', zmin=-1, zmax=1, zmid=0,
+                            text=[[f"{val:.2f}" for val in row] for row in z_data],
+                            texttemplate="%{text}", hoverinfo="x+y+z",
+                        ))
 
             # --- SETUP LAYOUT FINALE ---
             layout_kwargs = {
@@ -551,7 +497,6 @@ def run_multi_set_dashboard(
 
             fig.update_layout(**layout_kwargs)
 
-            # La Heatmap non usa i doppi assi X o i rangemode "tozero", quindi li differenziamo
             if chart_type != "heatmap":
                 if len(x_fields) == 2:
                     fig.update_xaxes(type="multicategory", categoryorder="trace")
@@ -559,9 +504,7 @@ def run_multi_set_dashboard(
                     fig.update_xaxes(type="category", categoryorder="trace")
                 fig.update_yaxes(rangemode="tozero")
             else:
-                # Layout pulito per la Heatmap
                 fig.update_xaxes(type="category")
-                # Ribaltiamo l'asse Y per avere il primo dataset in alto e non in basso
                 fig.update_yaxes(autorange="reversed")
 
             figures.append(fig)
@@ -574,4 +517,4 @@ def run_multi_set_dashboard(
 if __name__ == "__main__":
     import experimenter
 
-    run_multi_set_dashboard(experimenter.prepare_for_dashboard())
+    run_dashboard(experiment_suites=experimenter.prepare_for_dashboard())

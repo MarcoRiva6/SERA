@@ -29,44 +29,29 @@ class MostSimilarPlanetsScore(BaseModel):
     top_k: list[PlanetScore] = Field(description="The ordered list of top k most similar planets.")
 
 def create_prompt(df: DataFrame, prompt_level: PromptLevel, top_k: int, json_schema: bool) -> str:
-    if json_schema:
-        output_string = f"""Your output MUST contain only a sorted list of the top k (k={top_k}) most similar planets (represented by their 'Name')
-from most to least similar."""
-    else:
-        output_string = f"""Your output MUST contain only a sorted list of the top k (k={top_k}) most similar planets (represented by their 'Name'),
-from most to least similar, separated by the character '|'."""
+    if not json_schema:
+        raise NotImplementedError("il caso senza json_schema non è più supportato.")
+
+    job = f"You are given a dataset of planets, with various attributes:\n{df.to_string(index=False)}"
+    output = "Your output must contain only the required list of planets."
 
     match prompt_level:
         case PromptLevel.generic:
             prompt = \
-f"""
-Your task is to identify the most similar planets to Earth based on the provided dataset:
-{df.to_string(index=False)}
+f"""{job}
 
-The dataset includes various planetary characteristics. Please analyze the data and provide a ranked list of
-the top {top_k} planets that are most similar to Earth.
-
-{output_string}
-"""
+Return the top {top_k} planets that are most similar to Earth.\n{output}"""
         case PromptLevel.instruct:
             prompt = \
-f"""
-Your task is to identify the most similar planets to Earth based on the provided dataset:
-{df.to_string(index=False)}
+f"""{job}
 
-Please provide a ranked list of the top {top_k} planets that are most similar to Earth,
-using the Earth Similarity Index (ESI) as THE ONLY criterion for similarity.
-
-{output_string}
-"""
+Return the top {top_k} planets that are most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity.\n{output}"""
         case PromptLevel.formula:
             prompt = \
-f"""
-Your task is to identify the most similar planets to Earth based on the provided dataset:
-{df.to_string(index=False)}
+f"""{job}
 
-Please provide a ranked list of the top {top_k} planets that are most similar to Earth,
-using the following formula as THE ONLY criterion for similarity:
+Provide a ranked list of the top {top_k} planets that are most similar to Earth, using only the ESI (Earth Similarity Index) score.
+The ESI formula is explained below:
 
 The formula takes as input a planet's radius (R) and solar flux (S).
 it is computed as follows:
@@ -74,8 +59,7 @@ it is computed as follows:
 2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
 3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )
 
-{output_string}
-"""
+{output}"""
     return prompt
 
 @dataclass

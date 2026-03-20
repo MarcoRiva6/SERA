@@ -159,12 +159,10 @@ class MostSimilarCustomers(BaseModel):
     top_k: list[int] = Field(description="The ordered list of top k most similar customers.")
 
 def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool) -> str:
-    if json_schema:
-        output_string = f"""Your output MUST be the sorted list of the most similar customers (represented by their customer_id),
-from most to least similar."""
-    else:
-        output_string = f"""Your output MUST contain only a sorted list of the most similar customers (represented by their customer_id),
-from most to least similar, separated by the character '{CHOSEN_SEPARATOR}'."""
+    if not json_schema:
+        raise NotImplementedError("il caso senza json_schema non è supportato.")
+
+    output = "Your output must contain only the required list of customers."
 
     match level:
         case PromptLevel.formula:
@@ -172,8 +170,7 @@ from most to least similar, separated by the character '{CHOSEN_SEPARATOR}'."""
 f"""your are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
 
-Your job is to find the top {top_k} customers who are most similar to the customer {cid}. The similarity score MUST
-be computed following these steps:
+Return the {top_k} customers who are most similar to the customer {cid}. The similarity score must be computed following these steps:
 1.	Basket-Content Representation
 	1.1	Build a customer–item matrix by cross-tabulating customers against the products they purchased.
 	1.2	Compute the cosine similarity between customers using these vectors.
@@ -182,38 +179,46 @@ be computed following these steps:
 	2.2	Normalize these RFM values so that each feature is on a comparable scale.
 	2.3	Compute the cosine similarity between customers based on these normalized RFM vectors.
 3.	Final Score
-	•	Combine the two similarity measures with a weighted average:
+	Combine the two similarity measures as follows:
 	•	{alpha*100:.0f}% weight for the basket-content similarity
 	•	{(1-alpha)*100:.0f}% weight for the RFM similarity
 
-Only reason using the purchase histories provided in the dataset.
-{output_string}
-"""
+{output}"""
+
         case PromptLevel.instruct:
             prompt = \
-f"""
-your task is to compare customers only based on their purchasing behavior in the following dataset.
+f""""You are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
-A customer is more similar if:
-1.	They bought many of the same products as the target customer
-2.	Their purchase frequency is similar
-3.	Their monetary spend is similar
-4.	Their recency of last purchase is similar
 
-Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
-Only reason using the purchase histories provided in the dataset.
-{output_string}
-"""
+Return {top_k} customers most similar to customer {cid} based on their purchasing behavior.
+
+To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {alpha*100:.0f}% and {(1-alpha)*100:.0f}%:
+1. Product Affinity (basket-content similarity).
+2. RFM Profile (Recency, Frequency, Monetary).
+
+{output}"""
+#             prompt = \
+# f""""You are given the following dataset of customer purchase histories:
+# {df.to_string(index=False)}
+#
+# Your task is to identify the top {top_k} customers most similar to customer {cid} based on their purchasing behavior.
+#
+# To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {alpha*100:.0f}% and {(1-alpha)*100:.0f}%:
+# 1. Product Affinity: Compare customers based on the overlap and volume of their purchased product catalogs (basket-content similarity).
+# 2. RFM Profile (Recency, Frequency, Monetary): Evaluate their transactional behavior. Calculate how recently they made a purchase (relative to the latest date in the entire dataset), how often they shop, and their total financial value. You must normalize these three behavioral metrics to ensure fair comparison before calculating the similarity.
+#
+# Only reason on the purchase histories provided in the dataset.
+# {output_string}, based on the specified criterion.
+# """
+
         case PromptLevel.generic:
             prompt = \
-f"""
-Your are given the following dataset of customer purchase histories:
+f"""Your are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
 
-Identify the top {top_k} customers who are most similar to the given customer, whose customer_id is {cid}.
-Only reason using the purchase histories provided in the dataset.
-{output_string}
-"""
+Return the {top_k} customers who are most similar to customer {cid}.
+
+{output}"""
     return prompt
 
 @dataclass
@@ -265,6 +270,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
     full_df: DataFrame = None
     clean_df: DataFrame = None
     pre_queries_df: DataFrame = None
+    stats_df: DataFrame = None
 
     def load_csv(self, file_path: Path = None) -> None:
         if file_path is None:
@@ -398,19 +404,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                             selected_cids = random.sample(cids_unique_full, elem_per_query)
                             temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
                         case NElemsType.rows:
-                            n_cids = random.choice(range(min_customers_needed, int(elem_per_query / 2)))
-                            selected_cids = random.sample(cids_unique_full, n_cids)
-                            temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
-                            if len(temp_df) < elem_per_query:
-                                current_seed += 1
-                                continue
-
-                            temp_df = temp_df.sample(n=elem_per_query, random_state=current_seed)
-                            unique_cids_in_temp = temp_df['CustomerID'].unique().tolist()
-                            if len(unique_cids_in_temp) < min_customers_needed:
-                                current_seed += 1
-                                failed_n_customers += 1
-                                continue
+                            temp_df = self.generate_prompt_dataset(target_rows=elem_per_query, min_customers=min_customers_needed, seed=current_seed)
 
                     if len(temp_df) > self.parameters.rows_in_prompt_limit:
                         current_seed += 1
@@ -452,7 +446,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
 
                     for n_level in self.parameters.names_levels:
                         if n_level != NamesLevel.fake:
-                            Exception(f"Unsupported names_level {n_level} in parameters.")
+                            raise Exception(f"Unsupported names_level {n_level} in parameters.")
 
                         for p_level in self.parameters.prompt_levels:
                             self.queries.append(CustomerSegmentationQuery(
@@ -490,6 +484,51 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
         self.clean_df = self.clean_df[(self.clean_df["Quantity"] > 0) & (self.clean_df["UnitPrice"] > 0)]
         # Total price per line
         self.clean_df["TotalPrice"] = self.clean_df["Quantity"] * self.clean_df["UnitPrice"]
+
+        # 2. Raggruppiamo per cliente per calcolare le loro statistiche base nel dataset completo
+        df_valid = self.clean_df.copy()
+        self.stats_df = df_valid.groupby('CustomerID').agg(
+            NumRows=('InvoiceNo', 'count'),
+            NumInvoices=('InvoiceNo', 'nunique')
+        )
+
+    def generate_prompt_dataset(self, target_rows: int, min_customers: int, seed: int) -> DataFrame:
+        """
+        Estrae un sotto-dataset di esattamente 'target_rows' righe e almeno
+        'min_customers' clienti, garantendo che le metriche comportamentali siano calcolabili.
+        Viene utilizzato "random", di cui NON viene ri-settato il seed, che invece viene utilizzato per le funzioni random
+        di pandas.
+        """
+        # 3. Creiamo un "bacino" di clienti ideali per il test.
+        # Devono avere almeno 2 fatture (per calcolare la Tenure) e non troppe righe
+        # (altrimenti un solo cliente occuperebbe tutto il test da 30 righe).
+        max_rows_per_cust = (target_rows // min_customers) + 3
+
+        clienti_idonei = self.stats_df[
+            (self.stats_df['NumInvoices'] >= 2) &
+            (self.stats_df['NumRows'] >= 2) &
+            (self.stats_df['NumRows'] <= max_rows_per_cust)
+            ].index.tolist()
+
+        if len(clienti_idonei) < min_customers:
+            raise ValueError("Non ci sono abbastanza clienti con questi requisiti nel dataset.")
+
+        # 4. Ricerca della combinazione esatta (ciclo veloce basato sulla casualità)
+        # Poiché il dataset è enorme, troverà la combinazione in frazioni di secondo.
+        while True:
+            # Decidiamo quanti clienti pescare (tra il minimo richiesto e il massimo possibile)
+            num_clienti_da_pescare = random.randint(min_customers, target_rows // 2)
+            # Peschiamo casualmente i clienti dal nostro bacino idoneo
+            clienti_scelti = random.sample(clienti_idonei, num_clienti_da_pescare)
+            # Contiamo quante righe totali occupano questi clienti
+            righe_totali = self.stats_df.loc[clienti_scelti, 'NumRows'].sum()
+            # Se la somma fa ESATTAMENTE il numero di righe che vogliamo (es. 30), ci fermiamo!
+            if righe_totali == target_rows:
+                # Estraiamo le righe reali di questi clienti dal dataset originale
+                df_finale = self.clean_df[self.clean_df['CustomerID'].isin(clienti_scelti)].copy()
+                # Mischiamo le righe in modo casuale
+                df_finale = df_finale.sample(frac=1, random_state=seed).reset_index(drop=True)
+                return df_finale
 
     # def prepare_lotus(self) -> None:
     #     self.load_csv()

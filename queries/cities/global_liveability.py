@@ -44,21 +44,22 @@ def closest_cities(df: DataFrame, target_city: str) -> DataFrame:
     return out
 
 def create_prompt(df: DataFrame, target: str, top_k: int, prompt_level: PromptLevel) -> str:
-    job = "You are given a dataset of cities, with various attributes:"
+    job = f"You are given a dataset of cities, with various attributes:\n{df.to_string(index=False)}"
+    output = "Your output must contain only the required list of cities."
 
     match prompt_level:
         case PromptLevel.instruct:
-            instruct = f"Return the {top_k} most similar cities to {target}, based on the Global Liveability Index computed using ONLY the provided data."
+            instruct = f"Return the {top_k} most similar cities to '{target}', based only on the Global Liveability Index (GLI) using only the provided data."
         case PromptLevel.formula:
-            instruct = f"Using the formula GLI = ({" + ".join(["'"+c+"'"+'*'+str(w) for c, w in wights.items()])}), return the {top_k} most similar cities to {target}, based ONLY on the computed GLI scores."
+            instruct = f"Using only the Global Liveability Index (GLI), which can be computed with the formula GLI = ({" + ".join(["'"+c+"'"+'*'+str(w) for c, w in wights.items()])}), return the {top_k} most similar cities to '{target}'."
         case PromptLevel.generic:
-            instruct = f"Return the {top_k} most similar cities to {target}, based ONLY on the provided data."
+            instruct = f"Return the {top_k} most similar cities to '{target}', based only on the provided data."
 
     prompt = f"""{job}
 
-{df.to_string(index=False)}
+{instruct}
 
-{instruct}"""
+{output}"""
     return prompt
 
 @dataclass
@@ -137,6 +138,9 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
                            kendall_k=kendall_tau_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
                            hallucination_rate=hallucination_rate(query.parsed_response[:query.parameters.k], query.ground_truth))
 
+    def _build_prompt(self, df: DataFrame, target: str, top_k: int, prompt_level: PromptLevel) -> str:
+        return create_prompt(df, target, top_k, prompt_level)
+
     def prepare_queries_for_direct(self):
         self.queries = []
         if self.full_ds is None:
@@ -182,7 +186,7 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
                             q = CityQuery(
                                 id=counter,
                                 ds_id=ds_id,
-                                prompt=create_prompt(curr_df.drop(columns=score_col), target, k, prompt_level),
+                                prompt=self._build_prompt(curr_df.drop(columns=score_col), target, k, prompt_level),
                                 ground_truth=gt_df[named_index_col].tolist(),
                                 ground_truth_scores=(1-gt_df['diff']).tolist(),
                                 target_city=target,

@@ -311,9 +311,14 @@ def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
         for_dashboard: dict[str, dict[str, list[Query]]] = {}
         for query in run.queries:
             for run_type_experiment in query.run_type_experiments:
+                tmp = {}
                 for e in run_type_experiment.experiments:
-                    e.test.pickle_to_queries(e.inner_folder / 'evaluated_queries.pkl')
-                for_dashboard[query.name] = {e.model.name_path: e.test.queries for e in run_type_experiment.experiments}
+                    path = e.inner_folder / 'evaluated_queries.pkl'
+                    if path.exists():
+                        e.test.pickle_to_queries(path)
+                        tmp[e.model.name_path] = e.test.queries
+                if tmp != {}:
+                    for_dashboard[query.name] = tmp
 
         result[run.name_path] = prepare_for_charts(for_dashboard)
 

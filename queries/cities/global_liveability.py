@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from queries.test import Test, data_folder, Query, Evaluations, mark_duplicates, QueryParameters, TestParameters, \
     PromptLevel, NamesLevel
-from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
+from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k, standard_ndcg_scoring
 
 named_index_col = 'City'
 index_col = 'Rank'
@@ -127,9 +127,7 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
 
         return CityEvaluations(ndcg_scores=ndcg_k([query.ground_truth_scores[query.ground_truth.index(city)] if city in query.ground_truth else 0 for city in marked_duplicate_response], query.ground_truth_scores, query.parameters.k),
                            ndcg_k=ndcg_k(
-                               relevance_scores=[query.parameters.k - i if city in query.ground_truth[:query.parameters.k] else 0 for
-                                                 i, city in
-                                                 enumerate(marked_duplicate_response)], k=query.parameters.k),
+                               relevance_scores=standard_ndcg_scoring(marked_duplicate_response,query.ground_truth, query.parameters.k), k=query.parameters.k),
                            mare=mare_k(marked_duplicate_response, query.ground_truth),
                            mare_k=mare_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
                            spearman=spearman_rho_k(marked_duplicate_response, query.ground_truth),

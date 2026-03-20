@@ -17,7 +17,7 @@ from tqdm import tqdm
 from queries.test import Query, Test, Evaluations, data_folder, extract_json, extract_list, \
     ensure_kaggle_ds, extract_separator_sequence, mark_duplicates, QueryParameters, TestParameters, PromptLevel, \
     NamesLevel
-from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
+from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k, standard_ndcg_scoring
 
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
@@ -365,9 +365,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                             kendall_k = kendall_tau_k(response_marked_duplicates, query.ground_truth, query.parameters.k),
                         ndcg_scores=ndcg_k(ndcg_scores, temp_vals, query.parameters.k),
                            ndcg_k=ndcg_k(
-                               relevance_scores=[query.parameters.k - i if cust in query.ground_truth[:query.parameters.k] else 0 for
-                                                 i, cust in
-                                                 enumerate(response_marked_duplicates)], k=query.parameters.k),
+                               relevance_scores=standard_ndcg_scoring(response_marked_duplicates, query.ground_truth, query.parameters.k), k=query.parameters.k),
                            mare=mare_k(response_marked_duplicates, query.ground_truth),
                            mare_k=mare_k(response_marked_duplicates, query.ground_truth, query.parameters.k),
                            spearman=spearman_rho_k(response_marked_duplicates, query.ground_truth),

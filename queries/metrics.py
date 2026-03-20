@@ -12,6 +12,17 @@ def _dcg(scores):
         for i, score in enumerate(scores, start=1)
     ])
 
+def standard_ndcg_scoring(answer: list[Any], ground_truth: list[Any], k: int) -> list[int]:
+    """
+    Returns the relevance scores for the elements in *answer* based on their position in *ground_truth*.
+     If an element from *answer* is missing in *ground_truth*, it is assigned a relevance score of 0; otherwise, the relevance score is computed as k - position_in_ground_truth.
+    :param answer: the elements for which to compute the relevance scores
+    :param ground_truth: sorted ground truth elements
+    :param k: consider only the top-k elements for both *answer* and *ground_truth*.
+    :return:
+    """
+    return [k - ground_truth.index(elem) if elem in ground_truth[:k] else 0 for elem in answer[:k]]
+
 
 def ndcg_k(relevance_scores: list[Number], ground_truth_scores: list[Number]=None, k: int=None):
     """

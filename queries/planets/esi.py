@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 from queries.test import Test, data_folder, Query, Evaluations, download_csv, extract_json, extract_list, \
     extract_pipe_sequence, mark_duplicates, QueryParameters, TestParameters, PromptLevel, NamesLevel
-from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k
+from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k, standard_ndcg_scoring
 
 
 def compute_ground_truth(df: DataFrame, top_k: int = None) -> DataFrame:
@@ -174,7 +174,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
 
         return PlanetEvaluations(ndcg_scores=ndcg_k(llm_scores, ground_truth_scores, query.parameters.k),
                            ndcg_k=ndcg_k(
-            [query.parameters.k - i if p in ground_truth_names[:query.parameters.k] else 0 for i, p in enumerate(llm_names)],
+            relevance_scores=standard_ndcg_scoring(llm_names, ground_truth_names, query.parameters.k),
             k=query.parameters.k),
                            mare=mare_k(llm_names, ground_truth_names),
                            mare_k=mare_k(llm_names, ground_truth_names, query.parameters.k),

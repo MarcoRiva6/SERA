@@ -167,7 +167,7 @@ def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: P
     match level:
         case PromptLevel.formula:
                 prompt = \
-f"""your are given the following dataset of customer purchase histories:
+f"""You are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
 
 Return the {top_k} customers who are most similar to the customer {cid}. The similarity score must be computed following these steps:
@@ -213,7 +213,7 @@ To determine similarity, evaluate customers across two standard retail dimension
 
         case PromptLevel.generic:
             prompt = \
-f"""Your are given the following dataset of customer purchase histories:
+f"""You are given the following dataset of customer purchase histories:
 {df.to_string(index=False)}
 
 Return the {top_k} customers who are most similar to customer {cid}.
@@ -393,7 +393,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                 if self.parameters.seed != 0:
                     random.seed(current_seed)
                 k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
-                min_customers_needed = max(k_list) + 1
+                min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
                 # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
                 temp_df = pd.DataFrame()
                 while True:

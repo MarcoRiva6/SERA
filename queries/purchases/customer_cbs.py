@@ -116,7 +116,7 @@ def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: P
     if not json_schema:
         raise NotImplementedError("Il caso senza json_schema non è supportato")
 
-    intro_and_dataset = f"""your are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}"""
+    intro_and_dataset = f"""you are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}"""
     output = "Your output must contain only the required list of customers."
 
     match level:
@@ -189,7 +189,7 @@ class customer_CBS(customer_segmentation):
                 if self.parameters.seed != 0:
                     random.seed(current_seed)
                 k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
-                min_customers_needed = max(k_list) + 1
+                min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
 
                 temp_df = pd.DataFrame()
                 while True:

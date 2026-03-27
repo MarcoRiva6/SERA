@@ -23,7 +23,7 @@ def _build_prompt(df: DataFrame, target: str, prompt_level: PromptLevel, top_k: 
             prompt = f"Return the sorted list of top {top_k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). This factor is computed as the planet's average density (expressed in Earth units, assuming a spherical shape) and multiplying it by the square root of the incident stellar flux."
         case PromptLevel.formula:
             prompt = \
-f"""Return the sorted list of top {top_k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). THe DIF can be computed as follows:
+f"""Return the sorted list of top {top_k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). The DIF can be computed as follows:
 
 DIF = (M / R^3) * sqrt(S)
 

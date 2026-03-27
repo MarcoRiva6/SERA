@@ -62,7 +62,7 @@ class TogetherModel(Model):
                 }
             ],
             stream=False,
-        ).response().choices[0].message.content
+        ).choices[0].message.content
 
     def _submit_direct_batched(self, folder: Path, queries: list[Query]) -> bool:
         poll_interval = 60 #seconds

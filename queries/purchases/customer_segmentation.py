@@ -352,7 +352,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
         if not self.parse_query(query):
             return failing_scores
 
-        response_marked_duplicates = mark_duplicates(query.parsed_response[:query.parameters.k], query.ground_truth)
+        response_marked_duplicates = mark_duplicates(query.parsed_response[:query.parameters.k])
 
         temp_vals: list[float] = [x + 1 for x in query.ground_truth_values]
         ndcg_scores: list[float] = [temp_vals[query.ground_truth.index(cust)]

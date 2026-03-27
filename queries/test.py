@@ -53,27 +53,24 @@ class Evaluations(ABC):
 
 T_Evaluations = TypeVar('T_Evaluations', bound=Evaluations)
 
-def mark_duplicates(llm_response: list[Any], ground_truth: list[Any]) -> list[Any]:
+def mark_duplicates(llm_response: list[Any]) -> list[Any]:
     """
     Mark duplicated values in llm_response that are not in the correct position according to ground_truth.
     Duplicated values are replaced with the string "<duplicated>".
     """
-    # Count occurrences in llm_response
-    counts = Counter(llm_response)
+    cleaned_ranking = []
+    seen = set()
 
-    # Map ground_truth value -> its index
-    gt_index = {value: i for i, value in enumerate(ground_truth)}
+    for item in llm_response:
+        if item not in seen:
+            # È la prima occorrenza: la teniamo
+            cleaned_ranking.append(item)
+            seen.add(item)
+        else:
+            # È un duplicato
+            cleaned_ranking.append("<duplicated>")
 
-    result = llm_response.copy()
-
-    for i, value in enumerate(llm_response):
-        # Only care about duplicated values
-        if counts[value] > 1 and value in gt_index:
-            # If this is NOT the correct position, mark as duplicated
-            if i != gt_index[value]:
-                result[i] = "<duplicated>"
-
-    return result
+    return cleaned_ranking
 
 def extract_json(text: str, q_id=None) -> dict:
     """

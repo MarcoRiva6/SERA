@@ -162,7 +162,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
         ground_truth_names: list[str] = [item['planet_name'] for item in query.ground_truth]
         ground_truth_scores: list[float] = [item['esi'] for item in query.ground_truth]
         llm_names_with_duplicates = llm_names
-        llm_names = mark_duplicates(llm_names, ground_truth_names[:query.parameters.k])
+        llm_names = mark_duplicates(llm_names)
         llm_scores: list[float] = []
         for i, pred_planet in enumerate(llm_names):
             score = 0.0

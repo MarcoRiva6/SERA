@@ -123,7 +123,7 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
         query.parsing_failed = not self._parse_query(query)
         if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
             return failing_scores
-        marked_duplicate_response = mark_duplicates(query.parsed_response[:query.parameters.k], query.ground_truth[:query.parameters.k])
+        marked_duplicate_response = mark_duplicates(query.parsed_response[:query.parameters.k])
 
         return CityEvaluations(ndcg_scores=ndcg_k([query.ground_truth_scores[query.ground_truth.index(city)] if city in query.ground_truth else 0 for city in marked_duplicate_response], query.ground_truth_scores, query.parameters.k),
                            ndcg_k=ndcg_k(

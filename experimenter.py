@@ -286,6 +286,32 @@ def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str,
             r = round(v / 0.05) * 0.05
             return round(r, 10)
         return v
+    # stampa i failing rates
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            print(f"Parsing failed rate for {test_name} - {model_name}: {sum(q.parsing_failed for q in queries)/len(queries) * 100:.2f}%")
+    # raggruppiamo per dataset
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            for q in queries:
+                setattr(q.parameters, 'dataset', test_name.split('/')[0])
+    # raggruppamento noti - ignoti
+    noti = ('cities/global_liveability', 'planets/esi', 'purchases/customer_segmentation')
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            for q in queries:
+                setattr(q.parameters, 'gruppo', 'noto' if test_name in noti else 'ignoto')
+    #rinominiamo i test con nomi brevi
+    rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'Average', 'planets/dif':'DIF', 'planets/esi':'ESI', 'purchases/customer_segmentation':'RFM', 'purchases/customer_cbs':'TVA'}
+    keys = tuple(for_charts.keys())
+    for test_name in keys:
+        if test_name in rinomine:
+            for_charts[rinomine[test_name]] = for_charts.pop(test_name)
+    #trasforma deepseek-V3-togheter -> deepseek-V3
+    ds_name = 'deepseek-V3-together'
+    for test_name, model_dict in for_charts.items():
+        if ds_name in model_dict:
+            model_dict['deepseek-V3'] = model_dict.pop(ds_name)
     # trasforma k in percentuale
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
@@ -293,19 +319,21 @@ def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str,
                 if q.parameters.k is not None and q.parameters.n_elems is not None:
                     pre_round = q.parameters.k / q.parameters.n_elems
                     q.parameters.k = _round_scalar(pre_round)
-    #transforma mare in percentuale
+    #transforma mare in percentuale inversa
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
             for q in queries:
                 try:
-                    q.evaluations.mare = q.evaluations.mare / q.parameters.n_elems
-                    q.evaluations.mare_k = q.evaluations.mare_k / q.parameters.n_elems
+                    q.evaluations.mare = 1 - q.evaluations.mare / len(q.ground_truth)
+                    q.evaluations.mare_k = 1 - q.evaluations.mare_k / len(q.ground_truth)
                 except (AttributeError, KeyError):
                     pass
     return for_charts
 
 def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
     runs = load_experiments()
+    tot_tests = 0
+    executed_tests = 0
     result = {}
     for run in runs:
         for_dashboard: dict[str, dict[str, list[Query]]] = {}
@@ -313,8 +341,10 @@ def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
             for run_type_experiment in query.run_type_experiments:
                 tmp = {}
                 for e in run_type_experiment.experiments:
+                    tot_tests += 1
                     path = e.inner_folder / 'evaluated_queries.pkl'
                     if path.exists():
+                        executed_tests += 1
                         e.test.pickle_to_queries(path)
                         tmp[e.model.name_path] = e.test.queries
                 if tmp != {}:
@@ -322,6 +352,7 @@ def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
 
         result[run.name_path] = prepare_for_charts(for_dashboard)
 
+    print(f"showing {executed_tests}/{tot_tests} tests")
     return result
 
 

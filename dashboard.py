@@ -38,8 +38,14 @@ def get_param_fields_from_queries(queries: List[Any]) -> List[str]:
     fields_list = dataclass_field_names(type(params))
 
     # Supporto per l'attributo iniettato per il tab "All Experiments"
-    if hasattr(params, "experiment_name") and "experiment_name" not in fields_list:
-        fields_list.append("experiment_name")
+    if hasattr(params, "expr") and "expr" not in fields_list:
+        fields_list.append("expr")
+    # supporto per raggruppamento esperimenti
+    if hasattr(params, "gruppo") and "gruppo" not in fields_list:
+        fields_list.append("gruppo")
+    #support per raggruppamento dataset
+    if hasattr(params, "dataset") and "dataset" not in fields_list:
+        fields_list.append("dataset")
 
     return fields_list
 
@@ -143,7 +149,7 @@ def run_dashboard(
                     global_datasets[ds_name] = []
                 for original_q in queries:
                     q = copy.deepcopy(original_q)
-                    setattr(q.parameters, "experiment_name", set_name)
+                    setattr(q.parameters, "expr", set_name)
                     global_datasets[ds_name].append(q)
 
         new_dataset_sets = {"All Experiments": global_datasets}
@@ -161,7 +167,7 @@ def run_dashboard(
 
     # Trova tutte le metriche globalmente
     preferred_order = ["ndcg_scores", "ndcg_k", "mare", "mare_k", "kendall", "kendall_k", "spearman", "spearman_k"]
-    available_metrics = {m for suite in schemas.values() for (ds_names, pf, ef, vbp) in suite.values() for m in ef if m != "hallucination_rate"}
+    available_metrics = {m for suite in schemas.values() for (ds_names, pf, ef, vbp) in suite.values() for m in ef}#if m != "hallucination_rate"}
 
     all_eval_fields = []
     for metric in preferred_order:

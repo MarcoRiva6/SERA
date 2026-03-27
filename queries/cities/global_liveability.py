@@ -119,7 +119,7 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
         return False
 
     def evaluate_query(self, query: CityQuery) -> CityEvaluations:
-        failing_scores = CityEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=query.parameters.k)
+        failing_scores = CityEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
         query.parsing_failed = not self._parse_query(query)
         if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
             return failing_scores

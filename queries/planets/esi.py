@@ -125,7 +125,7 @@ class esi(Test[PlanetQuery, PlanetTestParameters, PlanetEvaluations]):
         return False
 
     def evaluate_query(self, query: PlanetQuery) -> PlanetEvaluations:
-        failing_scores = PlanetEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=query.parameters.k)
+        failing_scores = PlanetEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
 
         if query.response_json_schema:
             query.parsing_failed = not self._parse_query(query)

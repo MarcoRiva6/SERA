@@ -347,7 +347,7 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
 
 
     def evaluate_query(self, query: CustomerSegmentationQuery) -> CustomerSegmentationEvaluations:
-        failing_scores = CustomerSegmentationEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=query.parameters.k)
+        failing_scores = CustomerSegmentationEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
 
         if not self.parse_query(query):
             return failing_scores

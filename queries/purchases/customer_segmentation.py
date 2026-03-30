@@ -261,7 +261,7 @@ class CustomerSegmentationTestParameters(TestParameters):
     n_queries: int = N_QUERIES
     rows_in_prompt_limit: int = 5500
     prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
-    names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel.fake)
+    names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
     enforce_json_schema: bool = True
 
 @dataclass

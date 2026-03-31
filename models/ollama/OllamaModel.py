@@ -104,6 +104,7 @@ class OllamaModel(Model):
     @dataclass
     class Params(Model.Params):
         remote_job: bool = False
+        temperature: float = -1
         pass
     params: Params = field(default_factory=Params)
 
@@ -195,6 +196,7 @@ if __name__ == "__main__":
             stream=False,
             think=self.supports_thinking,
             format=schema,
+            options={'temperature': self.params.temperature} if self.params.temperature != -1 else None,
         )
 
         return response.response

@@ -20,6 +20,7 @@ class TogetherModel(Model):
     @dataclass
     class Params(Model.Params):
         batched: bool = True
+        temperature: float = -1
     params: Params = field(default_factory=Params)
 
     def _init_model(self) -> None:
@@ -62,6 +63,7 @@ class TogetherModel(Model):
                 }
             ],
             stream=False,
+            temperature=self.params.temperature if self.params.temperature != -1 else None,
         ).choices[0].message.content
 
     def _submit_direct_batched(self, folder: Path, queries: list[Query]) -> bool:
@@ -95,6 +97,8 @@ class TogetherModel(Model):
                     }
                     if q.response_json_schema is not None and q.response_json_schema != '':
                         r['body']['response_format'] = {"type": "json_schema", "schema": q.response_json_schema}
+                    if self.params.temperature != -1:
+                        r['temperature'] = self.params.temperature
                     requests.append(r)
 
                 # 1. Write requests to a .jsonl file

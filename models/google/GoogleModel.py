@@ -40,6 +40,7 @@ class GoogleModel(Model):
     class Params(Model.Params):
         batched: bool = True
         reasoning: bool = True
+        temperature: float = -1
     params: Params = field(default_factory=Params)
 
     def __init_google_client(self):
@@ -147,7 +148,7 @@ class GoogleModel(Model):
                     thinking_config.thinking_budget = -1 # auto hybrid thinking
                 else:
                     thinking_config.thinking_budget = 0
-                gen_config = GenerationConfig(max_output_tokens=self.max_tokens, thinking_config=thinking_config)
+                gen_config = GenerationConfig(max_output_tokens=self.max_tokens, thinking_config=thinking_config, temperature=self.params.temperature if self.params.temperature != -1 else None)
                 for q_key, q in batch_queries.items():
                     content = Content(parts=[Part(text=q.prompt)], role="user")
                     req_gen_config = gen_config.model_copy()

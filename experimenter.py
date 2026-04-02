@@ -296,13 +296,13 @@ def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str,
             for q in queries:
                 setattr(q.parameters, 'dataset', test_name.split('/')[0])
     # raggruppamento noti - ignoti
-    noti = ('cities/global_liveability', 'planets/esi', 'purchases/customer_segmentation')
+    noti = ('cities/global_liveability', 'planets/esi', 'purchases/customer_segmentation','molecules/levenshtein')
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
             for q in queries:
                 setattr(q.parameters, 'gruppo', 'noto' if test_name in noti else 'ignoto')
     #rinominiamo i test con nomi brevi
-    rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'Average', 'planets/dif':'DIF', 'planets/esi':'ESI', 'purchases/customer_segmentation':'RFM', 'purchases/customer_cbs':'TVA'}
+    rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'Average', 'planets/dif':'DIF', 'planets/esi':'ESI', 'purchases/customer_segmentation':'RFM', 'purchases/customer_cbs':'TVA', 'molecules/levenshtein':'LEV','molecules/RWED':'RWED'}
     keys = tuple(for_charts.keys())
     for test_name in keys:
         if test_name in rinomine:

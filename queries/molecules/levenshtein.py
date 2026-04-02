@@ -1,0 +1,250 @@
+import math
+import random
+from dataclasses import dataclass, field
+
+import pandas as pd
+from pandas import DataFrame
+from pydantic import BaseModel, Field, ValidationError
+from tqdm import tqdm
+
+from queries.test import QueryParameters, PromptLevel, NamesLevel, Evaluations, Query, TestParameters, data_folder, \
+    Test, T_Evaluations, mark_duplicates
+from queries.metrics import *
+
+
+class MostSimilarMolecules(BaseModel):
+    top_k: list[str]  = Field(description="Ordered list of the k most similar molecules to the target one.")
+
+def calcola_levenshtein(s1, s2):
+    # Otteniamo le lunghezze delle stringhe
+    len1, len2 = len(s1), len(s2)
+
+    # 1. Creiamo una matrice (lista di liste) riempita di zeri
+    # Avrà (len1 + 1) righe e (len2 + 1) colonne
+    matrice = [[0] * (len2 + 1) for _ in range(len1 + 1)]
+
+    # 2. Inizializziamo la prima riga e la prima colonna
+    # Rappresentano la distanza da una stringa vuota (devi inserire/cancellare tutti i caratteri)
+    for i in range(len1 + 1):
+        matrice[i][0] = i
+    for j in range(len2 + 1):
+        matrice[0][j] = j
+
+    # 3. Riempiamo il resto della matrice applicando la formula
+    for i in range(1, len1 + 1):
+        for j in range(1, len2 + 1):
+
+            # Se i caratteri correnti sono uguali, il costo di sostituzione è 0. Altrimenti è 1.
+            if s1[i - 1] == s2[j - 1]:
+                costo_sostituzione = 0
+            else:
+                costo_sostituzione = 1
+
+            # Calcoliamo i tre costi possibili e prendiamo il minimo
+            costo_cancellazione = matrice[i - 1][j] + 1
+            costo_inserimento = matrice[i][j - 1] + 1
+            costo_sostituz = matrice[i - 1][j - 1] + costo_sostituzione
+
+            matrice[i][j] = min(costo_cancellazione, costo_inserimento, costo_sostituz)
+
+    # 4. Il risultato finale (la distanza totale) si trova nell'angolo in basso a destra
+    return matrice[len1][len2]
+
+def levenshtein_similarity(s1, s2) -> float:
+    l_dist = calcola_levenshtein(s1, s2)
+    normalized_dist = 1 - (l_dist / max(len(s1), len(s2)))
+    return normalized_dist
+
+def build_molecules_df(target_molecule: str, molecule_list: list[str]) -> pd.DataFrame:
+    """
+    Removes the chosen molecule from the list and initializes a Dataframe with the others molecules
+    """
+    molecule_list = molecule_list.copy()
+    molecule_list.remove(target_molecule)
+    return pd.DataFrame(molecule_list, columns=['SMILES'])
+
+def build_ground_truth(seed, target_molecule: str, molecular_df: DataFrame) -> tuple[list[str], list[float]]:
+    sim_col = 'levenshtein_sim'
+    gt_df = molecular_df.copy()
+    gt_df[sim_col] = gt_df.apply(lambda row: levenshtein_similarity(target_molecule, row['SMILES']), axis=1)
+    # mescola df
+    gt_df = gt_df.sample(frac=1, random_state=seed)
+    # rimuovi duplicati
+    clean_gt_df = gt_df.drop_duplicates(subset=sim_col, keep='first').reset_index(drop=True)
+    sorted_df = clean_gt_df.sort_values(by=sim_col, ascending=False)
+    return sorted_df['SMILES'].tolist(), sorted_df[sim_col].tolist()
+
+def generate_prompt(prompt_level: PromptLevel, df: DataFrame, top_k: int, target: int) -> str:
+    job = f"You are given the following list of molecules represented by their SMILES strings:\n{df.to_string(index=False)}"
+    output = "Your output must contain only the final ranking."
+
+    match prompt_level:
+        case PromptLevel.instruct:
+            request = f"Return the {top_k} most similar molecules to the target molecule '{target}', based only on their normalized Levenshtein similarity."
+        case PromptLevel.formula:
+            request = \
+f"""Return the {top_k} most similar molecules to the molecule '{target}', based only on their normalized Levenshtein similarity.
+The Levenshtein distance as a similarity metric between two molecular SMILES strings (SMILES A of length M, and SMILES B of length N), can be computed with the following steps:
+
+1.  Initialize a matrix with dimensions of (M+1) rows and (N+1) columns.
+2.  Fill the first row with sequential numerical values from 0 to N.
+3.  Fill the first column with sequential numerical values from 0 to M.
+4.  Iterate through each empty cell of the matrix, starting from the upper-left corner and proceeding from left to right across each row, from top to bottom.
+5.  For the current cell (row i, column j), compare the character at position (i-1) of SMILES A with the character at position (j-1) of SMILES B.
+6.  If the two characters are identical, set the "substitution cost" variable to 0. If they are different, set the "substitution cost" to 1.
+7.  Calculate the following three temporary values for the current cell:
+	- Deletion cost: the value of the cell immediately above (row i-1, column j) + 1.
+	- Insertion cost: the value of the cell immediately to the left (row i, column j-1) + 1.
+	- Modification cost: the value of the cell diagonally to the top-left (row i-1, column j-1) + the "substitution cost".
+8.  Assign to the current cell the minimum numerical value among the three newly calculated costs.
+9.  Repeat steps 5 through 8 until every cell in the matrix is filled.
+10. Extract the Levenshtein distance: it corresponds to the value contained in the bottom-rightmost cell of the matrix (row M, column N).
+11. Divide the calculated Levenshtein distance by the maximum between M and N.
+12. Subtract the result of this division from 1 to obtain the normalized similarity score to obtain the final result.
+"""
+        case PromptLevel.generic:
+            request = f"Return the {top_k} most similar molecules to the molecule {target}, based only on their SMILES strings similarity."
+
+    prompt = f"{job}\n\n{request}\n\n{output}"
+    return prompt
+
+@dataclass
+class MolecularParameters(QueryParameters):
+    prompt_level: PromptLevel
+    names_level: NamesLevel
+    k: int
+    n_elems: int
+
+@dataclass
+class MolecularEvaluations(Evaluations):
+    ndcg_scores: float
+    ndcg_k: float
+    mare: float
+    mare_k: float
+    spearman: float
+    spearman_k: float
+    kendall: float
+    kendall_k: float
+    hallucination_rate: float
+
+@dataclass
+class MolecularQuery(Query[MolecularParameters, MolecularEvaluations]):
+    parsed_response: list[str]
+    ground_truth: list[str]
+    ground_truth_scores: list[float]
+
+@dataclass
+class MolecularTestParameters(TestParameters):
+    elems_per_query: list[int] = field(default_factory=lambda: [30,70])
+    n_queries: int = 10
+    kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
+    prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
+    names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
+    enforce_json_schema: bool = True
+
+@dataclass
+class levenshtein(Test[MolecularQuery, MolecularTestParameters, MolecularEvaluations]):
+    name: str = 'Molecular Levenshtein'
+    molecules_list: list[str] = field(default_factory=list)
+
+    def _load_dataset(self):
+        ds = pd.read_csv(data_folder / 'molecules' / 'new_dataset.csv')
+        temp_set = set(ds['curated_smiles_molecule_a'].unique())
+        temp_set.update(ds['curated_smiles_molecule_b'].unique())
+        self.molecules_list = list(sorted(temp_set))
+
+    def _parse_query(self, query: MolecularQuery) -> bool:
+        if query.response is None or query.response == '':
+            return False
+        if query.response_json_schema is not None:
+            try:
+                parsed_response = MostSimilarMolecules.model_validate_json(query.response)
+                query.parsed_response = parsed_response.top_k
+                return True
+            except ValidationError:
+                pass
+
+        return False
+
+    def evaluate_query(self, query: MolecularQuery) -> MolecularEvaluations:
+        failing_scores = MolecularEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
+        query.parsing_failed = not self._parse_query(query)
+        if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
+            return failing_scores
+        marked_duplicate_response = mark_duplicates(query.parsed_response[:query.parameters.k])
+
+        return MolecularEvaluations(ndcg_scores=ndcg_k([query.ground_truth_scores[query.ground_truth.index(city)] if city in query.ground_truth else 0 for city in marked_duplicate_response], query.ground_truth_scores, query.parameters.k),
+                               ndcg_k=ndcg_k(
+                                   relevance_scores=standard_ndcg_scoring(marked_duplicate_response,query.ground_truth, query.parameters.k), k=query.parameters.k),
+                               mare=mare_k(marked_duplicate_response, query.ground_truth),
+                               mare_k=mare_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
+                               spearman=spearman_rho_k(marked_duplicate_response, query.ground_truth),
+                               spearman_k=spearman_rho_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
+                               kendall=kendall_tau_k(marked_duplicate_response, query.ground_truth),
+                               kendall_k=kendall_tau_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
+                               hallucination_rate=hallucination_rate(query.parsed_response[:query.parameters.k], query.ground_truth))
+
+    def _build_prompt(self, df: DataFrame, prompt_level: PromptLevel, top_k: int, target: str) -> str:
+        return generate_prompt(df=df, prompt_level=prompt_level, top_k=top_k, target=target)
+
+    def prepare_queries_for_direct(self):
+        if self.queries is None or self.queries == []:
+            self.queries = []
+            self._load_dataset()
+        curr_seed = self.parameters.seed
+        counter = 0
+        ds_id = 0
+        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.elems_per_query)*len(self.parameters.kp)*len(self.parameters.prompt_levels)*len(self.parameters.names_levels),
+                    desc="Generating queries",
+                    unit="query",
+                    colour='green')
+
+        for i in range(self.parameters.n_queries):
+            for n_elems_in_query in self.parameters.elems_per_query:
+                while True:
+                    if self.parameters.seed != 0:
+                        random.seed(curr_seed)
+
+                    target_mol = random.choice(self.molecules_list)
+                    mol_df = build_molecules_df(target_mol, self.molecules_list)
+                    ground_truth, ground_truth_score = build_ground_truth(curr_seed, target_molecule=target_mol, molecular_df=mol_df)
+                    if len(ground_truth) < n_elems_in_query:
+                        curr_seed += 1
+                        continue
+                    ground_truth = ground_truth[:n_elems_in_query]
+                    ground_truth_score = ground_truth_score[:n_elems_in_query]
+                    prompt_df = mol_df[mol_df['SMILES'].isin(ground_truth)]
+                    break
+
+                for kp in self.parameters.kp:
+                    k = max(1, math.ceil(kp * n_elems_in_query))
+
+                    for prompt_level in self.parameters.prompt_levels:
+                        for names_level in self.parameters.names_levels:
+                            if names_level != NamesLevel.fake:
+                                raise NotImplementedError('Only fake names are supported for this test')
+
+                            query = MolecularQuery(
+                                id=counter,
+                                ds_id=ds_id,
+                                parameters=MolecularParameters(
+                                    prompt_level=prompt_level,
+                                    names_level=NamesLevel.fake,
+                                    k=k,
+                                    n_elems=n_elems_in_query
+                                ),
+                                prompt=self._build_prompt(prompt_level=prompt_level, df=prompt_df, top_k=k, target=target_mol),
+                                response=None,
+                                evaluations=None,
+                                parsed_response=None,
+                                ground_truth=ground_truth,
+                                ground_truth_scores=ground_truth_score,
+                                parsing_failed=None,
+                                response_json_schema=MostSimilarMolecules.model_json_schema() if self.parameters.enforce_json_schema else None
+                            )
+                            self.queries.append(query)
+                            counter += 1
+                            pbar.update(1)
+
+                ds_id += 1
+                curr_seed += 1

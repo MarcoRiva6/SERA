@@ -63,17 +63,11 @@ def precision_at_k(llm_ranking, ground_truth, k):
 
 def hallucination_rate(llm_ranking: list[Any], ground_truth: list[Any]) -> float:
     """
-    Miss Rate = (# of LLM's top-k items NOT in ground truth) / (total # of ground truth items)
-
-    :param llm_ranking: list of predicted top customers (sorted by similarity)
-    :param ground_truth: list of true top customers (sorted by similarity)
-    :return: Miss Rate
+    % of hallucinated entries in llm_ranking i.e. entries that are not in ground_truth
     """
     length = len(llm_ranking)
-    gt_set = set(ground_truth)
-    llm_k_set = set(llm_ranking)
 
-    misses = sum(1 for c in llm_k_set if c not in gt_set)
+    misses = sum(1 for c in llm_ranking if c not in ground_truth)
 
     return misses / length if length > 0 else 0.0
 

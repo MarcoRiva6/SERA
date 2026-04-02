@@ -5,7 +5,7 @@ import os
 import re
 import shutil
 from abc import abstractmethod, ABC
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, get_type_hints, get_origin, Counter, TypeVar, Generic
@@ -13,9 +13,12 @@ from typing import Any, get_type_hints, get_origin, Counter, TypeVar, Generic
 import kagglehub
 import pandas as pd
 import requests
+from openai.types.responses import parsed_response
 from pandas import DataFrame
+from pydantic import BaseModel, Field, ValidationError
 
 from experiments.run_type import RunType
+from metrics import *
 
 data_folder: Path = Path(__file__).resolve().parent.parent / 'data' # path to the project's data folder
 
@@ -35,23 +38,32 @@ class TestParameters(ABC):
     All configuration parameters that could be changed via the yaml file should be declared here.
     """
     seed: int = 0 # if set to 0, a random seed is used
+    n_queries: int = 10
+    kp: list[float] = field(default_factory=lambda: [0.05, 0.15, 0.25])
+    prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
+    names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel)
+    enforce_json_schema: bool = True
 
 T_TestParameters = TypeVar('T_TestParameters', bound=TestParameters)
 
 @dataclass
-class QueryParameters(ABC):
-    """
-    Base class for query parameters.
-    """
-    pass
-
-T_QueryParameters = TypeVar('T_QueryParameters', bound=QueryParameters)
+class QueryParameters:
+    prompt_level: PromptLevel
+    names_level: NamesLevel
+    k: int
+    n_elems: int
 
 @dataclass
-class Evaluations(ABC):
-    pass
-
-T_Evaluations = TypeVar('T_Evaluations', bound=Evaluations)
+class Evaluations:
+    ndcg_scores: float
+    ndcg_k: float
+    mare: float
+    mare_k: float
+    spearman: float
+    spearman_k: float
+    kendall: float
+    kendall_k: float
+    hallucination_rate: float
 
 def mark_duplicates(llm_response: list[Any]) -> list[Any]:
     """
@@ -168,27 +180,30 @@ def download_csv(url: str, dest_path: Path) -> None:
         raise Exception(response.text)
 
 @dataclass
-class Query(ABC, Generic[T_QueryParameters, T_Evaluations]):
+class Query:
     """
     A single query consisting of a prompt, a response, and its evaluations.
     Prompt can be of any type, including a DataFrame (useful for lotus).
     """
     id: int # must be unique within a test
     ds_id: int
-    prompt: Any
-    response: str
-    parameters: T_QueryParameters
-    evaluations: T_Evaluations
-    response_json_schema: dict
-    parsing_failed: bool
+    prompt: str
+    ground_truth: list[str]
+    ground_truth_scores: list[float]
+    parameters: QueryParameters
+    response_json_schema: dict | None
+    prompt_df: DataFrame | None = None
+    response: str | DataFrame | None = None
+    parsed_response: list[str] | None = None
+    evaluations: Evaluations | None = None
+    parsing_failed: bool | None = None
 
     def to_dict(self) -> dict:
         base: dict = asdict(self)
         # Normalize the prompt
-        if isinstance(self.prompt, DataFrame):
-            base["prompt"] = self.prompt["prompt"]
-        else:
-            base["prompt"] = str(self.prompt)
+        if self.prompt_df is not None:
+            base["prompt_df"] = self.prompt_df.to_string(index=False)
+            base["response"] = self.response.to_string(index=False)
         # Extract and flatten parameters, if present
         try:
             parameters = base["parameters"]
@@ -216,10 +231,8 @@ class Query(ABC, Generic[T_QueryParameters, T_Evaluations]):
 
         return base | params | evals
 
-T_Query = TypeVar("T_Query", bound=Query)
-
 @dataclass
-class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
+class Test(ABC, Generic[T_TestParameters]):
     """
     Represents a single test, used to build queries.
     """
@@ -227,11 +240,11 @@ class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
     name_path: str # the path-safe name of the test
     run_type: RunType
     run_folder: Path # /data
-    debug: bool = True
-    queries: list[T_Query] = None # The list of queries generated for this test.
+    json_schema: BaseModel | None = None
+    queries: list[Query] = None # The list of queries generated for this test.
     prepared_queries_file_name: str = "prepared_queries.pkl" # Path to the file where prepared queries are stored.
     parameters: T_TestParameters = None
-    evaluations: T_Evaluations = None # Aggregated evaluations across all queries for this test.
+    evaluations: Evaluations = None # Aggregated evaluations across all queries for this test.
     params_file_name: str = 'test_params.json'
 
     def save_params(self) -> None:
@@ -266,14 +279,60 @@ class Test(ABC, Generic[T_Query, T_TestParameters, T_Evaluations]):
             raise NotImplementedError(
                 f'Run mode {self.run_type} not implemented for this test (method {method_name} does not exists).')
 
-    @abstractmethod
-    def evaluate_query(self, query: Query) -> T_Evaluations:
+    def _parse_query_manual(self, query: Query) -> bool:
+        raise NotImplementedError("Parsing of not structured output is not implemented.")
+
+    def parse_query(self, query: Query) -> None:
+        parsing_failed = True
+
+        if isinstance(query.response, DataFrame):
+            query.parsed_response = query.response.iloc[:, 0].tolist() # take the first column as the response list
+            parsing_failed = False
+        elif isinstance(query.response, str):
+            if query.response_json_schema is not None:
+                try:
+                    parsed_response = self.json_schema.model_validate_json(query.response)
+                    query.parsed_response = getattr(parsed_response, list(self.json_schema.model_fields.keys())[0])
+                    parsing_failed = False
+                except ValidationError:
+                    parsing_failed = True
+            else:
+                parsing_failed = self._parse_query_manual(query)
+
+        if parsing_failed:
+            print(f"Couldn't evaluate query {query.id}")
+        query.parsing_failed = parsing_failed
+
+    def evaluate_query(self, query: Query) -> Evaluations:
         """
         Evaluate a single query after submission.
         :param query: the query to evaluate
         :return: A dictionary (an Evaluations object: dict[Metric, Number]) with the evaluation metrics for the query.
         """
-        pass
+        failing_scores = Evaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
+
+        if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
+            return failing_scores
+
+        llm_answer_with_duplicates = query.parsed_response[:query.parameters.k]
+        llm_answer = mark_duplicates(llm_answer_with_duplicates)
+        llm_scores: list[float] = [query.ground_truth_scores[query.ground_truth.index(elem)]
+                                   if elem in query.ground_truth
+                                   else 0.0
+                                   for elem in llm_answer]
+
+        return Evaluations(ndcg_scores=ndcg_k(llm_scores, query.ground_truth_scores, query.parameters.k),
+                           ndcg_k=ndcg_k(
+                               relevance_scores=standard_ndcg_scoring(llm_answer, query.ground_truth,
+                                                                      query.parameters.k),
+                               k=query.parameters.k),
+                           mare=mare_k(llm_answer, query.ground_truth),
+                           mare_k=mare_k(llm_answer, query.ground_truth, query.parameters.k),
+                           kendall=kendall_tau_k(llm_answer, query.ground_truth),
+                           kendall_k=kendall_tau_k(llm_answer, query.ground_truth, query.parameters.k),
+                           spearman=spearman_rho_k(llm_answer, query.ground_truth),
+                           spearman_k=spearman_rho_k(llm_answer, query.ground_truth, query.parameters.k),
+                           hallucination_rate=hallucination_rate(llm_answer_with_duplicates, query.ground_truth))
 
     def evaluate(self) -> dict:
         """

@@ -10,6 +10,8 @@ import plotly.graph_objects as go
 import dash
 from dash import Dash, dcc, html, Input, Output, State, ALL
 
+from queries.test import Query
+
 
 # ----------------------------
 # Introspection helpers
@@ -127,7 +129,7 @@ def compute_set_schema(datasets: Dict[str, List[Any]]):
 # ----------------------------
 
 def run_dashboard(
-        experiment_suites: Dict[str, Dict[str, Dict[str, List[Any]]]], # <-- Nuova struttura a 3 livelli!
+        experiment_suites: Dict[str, Dict[str, Dict[str, List[Query]]]], # <-- Nuova struttura a 3 livelli!
         *,
         host: str = "127.0.0.1",
         port: int = 8050,

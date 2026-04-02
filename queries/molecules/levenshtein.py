@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ValidationError
 from tqdm import tqdm
 
 from queries.test import QueryParameters, PromptLevel, NamesLevel, Evaluations, Query, TestParameters, data_folder, \
-    Test, T_Evaluations, mark_duplicates
+    Test, mark_duplicates
 from queries.metrics import *
 
 
@@ -74,7 +74,7 @@ def build_ground_truth(seed, target_molecule: str, molecular_df: DataFrame) -> t
     sorted_df = clean_gt_df.sort_values(by=sim_col, ascending=False)
     return sorted_df['SMILES'].tolist(), sorted_df[sim_col].tolist()
 
-def generate_prompt(prompt_level: PromptLevel, df: DataFrame, top_k: int, target: int) -> str:
+def generate_prompt(prompt_level: PromptLevel, df: DataFrame, top_k: int, target: str) -> str:
     job = f"You are given the following list of molecules represented by their SMILES strings:\n{df.to_string(index=False)}"
     output = "Your output must contain only the final ranking."
 
@@ -109,42 +109,15 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
     return prompt
 
 @dataclass
-class MolecularParameters(QueryParameters):
-    prompt_level: PromptLevel
-    names_level: NamesLevel
-    k: int
-    n_elems: int
-
-@dataclass
-class MolecularEvaluations(Evaluations):
-    ndcg_scores: float
-    ndcg_k: float
-    mare: float
-    mare_k: float
-    spearman: float
-    spearman_k: float
-    kendall: float
-    kendall_k: float
-    hallucination_rate: float
-
-@dataclass
-class MolecularQuery(Query[MolecularParameters, MolecularEvaluations]):
-    parsed_response: list[str]
-    ground_truth: list[str]
-    ground_truth_scores: list[float]
-
-@dataclass
 class MolecularTestParameters(TestParameters):
     elems_per_query: list[int] = field(default_factory=lambda: [30,70])
-    n_queries: int = 10
-    kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
-    prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
     names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
-    enforce_json_schema: bool = True
 
 @dataclass
-class levenshtein(Test[MolecularQuery, MolecularTestParameters, MolecularEvaluations]):
+class levenshtein(Test[MolecularTestParameters]):
     name: str = 'Molecular Levenshtein'
+    name_short: str = 'LEV'
+    json_schema = MostSimilarMolecules
     molecules_list: list[str] = field(default_factory=list)
 
     def _load_dataset(self):
@@ -152,37 +125,6 @@ class levenshtein(Test[MolecularQuery, MolecularTestParameters, MolecularEvaluat
         temp_set = set(ds['curated_smiles_molecule_a'].unique())
         temp_set.update(ds['curated_smiles_molecule_b'].unique())
         self.molecules_list = list(sorted(temp_set))
-
-    def _parse_query(self, query: MolecularQuery) -> bool:
-        if query.response is None or query.response == '':
-            return False
-        if query.response_json_schema is not None:
-            try:
-                parsed_response = MostSimilarMolecules.model_validate_json(query.response)
-                query.parsed_response = parsed_response.top_k
-                return True
-            except ValidationError:
-                pass
-
-        return False
-
-    def evaluate_query(self, query: MolecularQuery) -> MolecularEvaluations:
-        failing_scores = MolecularEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
-        query.parsing_failed = not self._parse_query(query)
-        if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
-            return failing_scores
-        marked_duplicate_response = mark_duplicates(query.parsed_response[:query.parameters.k])
-
-        return MolecularEvaluations(ndcg_scores=ndcg_k([query.ground_truth_scores[query.ground_truth.index(city)] if city in query.ground_truth else 0 for city in marked_duplicate_response], query.ground_truth_scores, query.parameters.k),
-                               ndcg_k=ndcg_k(
-                                   relevance_scores=standard_ndcg_scoring(marked_duplicate_response,query.ground_truth, query.parameters.k), k=query.parameters.k),
-                               mare=mare_k(marked_duplicate_response, query.ground_truth),
-                               mare_k=mare_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
-                               spearman=spearman_rho_k(marked_duplicate_response, query.ground_truth),
-                               spearman_k=spearman_rho_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
-                               kendall=kendall_tau_k(marked_duplicate_response, query.ground_truth),
-                               kendall_k=kendall_tau_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
-                               hallucination_rate=hallucination_rate(query.parsed_response[:query.parameters.k], query.ground_truth))
 
     def _build_prompt(self, df: DataFrame, prompt_level: PromptLevel, top_k: int, target: str) -> str:
         return generate_prompt(df=df, prompt_level=prompt_level, top_k=top_k, target=target)
@@ -224,23 +166,19 @@ class levenshtein(Test[MolecularQuery, MolecularTestParameters, MolecularEvaluat
                             if names_level != NamesLevel.fake:
                                 raise NotImplementedError('Only fake names are supported for this test')
 
-                            query = MolecularQuery(
+                            query = Query(
                                 id=counter,
                                 ds_id=ds_id,
-                                parameters=MolecularParameters(
+                                parameters=QueryParameters(
                                     prompt_level=prompt_level,
                                     names_level=NamesLevel.fake,
                                     k=k,
                                     n_elems=n_elems_in_query
                                 ),
                                 prompt=self._build_prompt(prompt_level=prompt_level, df=prompt_df, top_k=k, target=target_mol),
-                                response=None,
-                                evaluations=None,
-                                parsed_response=None,
                                 ground_truth=ground_truth,
                                 ground_truth_scores=ground_truth_score,
-                                parsing_failed=None,
-                                response_json_schema=MostSimilarMolecules.model_json_schema() if self.parameters.enforce_json_schema else None
+                                response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None
                             )
                             self.queries.append(query)
                             counter += 1

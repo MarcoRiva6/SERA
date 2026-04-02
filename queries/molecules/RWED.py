@@ -45,6 +45,7 @@ The Ring-Weighted Edit Distance (RWED) between two SMILES strings (SMILES A of l
 @dataclass
 class RWED(levenshtein):
     name: str = 'RWED'
+    name_short = "RWED"
 
     def _build_prompt(self, df: DataFrame, prompt_level: PromptLevel, top_k: int, target: str) -> str:
         return generate_prompt(df=df, prompt_level=prompt_level, top_k=top_k, target=target)

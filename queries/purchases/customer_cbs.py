@@ -168,6 +168,7 @@ The CBS is a score based on two behavioral pillars. You must calculate the cosin
 @dataclass
 class customer_CBS(customer_segmentation):
     name: str = "Customer CBS"
+    name_short = "TVA"
 
     def _build_prompt(self, df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool) -> str:
         return create_prompt(df, cid, top_k, alpha, level, json_schema)
@@ -176,7 +177,7 @@ class customer_CBS(customer_segmentation):
     def init_queries(self) -> None:
         current_seed = self.parameters.seed
 
-        self.queries: list[CustomerSegmentationQuery] = []
+        self.queries: list[Query] = []
         counter = 0
         ds_id = 0
         pbar = tqdm(total=self.parameters.n_queries * len(self.parameters.n_elems_per_query) * len(self.parameters.kp) * len(self.parameters.names_levels) * len(self.parameters.prompt_levels),
@@ -223,19 +224,14 @@ class customer_CBS(customer_segmentation):
                             Exception(f"Unsupported names_level {n_level} in parameters.")
 
                         for p_level in self.parameters.prompt_levels:
-                            self.queries.append(CustomerSegmentationQuery(
+                            self.queries.append(Query(
                                 id=counter,
                                 ds_id=ds_id,
-                                customer_id=selected_cid,
                                 prompt=self._build_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
                                 ground_truth=sorted_cids,
-                                ground_truth_values=ground_truth_vals,
-                                parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),
-                                response=None,
-                                evaluations=None,
-                                response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,
-                                parsing_failed=None,
-                                parsed_response=None
+                                ground_truth_scores=ground_truth_vals,
+                                parameters=QueryParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),
+                                response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None,
                             ))
                             counter += 1
                             pbar.update(1)

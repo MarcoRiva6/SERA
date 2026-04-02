@@ -3,6 +3,7 @@ import sys
 import os
 
 import numpy as np
+from pydantic_core.core_schema import JsonSchema
 
 cartella_corrente = os.path.dirname(os.path.abspath(__file__))
 if cartella_corrente not in sys.path:
@@ -56,6 +57,7 @@ def compute_ground_truth(df: DataFrame, target_planet: str) -> DataFrame:
 @dataclass
 class dif(esi):
     name: str = "DIF"
+    name_short: str = "DIF"
 
     def init_queries(self) -> None:
         for p_per_query in self.parameters.planets_per_query:
@@ -93,27 +95,18 @@ class dif(esi):
                         target_planet = random.choice(list(q_df['Name']))
                         ground_truth_df = compute_ground_truth(q_df, target_planet)
                         prompt_df = q_df.drop(columns=['ESI'], inplace=False)
-                        ground_truth = [{'planet_name': row['Name'],
-                                         'esi': row['diff_invers']} for _, row # chiamato ancora 'esi' per non dover modificare la funzione di valutaiozne delle query
-                                        in ground_truth_df.iterrows()]
 
                         for prompt_level in self.parameters.prompt_levels:
-                            match prompt_level:
-                                case PromptLevel.generic:
-                                    response_schema = MostSimilarPlanets.model_json_schema()
-                                case PromptLevel.instruct | PromptLevel.formula:
-                                    response_schema = MostSimilarPlanetsScore.model_json_schema()
-                            query = PlanetQuery(
+                            query = Query(
                                 id=counter,
                                 ds_id=ds_id,
-                                prompt=_build_prompt(prompt_df, target_planet, prompt_level, k, self.parameters.enforce_json_schema),
-                                parameters=PlanetQueryParameters(k=k, prompt_level=prompt_level, names_level=planet_name_mod, n_elems=p_per_query),
-                                ground_truth=ground_truth,
-                                response=None,
-                                evaluations=None,
-                                response_json_schema=MostSimilarPlanets.model_json_schema() if self.parameters.enforce_json_schema else None,
-                                parsing_failed=None,
-                                parsed_response=None
+                                prompt=_build_prompt(prompt_df, target_planet, prompt_level, k,
+                                                     self.parameters.enforce_json_schema),
+                                parameters=QueryParameters(k=k, prompt_level=prompt_level, names_level=planet_name_mod,
+                                                           n_elems=p_per_query),
+                                ground_truth=ground_truth_df['Name'].tolist(),
+                                ground_truth_scores=ground_truth_df['diff_invers'].tolist(),
+                                response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None,
                             )
                             self.queries.append(query)
                             counter += 1

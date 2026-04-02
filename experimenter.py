@@ -211,7 +211,7 @@ def instantiate_test(exp_seed: int, inner_run_folder: Path, query_dictionary: di
     q_module_path = 'queries.' + query_dictionary['name'].replace('/', '.')
     q_class = get_test_class(q_module_path)
 
-    _, q_param_class, _ = get_test_generic_types(q_class)
+    q_param_class = get_test_generic_types(q_class)[0]
 
     # instantiate test parameters object
     q_external_params = {k: v for k, v in query_dictionary.items() if k != 'name'}
@@ -280,7 +280,7 @@ def merge_queries(queries: list[list[Query]], names: list[str]) -> DataFrame:
             result = pd.merge(result, q_df, on=[c for c in merge_on if c not in list_columns], how='outer', validate='one_to_one')
     return result
 
-def prepare_for_charts(for_charts: dict[str, dict[str, list[Any]]]) -> dict[str, dict[str, list[Any]]]:
+def prepare_for_charts(for_charts: dict[str, dict[str, list[Query]]]) -> dict[str, dict[str, list[Query]]]:
     def _round_scalar(v):
         if isinstance(v, float):
             r = round(v / 0.05) * 0.05

@@ -18,6 +18,7 @@ def redefine_ranking(df: DataFrame):
 @dataclass
 class city_free_score(global_liveability):
     name: str = "City Free Score"
+    name_short = "Average"
 
     def _load_dataset(self):
         super()._load_dataset()

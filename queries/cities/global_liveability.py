@@ -1,7 +1,6 @@
 import math
 import random
 from dataclasses import dataclass, field
-from enum import StrEnum
 
 from pandas import DataFrame
 import pandas as pd
@@ -63,78 +62,18 @@ def create_prompt(df: DataFrame, target: str, top_k: int, prompt_level: PromptLe
     return prompt
 
 @dataclass
-class CityParameters(QueryParameters):
-    prompt_level: PromptLevel
-    names_level: NamesLevel
-    k: int
-    n_elems: int
-
-@dataclass
-class CityEvaluations(Evaluations):
-    ndcg_scores: float
-    ndcg_k: float
-    mare: float
-    mare_k: float
-    spearman: float
-    spearman_k: float
-    kendall: float
-    kendall_k: float
-    hallucination_rate: float
-
-@dataclass
-class CityQuery(Query[CityParameters, CityEvaluations]):
-    parsed_response: list[str]
-    target_city: str
-    ground_truth: list[str]
-    ground_truth_scores: list[float]
-
-@dataclass
 class CityTestParameters(TestParameters):
     cities_per_query: list[int] = field(default_factory=lambda: [80]) #140 tot
-    n_queries: int = 10
-    kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
-    prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
-    names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel)
-    enforce_json_schema: bool = True
 
 @dataclass
-class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
+class global_liveability(Test[CityTestParameters]):
     name: str = "Global Liveability Index"
+    name_short: str = "GLI"
+    json_schema = MostSimilarCities
     full_ds: DataFrame = None
 
     def _load_dataset(self):
         self.full_ds = pd.read_excel(data_folder / 'cities' / 'global_liveability.xlsx', sheet_name='Foglio2', index_col=index_col)
-
-    def _parse_query(self, query: CityQuery) -> bool:
-        if query.response is None or query.response == '':
-            return False
-        if query.response_json_schema is not None:
-            try:
-                parsed_response = MostSimilarCities.model_validate_json(query.response)
-                query.parsed_response = parsed_response.most_similar_cities
-                return True
-            except ValidationError:
-                pass
-
-        return False
-
-    def evaluate_query(self, query: CityQuery) -> CityEvaluations:
-        failing_scores = CityEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
-        query.parsing_failed = not self._parse_query(query)
-        if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
-            return failing_scores
-        marked_duplicate_response = mark_duplicates(query.parsed_response[:query.parameters.k])
-
-        return CityEvaluations(ndcg_scores=ndcg_k([query.ground_truth_scores[query.ground_truth.index(city)] if city in query.ground_truth else 0 for city in marked_duplicate_response], query.ground_truth_scores, query.parameters.k),
-                           ndcg_k=ndcg_k(
-                               relevance_scores=standard_ndcg_scoring(marked_duplicate_response,query.ground_truth, query.parameters.k), k=query.parameters.k),
-                           mare=mare_k(marked_duplicate_response, query.ground_truth),
-                           mare_k=mare_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
-                           spearman=spearman_rho_k(marked_duplicate_response, query.ground_truth),
-                           spearman_k=spearman_rho_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
-                           kendall=kendall_tau_k(marked_duplicate_response, query.ground_truth),
-                           kendall_k=kendall_tau_k(marked_duplicate_response, query.ground_truth, query.parameters.k),
-                           hallucination_rate=hallucination_rate(query.parsed_response[:query.parameters.k], query.ground_truth))
 
     def _build_prompt(self, df: DataFrame, target: str, top_k: int, prompt_level: PromptLevel) -> str:
         return create_prompt(df, target, top_k, prompt_level)
@@ -181,19 +120,14 @@ class global_liveability(Test[CityQuery, CityTestParameters, CityEvaluations]):
                                     target = target_city
 
                             gt_df: DataFrame = closest_cities(curr_df, target)
-                            q = CityQuery(
+                            q = Query(
                                 id=counter,
                                 ds_id=ds_id,
                                 prompt=self._build_prompt(curr_df.drop(columns=score_col), target, k, prompt_level),
                                 ground_truth=gt_df[named_index_col].tolist(),
                                 ground_truth_scores=(1-gt_df['diff']).tolist(),
-                                target_city=target,
-                                response=None,
-                                parsed_response=None,
-                                parameters=CityParameters(k=k, prompt_level=prompt_level,names_level=names_level, n_elems=c_per_query),
-                                response_json_schema=MostSimilarCities.model_json_schema() if self.parameters.enforce_json_schema else None,
-                                evaluations=None,
-                                parsing_failed=None
+                                parameters=QueryParameters(k=k, prompt_level=prompt_level,names_level=names_level, n_elems=c_per_query),
+                                response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None,
                             )
                             self.queries.append(q)
                             counter += 1

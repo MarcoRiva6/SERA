@@ -69,7 +69,8 @@ class Experiment:
 
         at_least_one_completed = any(q.response is not None for q in self.test.queries)
         if at_least_one_completed:
-            for q in tqdm(self.test.queries, desc='Evaluating queries', unit='query', colour='blue'):
+            for q in tqdm(self.test.queries, desc='Parsing and evaluating queries', unit='query', colour='blue'):
+                self.test.parse_query(q)
                 q.evaluations = self.test.evaluate_query(q)
 
             print('Storing answered queries...')

@@ -197,19 +197,6 @@ To determine similarity, evaluate customers across two standard retail dimension
 2. RFM Profile (Recency, Frequency, Monetary).
 
 {output}"""
-#             prompt = \
-# f""""You are given the following dataset of customer purchase histories:
-# {df.to_string(index=False)}
-#
-# Your task is to identify the top {top_k} customers most similar to customer {cid} based on their purchasing behavior.
-#
-# To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {alpha*100:.0f}% and {(1-alpha)*100:.0f}%:
-# 1. Product Affinity: Compare customers based on the overlap and volume of their purchased product catalogs (basket-content similarity).
-# 2. RFM Profile (Recency, Frequency, Monetary): Evaluate their transactional behavior. Calculate how recently they made a purchase (relative to the latest date in the entire dataset), how often they shop, and their total financial value. You must normalize these three behavioral metrics to ensure fair comparison before calculating the similarity.
-#
-# Only reason on the purchase histories provided in the dataset.
-# {output_string}, based on the specified criterion.
-# """
 
         case PromptLevel.generic:
             prompt = \
@@ -221,32 +208,6 @@ Return the {top_k} customers who are most similar to customer {cid}.
 {output}"""
     return prompt
 
-@dataclass
-class CustomerSegmentationEvaluations(Evaluations):
-    ndcg_scores: float
-    ndcg_k: float
-    mare: float
-    mare_k: float
-    spearman: float
-    spearman_k: float
-    kendall: float
-    kendall_k: float
-    hallucination_rate: float
-
-@dataclass
-class CustomerSegmentationParameters(QueryParameters):
-    k: int
-    prompt_level: PromptLevel
-    names_level: NamesLevel
-    n_elems: int
-
-@dataclass
-class CustomerSegmentationQuery(Query[CustomerSegmentationParameters, CustomerSegmentationEvaluations]):
-    customer_id: int
-    ground_truth: list[int]
-    ground_truth_values: list[float]
-    parsed_response: list[int]
-
 class NElemsType(StrEnum):
     customers = 'customers'
     rows = 'rows'
@@ -257,16 +218,14 @@ class CustomerSegmentationTestParameters(TestParameters):
     top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
     n_elems_type: NElemsType = NElemsType.customers # customers | rows
     n_elems_per_query: list[int] = field(default_factory=lambda: [N_CUSTOMERS_PER_QUERY])
-    kp: list[float] = field(default_factory=lambda: [0.05, 0.1])
-    n_queries: int = N_QUERIES
     rows_in_prompt_limit: int = 5500
-    prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
-    names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
-    enforce_json_schema: bool = True
+    names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel.fake)
 
 @dataclass
-class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentationTestParameters, CustomerSegmentationEvaluations]):
+class customer_segmentation(Test[CustomerSegmentationTestParameters]):
     name: str = "Customer Segmentation"
+    name_short: str = "RFM"
+    json_schema = MostSimilarCustomers
     full_df: DataFrame = None
     clean_df: DataFrame = None
     pre_queries_df: DataFrame = None
@@ -279,103 +238,62 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
         ensure_kaggle_ds(ds_name, file_path)
         self.full_df = pd.read_excel(file_path)
 
-    def parse_query(self, query: CustomerSegmentationQuery) -> bool:
-        """
-        Parse the response of a query to extract the list of top-k similar customers.
-        It automatically sets the `parsing_failed` and `parsed_response` attributes of the query.
-        :param query: CustomerSegmentationQuery
-        :return: bool indicating whether parsing was successful
-        """
-        top_k_list: list[str] = None
-        if query.response_json_schema:
-            try:
-                json_response = extract_json(query.response, query.customer_id)
-                top_k_list = json_response['top_k']
-            except (JSONDecodeError, KeyError, TypeError):
-                try:
-                    json_response = {'top_k': extract_list(query.response, query.customer_id)}
-                    top_k_list = json_response['top_k']
-                except (JSONDecodeError, KeyError, TypeError) as e:
-                    print(f"Cannot parse query {query.id}: {e}")
-                    query.parsing_failed = True
-        else:
-            matched_lists: list[list[str]] = extract_separator_sequence(query.response, CHOSEN_SEPARATOR, query.parameters.k)
-            matched_lists_len = len(matched_lists)
-            if matched_lists_len == 0:
-                print(f"Cannot parse query {query.id}: no '{CHOSEN_SEPARATOR}'-separated list found in the response.")
-                query.parsing_failed = True
-            else:
-                candidate_lists: list[list[str]] = []
-                for matched_list in matched_lists:
-                    valid_parts: list[str] = []
-                    for i, part in enumerate(matched_list):
-                        found_numbers: list = re.findall(r"\d{3,}", part)
-                        if len(found_numbers) == 0:
-                            continue # no numbers within an element of the list: skip
-                        elif len(found_numbers) == 1:
-                            valid_parts.append(found_numbers[0])
-                        elif len(found_numbers) > 1:
-                            if i == 0: # if multiple numbers in the first part, take the last one
-                                valid_parts.append(found_numbers[-1])
-                            elif i == matched_lists_len - 1: # if multiple numbers in the last part, take the first one
-                                valid_parts.append(found_numbers[0])
-                            else: # ambiguous part in the middle of the list
-                                valid_parts = [] # invalidate the entire list
-                                break
-                    if len(valid_parts) == query.parameters.k:
-                        candidate_lists.append(valid_parts)
-                if len(candidate_lists) == 0:
-                    print(f"Cannot parse query {query.id}: no valid '{CHOSEN_SEPARATOR}'-separated list with enough customer IDs found in the response.")
-                    query.parsing_failed = True
-                elif len(candidate_lists) > 1:
-                    print(f"Warning for query {query.id}: multiple valid '{CHOSEN_SEPARATOR}'-separated lists found in the response. Using the last one.")
-                    top_k_list: list[str] = candidate_lists[-1] # use the last valid
-                else:
-                    top_k_list: list[str] = candidate_lists[0]
-
-        if query.parsing_failed or top_k_list is None or len(top_k_list) < query.parameters.k:
-            query.parsing_failed = True
-            return False
-        try:
-            query.parsed_response = [int(s) for s in top_k_list]
-            query.parsing_failed = False
+    def _parse_query_manual(self, query: Query) -> bool:
+        matched_lists: list[list[str]] = extract_separator_sequence(query.response, CHOSEN_SEPARATOR, query.parameters.k)
+        matched_lists_len = len(matched_lists)
+        if matched_lists_len == 0:
+            print(f"Cannot parse query {query.id}: no '{CHOSEN_SEPARATOR}'-separated list found in the response.")
             return True
-        except (TypeError, ValueError) as e:
-            print(f"Cannot parse query {query.id}: invalid customer IDs in the extracted list. {e}")
-            query.parsing_failed = True
+        else:
+            candidate_lists: list[list[str]] = []
+            for matched_list in matched_lists:
+                valid_parts: list[str] = []
+                for i, part in enumerate(matched_list):
+                    found_numbers: list = re.findall(r"\d{3,}", part)
+                    if len(found_numbers) == 0:
+                        continue # no numbers within an element of the list: skip
+                    elif len(found_numbers) == 1:
+                        valid_parts.append(found_numbers[0])
+                    elif len(found_numbers) > 1:
+                        if i == 0: # if multiple numbers in the first part, take the last one
+                            valid_parts.append(found_numbers[-1])
+                        elif i == matched_lists_len - 1: # if multiple numbers in the last part, take the first one
+                            valid_parts.append(found_numbers[0])
+                        else: # ambiguous part in the middle of the list
+                            valid_parts = [] # invalidate the entire list
+                            break
+                if len(valid_parts) == query.parameters.k:
+                    candidate_lists.append(valid_parts)
+            if len(candidate_lists) == 0:
+                print(f"Cannot parse query {query.id}: no valid '{CHOSEN_SEPARATOR}'-separated list with enough customer IDs found in the response.")
+                return True
+            elif len(candidate_lists) > 1:
+                print(f"Warning for query {query.id}: multiple valid '{CHOSEN_SEPARATOR}'-separated lists found in the response. Using the last one.")
+                top_k_list: list[str] = candidate_lists[-1] # use the last valid
+            else:
+                top_k_list: list[str] = candidate_lists[0]
+
+        if top_k_list is None:
+            return True
+        else:
+            query.parsed_response = top_k_list
             return False
 
+    def evaluate_query(self, query: Query) -> Evaluations:
+        pre_vals = query.ground_truth_scores.copy()
+        temp_vals: list[float] = [x + 1 for x in query.ground_truth_scores]
+        query.ground_truth_scores = temp_vals
 
-    def evaluate_query(self, query: CustomerSegmentationQuery) -> CustomerSegmentationEvaluations:
-        failing_scores = CustomerSegmentationEvaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
+        result = super().evaluate_query(query)
 
-        if not self.parse_query(query):
-            return failing_scores
+        query.ground_truth_scores = pre_vals
 
-        response_marked_duplicates = mark_duplicates(query.parsed_response[:query.parameters.k])
-
-        temp_vals: list[float] = [x + 1 for x in query.ground_truth_values]
-        ndcg_scores: list[float] = [temp_vals[query.ground_truth.index(cust)]
-                                    if cust in query.ground_truth
-                                    else 0
-                                    for cust in response_marked_duplicates]
-
-        return CustomerSegmentationEvaluations(
-                            kendall = kendall_tau_k(response_marked_duplicates, query.ground_truth),
-                            kendall_k = kendall_tau_k(response_marked_duplicates, query.ground_truth, query.parameters.k),
-                        ndcg_scores=ndcg_k(ndcg_scores, temp_vals, query.parameters.k),
-                           ndcg_k=ndcg_k(
-                               relevance_scores=standard_ndcg_scoring(response_marked_duplicates, query.ground_truth, query.parameters.k), k=query.parameters.k),
-                           mare=mare_k(response_marked_duplicates, query.ground_truth),
-                           mare_k=mare_k(response_marked_duplicates, query.ground_truth, query.parameters.k),
-                           spearman=spearman_rho_k(response_marked_duplicates, query.ground_truth),
-                           spearman_k=spearman_rho_k(response_marked_duplicates, query.ground_truth, query.parameters.k),
-                           hallucination_rate=hallucination_rate(query.parsed_response[:query.parameters.k], query.ground_truth))
+        return result
 
     def init_queries(self) -> None:
         current_seed = self.parameters.seed
 
-        self.queries: list[CustomerSegmentationQuery] = []
+        self.queries: list[Query] = []
         cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
         counter = 0
         ds_id = 0
@@ -447,19 +365,14 @@ class customer_segmentation(Test[CustomerSegmentationQuery, CustomerSegmentation
                             raise Exception(f"Unsupported names_level {n_level} in parameters.")
 
                         for p_level in self.parameters.prompt_levels:
-                            self.queries.append(CustomerSegmentationQuery(
+                            self.queries.append(Query(
                                 id=counter,
                                 ds_id=ds_id,
-                                customer_id=selected_cid,
                                 prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
                                 ground_truth=sorted_cids,
-                                ground_truth_values=ground_truth_vals,
-                                parameters=CustomerSegmentationParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),
-                                response=None,
-                                evaluations=None,
-                                response_json_schema=MostSimilarCustomers.model_json_schema() if self.parameters.enforce_json_schema else None,
-                                parsing_failed=None,
-                                parsed_response=None
+                                ground_truth_scores=ground_truth_vals,
+                                parameters=QueryParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),
+                                response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None,
                             ))
                             counter += 1
                             pbar.update(1)

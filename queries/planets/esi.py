@@ -177,11 +177,6 @@ class esi(Test[PlanetTestParameters]):
 
         pbar.close()
 
-    def pickle_to_queries(self, path: Path) -> None:
-        import pickle
-        with open(path, 'wb') as f:
-            pickle.dump(self.queries, f)
-
     def prepare_queries_for_direct(self) -> None:
         print('loading dataset...')
         self.load_csvs()

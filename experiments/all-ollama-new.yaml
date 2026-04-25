@@ -12,7 +12,7 @@ models:
 run_types: 'direct'
 seed: 12345
 create_aggregated_csv: true
-disabled: false
+disabled: true
 skip_model: false
 queries:
   - name: 'planets/dif'

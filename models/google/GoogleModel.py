@@ -40,7 +40,6 @@ class GoogleModel(Model):
     class Params(Model.Params):
         batched: bool = True
         reasoning: bool = True
-        temperature: float = -1
     params: Params = field(default_factory=Params)
 
     def __init_google_client(self):
@@ -49,6 +48,9 @@ class GoogleModel(Model):
         api_key = os.getenv("GOOGLE_API_KEY")
         from google.genai import Client
         return Client(api_key=api_key)
+
+    def _get_lotus_params(self) -> tuple[str,str|None]:
+        return f"gemini/{self.name_api}", None
 
     def _count_tokens(self, prompt: str) -> int:
         if self.client is None:
@@ -210,11 +212,13 @@ class GoogleModel(Model):
                 if response['response']['candidates'][0]['finishReason'] != 'STOP':
                     q_id = getattr(q, 'id', response['key'])
                     print(f"Warning: Response for query {q_id} didn't finish.")
+                tokens_consumed = response['response']['usageMetadata']['totalTokenCount']
                 try:
                     q.response = response['response']['candidates'][0]['content']['parts'][0]['text']
+                    q.tokens = tokens_consumed
                 except KeyError:
                     q.response = None
-                total_token_consumed += response['response']['usageMetadata']['totalTokenCount']
+                total_token_consumed += tokens_consumed
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")
         batch_token_usage_path.write_text(f"{total_token_consumed}")

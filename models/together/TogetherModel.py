@@ -30,6 +30,9 @@ class TogetherModel(Model):
         from together import Together
         self.client = Together(api_key=api_key)
 
+    def _get_lotus_params(self) -> tuple[str,str|None]:
+        return f"together_ai/{self.name_api}", None
+
     def _split_batches(self, queries: list[Query], total_prompt_length: int = 85000000) -> list[list[Query]]:
         batches = []
         current_batch = []
@@ -154,7 +157,9 @@ class TogetherModel(Model):
                     q_id = getattr(q, 'id', response['id'])
                     print(f"Warning: Response for query {q_id} was cut off due to length.")
                 q.response = response['response']['body']['choices'][0]['message']['content']
-                total_token_consumed += response['response']['body']['usage']['total_tokens']
+                tokens_consumed = response['response']['body']['usage']['total_tokens']
+                q.tokens = tokens_consumed
+                total_token_consumed += tokens_consumed
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")
         batch_token_usage_path.write_text(f"{total_token_consumed}")

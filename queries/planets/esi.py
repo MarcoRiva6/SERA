@@ -9,10 +9,12 @@ from pandas import DataFrame
 from pydantic import BaseModel, Field, ValidationError
 from tqdm import tqdm
 
+from experiments.run_type import RunType
 from queries.test import Test, data_folder, Query, Evaluations, download_csv, \
     extract_pipe_sequence, mark_duplicates, QueryParameters, TestParameters, PromptLevel, NamesLevel
 from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k, standard_ndcg_scoring
 
+index_name = "Name"
 
 def compute_ground_truth(df: DataFrame, top_k: int = None) -> DataFrame:
     sorted_df = df.sort_values(by=['ESI'], ascending=False, inplace=False)
@@ -22,38 +24,54 @@ def compute_ground_truth(df: DataFrame, top_k: int = None) -> DataFrame:
 class MostSimilarPlanets(BaseModel):
     top_k: list[str] = Field(description="The ordered list of the top k most similar planets.")
 
-def create_prompt(df: DataFrame, prompt_level: PromptLevel, top_k: int, json_schema: bool) -> str:
+def create_prompt(df: DataFrame, prompt_level: PromptLevel, top_k: int, json_schema: bool, run_type: RunType) -> str:
+    # shadowing voluto
+    index_name = "Planet"
     if not json_schema:
         raise NotImplementedError("il caso senza json_schema non è più supportato.")
 
     job = f"You are given a dataset of planets, with various attributes:\n{df.to_string(index=False)}"
     output = "Your output must contain only the required list of planets."
+    lotus_attributes_without_index = {", ".join([f"{{{c}}}" for c in df.columns if c != index_name])}
 
-    match prompt_level:
-        case PromptLevel.generic:
-            prompt = \
-f"""{job}
 
-Return the top {top_k} planets that are most similar to Earth.\n{output}"""
-        case PromptLevel.instruct:
-            prompt = \
-f"""{job}
-
-Return the top {top_k} planets that are most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity.\n{output}"""
-        case PromptLevel.formula:
-            prompt = \
-f"""{job}
-
-Provide a ranked list of the top {top_k} planets that are most similar to Earth, using only the ESI (Earth Similarity Index) score.
+    match run_type:
+        case RunType.LOTUS:
+            match prompt_level:
+                case prompt_level.generic:
+                    prompt = f"""Return the {{{index_name}}} most similar to Earth, considering only the provided attributes ({lotus_attributes_without_index})."""
+                case prompt_level.instruct:
+                    prompt = f"""Return the {{{index_name}}} that is most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity, considering only the provided attributes ({lotus_attributes_without_index})."""
+                case prompt_level.formula:
+                    prompt = \
+                        f"""Provide the {{{index_name}}} that is most similar to Earth, using only the ESI (Earth Similarity Index) score, considering only the provided attributes ({lotus_attributes_without_index})
 The ESI formula is explained below:
 
 The formula takes as input a planet's radius (R) and solar flux (S).
 it is computed as follows:
 1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
 2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
-3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )
+3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )"""
+        case RunType.DIRECT:
+            match prompt_level:
+                case PromptLevel.generic:
+                    instruction = \
+        f"""Return the top {top_k} planets that are most similar to Earth."""
+                case PromptLevel.instruct:
+                    instruction = \
+        f"""Return the top {top_k} planets that are most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity."""
+                case PromptLevel.formula:
+                    instruction = \
+        f"""Provide a ranked list of the top {top_k} planets that are most similar to Earth, using only the ESI (Earth Similarity Index) score.
+The ESI formula is explained below:
 
-{output}"""
+The formula takes as input a planet's radius (R) and solar flux (S).
+it is computed as follows:
+1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
+2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
+3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )"""
+            prompt = f"{job}\n\n{instruction}\n\n{output}"
+
     return prompt
 
 @dataclass
@@ -67,6 +85,8 @@ class esi(Test[PlanetTestParameters]):
     json_schema = MostSimilarPlanets
     simplified_df: DataFrame = None
     clean_df: DataFrame = None
+    # DA USARE SOLO DA CREATE_PROMPT IN POI
+    named_index_col = "Planet"
 
     def load_csvs(self) -> None:
         folder = data_folder / self.family
@@ -155,13 +175,15 @@ class esi(Test[PlanetTestParameters]):
                                 fake_selected_planets['Name'] = "Planet " + fake_selected_planets.index.astype(str)
                                 q_df = fake_selected_planets
                         ground_truth_df = compute_ground_truth(q_df)
-                        prompt_df = q_df.drop(columns='ESI', inplace=False)
+                        prompt_df = q_df.drop(columns='ESI', inplace=False).rename(columns={index_name: 'Planet'})
 
                         for prompt_level in self.parameters.prompt_levels:
                             query = Query(
                                 id=counter,
                                 ds_id=ds_id,
-                                prompt=create_prompt(prompt_df, prompt_level, k, self.parameters.enforce_json_schema),
+                                prompt=create_prompt(prompt_df, prompt_level, k, self.parameters.enforce_json_schema,
+                                                     self.run_type),
+                                prompt_df=prompt_df if self.run_type==RunType.LOTUS else None,
                                 parameters=QueryParameters(k=k, prompt_level=prompt_level, names_level=planet_name_mod,
                                                            n_elems=p_per_query),
                                 ground_truth=ground_truth_df['Name'].tolist(),

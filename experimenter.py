@@ -206,7 +206,7 @@ def instantiate_test(exp_seed: int, inner_run_folder: Path, query_dictionary: di
         'family': test_family,
         'name_path': test_name_path,
         'run_type': rt,
-        'run_folder': inner_run_folder / 'data',
+        'run_folder': inner_run_folder / 'data' / rt,
     }
     q_module_path = 'queries.' + query_dictionary['name'].replace('/', '.')
     q_class = get_test_class(q_module_path)
@@ -280,12 +280,26 @@ def merge_queries(queries: list[list[Query]], names: list[str]) -> DataFrame:
             result = pd.merge(result, q_df, on=[c for c in merge_on if c not in list_columns], how='outer', validate='one_to_one')
     return result
 
-def prepare_for_charts(for_charts: dict[str, dict[str, list[Query]]]) -> dict[str, dict[str, list[Query]]]:
+def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> dict[str, dict[str, list[Query]]]:
     def _round_scalar(v):
         if isinstance(v, float):
             r = round(v / 0.05) * 0.05
             return round(r, 10)
         return v
+    # run_type
+    for_charts: dict[str, dict[str, list[Query]]] = {}
+    for test_name, run_type_dict in dicts.items():
+        for_charts[test_name] = {}
+        for run_type, model_dict in run_type_dict.items():
+            for model in model_dict.keys():
+                try:
+                    for_charts[test_name][model]
+                except KeyError:
+                    for_charts[test_name][model] = []
+            for model_name, queries in model_dict.items():
+                for q in queries:
+                    setattr(q.parameters, 'run_type', run_type)
+                for_charts[test_name][model_name].extend(queries)
     # stampa i failing rates
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
@@ -336,19 +350,18 @@ def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
     executed_tests = 0
     result = {}
     for run in runs:
-        for_dashboard: dict[str, dict[str, list[Query]]] = {}
+        for_dashboard: dict[str, dict[str, dict[str, list[Query]]]] = {}
         for query in run.queries:
+            for_dashboard[query.name] = {}
             for run_type_experiment in query.run_type_experiments:
-                tmp = {}
+                for_dashboard[query.name][run_type_experiment.run_type.name] = {}
                 for e in run_type_experiment.experiments:
                     tot_tests += 1
                     path = e.inner_folder / 'evaluated_queries.pkl'
                     if path.exists():
                         executed_tests += 1
                         e.test.pickle_to_queries(path)
-                        tmp[e.model.name_path] = e.test.queries
-                if tmp != {}:
-                    for_dashboard[query.name] = tmp
+                        for_dashboard[query.name][run_type_experiment.run_type.name][e.model.name_path] = e.test.queries
 
         result[run.name_path] = prepare_for_charts(for_dashboard)
 

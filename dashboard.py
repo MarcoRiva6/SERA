@@ -48,6 +48,9 @@ def get_param_fields_from_queries(queries: List[Any]) -> List[str]:
     #support per raggruppamento dataset
     if hasattr(params, "dataset") and "dataset" not in fields_list:
         fields_list.append("dataset")
+    # supporto per run_type
+    if hasattr(params, "run_type") and "run_type" not in fields_list:
+        fields_list.append("run_type")
 
     return fields_list
 

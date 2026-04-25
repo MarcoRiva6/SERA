@@ -1,14 +1,13 @@
-import math
 import random
 from dataclasses import dataclass, field
 
 import pandas as pd
 from pandas import DataFrame
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field
 from tqdm import tqdm
 
-from queries.test import QueryParameters, PromptLevel, NamesLevel, Evaluations, Query, TestParameters, data_folder, \
-    Test, mark_duplicates
+from experiments.run_type import RunType
+from queries.test import QueryParameters, PromptLevel, NamesLevel, Query, TestParameters, data_folder, Test
 from queries.metrics import *
 
 
@@ -74,7 +73,7 @@ def build_ground_truth(seed, target_molecule: str, molecular_df: DataFrame) -> t
     sorted_df = clean_gt_df.sort_values(by=sim_col, ascending=False)
     return sorted_df['SMILES'].tolist(), sorted_df[sim_col].tolist()
 
-def generate_prompt(prompt_level: PromptLevel, df: DataFrame, top_k: int, target: str) -> str:
+def generate_prompt(prompt_level: PromptLevel, df: DataFrame, top_k: int, target: str, run_type: RunType) -> str:
     job = f"You are given the following list of molecules represented by their SMILES strings:\n{df.to_string(index=False)}"
     output = "Your output must contain only the final ranking."
 
@@ -105,7 +104,12 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
         case PromptLevel.generic:
             request = f"Return the {top_k} most similar molecules to the molecule {target}, based only on their SMILES strings similarity."
 
-    prompt = f"{job}\n\n{request}\n\n{output}"
+    match run_type:
+        case RunType.LOTUS:
+            prompt = request.replace("molecules", f"{{{df.columns[0]}}}")
+        case RunType.DIRECT:
+            prompt = f"{job}\n\n{request}\n\n{output}"
+
     return prompt
 
 @dataclass
@@ -119,6 +123,7 @@ class levenshtein(Test[MolecularTestParameters]):
     name_short: str = 'LEV'
     json_schema = MostSimilarMolecules
     molecules_list: list[str] = field(default_factory=list)
+    named_index_col = 'SMILES'
 
     def _load_dataset(self):
         ds = pd.read_csv(data_folder / 'molecules' / 'new_dataset.csv')
@@ -127,7 +132,7 @@ class levenshtein(Test[MolecularTestParameters]):
         self.molecules_list = list(sorted(temp_set))
 
     def _build_prompt(self, df: DataFrame, prompt_level: PromptLevel, top_k: int, target: str) -> str:
-        return generate_prompt(df=df, prompt_level=prompt_level, top_k=top_k, target=target)
+        return generate_prompt(prompt_level=prompt_level, df=df, top_k=top_k, target=target, run_type=self.run_type)
 
     def prepare_queries_for_direct(self):
         if self.queries is None or self.queries == []:
@@ -176,6 +181,7 @@ class levenshtein(Test[MolecularTestParameters]):
                                     n_elems=n_elems_in_query
                                 ),
                                 prompt=self._build_prompt(prompt_level=prompt_level, df=prompt_df, top_k=k, target=target_mol),
+                                prompt_df=prompt_df if self.run_type==RunType.LOTUS else None,
                                 ground_truth=ground_truth,
                                 ground_truth_scores=ground_truth_score,
                                 response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None

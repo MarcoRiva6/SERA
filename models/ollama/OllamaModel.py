@@ -14,6 +14,7 @@ from typing import Iterable
 import paramiko
 from ollama import Client
 
+from experiments.run_type import RunType
 from models.model import Model, SubmissionError
 from queries.test import Query
 
@@ -104,11 +105,14 @@ class OllamaModel(Model):
     @dataclass
     class Params(Model.Params):
         remote_job: bool = False
-        temperature: float = -1
-        pass
     params: Params = field(default_factory=Params)
 
+    def _get_lotus_params(self) -> tuple[str,str]:
+        return f"ollama/{self.name_api}", f"http://{self.ollama_address}"#.replace("11434","8080")
+
     def _init_model(self) -> None:
+        if self.run_type == RunType.LOTUS and self.params.remote_job:
+            raise SubmissionError("Remote job not supported for LOTUS run type.")
         self.client = Client(host="http://" + self.ollama_address)
 
     def __write_questions_file(self, queries: list[Query]) -> None:
@@ -189,7 +193,7 @@ if __name__ == "__main__":
             (self.run_folder / self.remote_run_file_name, remote_run_file_path)
         ])
 
-    def __submit_prompt(self, prompt: str, schema: dict) -> str:
+    def __submit_prompt(self, prompt: str, schema: dict) -> tuple[str,int]:
         response = self.client.generate(
             model=self.name_api,
             prompt=prompt,
@@ -199,18 +203,22 @@ if __name__ == "__main__":
             options={'temperature': self.params.temperature} if self.params.temperature != -1 else None,
         )
 
-        return response.response
+        resp = response.response if response.response != '' else response.thinking
+        if resp is None:
+            resp = ''
+        return resp, response.prompt_eval_count + response.eval_count
 
-    def __store_response(self, f: TextIOWrapper, qid: str, response: str) -> None:
+    def __store_response(self, f: TextIOWrapper, qid: str, response: str, tokens) -> None:
         record = {
             "id": qid,
-            "response": response
+            "response": response,
+            "tokens": tokens
         }
 
         f.write(json.dumps(record, ensure_ascii=False) + '\n')
         f.flush()
 
-    def __retrieve_responses(self) -> dict[int, str]:
+    def __retrieve_responses(self) -> dict[int, dict[str, str|int]]:
         response_file_path = self.run_folder / self.responses_file_name
 
         processed_queries = {}
@@ -219,7 +227,7 @@ if __name__ == "__main__":
                 for line in f:
                     if line.strip():
                         data = json.loads(line)
-                        processed_queries[data['id']] = data['response']
+                        processed_queries[data['id']] = {"response": data['response'], "tokens": data['tokens']}
             if len(processed_queries) > 0:
                 print(f"Retrieved {len(processed_queries)} already processed answer{"s" if len(processed_queries) > 1 else ""}.")
 
@@ -250,18 +258,19 @@ if __name__ == "__main__":
 
         with open(response_file_path, 'a', encoding='utf-8') as f:
             for qid, prompt, schema in tqdm(queries_to_process, desc=f"Submitting {self.name}", unit="query", colour='yellow'):
-                response = self.__submit_prompt(prompt, schema)
-                self.__store_response(f, qid, response)
+                response, tokens = self.__submit_prompt(prompt, schema)
+                self.__store_response(f, qid, response, tokens)
 
     def _submit_direct_local(self, queries: list[Query]) -> None:
         response_file_path = self.run_folder / self.responses_file_name
 
-        processed_queries: dict[int, str] = self.__retrieve_responses()
+        processed_queries = self.__retrieve_responses()
 
         queries_to_process = []
         for query in queries:
             if query.id in processed_queries:
-                query.response = processed_queries[query.id]
+                query.response = processed_queries[query.id]["response"]
+                query.tokens = processed_queries[query.id]["tokens"]
             else:
                 queries_to_process.append(query)
 
@@ -270,9 +279,9 @@ if __name__ == "__main__":
 
         with open(response_file_path, 'a', encoding='utf-8') as f:
             for query in tqdm(queries_to_process, desc=f"Querying {self.name} via Ollama", unit="query", colour='yellow'):
-                query.response = self.__submit_prompt(query.prompt, query.response_json_schema)
+                query.response, query.tokens = self.__submit_prompt(query.prompt, query.response_json_schema)
 
-                self.__store_response(f, query.id, query.response)
+                self.__store_response(f, query.id, query.response, query.tokens)
 
 
     def _submit_direct(self, queries: list[Query]) -> None:
@@ -283,7 +292,8 @@ if __name__ == "__main__":
                 for q in queries:
                     if q.prompt != processed_queries[q.id]:
                         SubmissionError("Remote error: prompt mismatch for query id " + str(q.id))
-                    q.response = processed_queries[q.id]
+                    q.response = processed_queries[q.id]["response"]
+                    q.tokens = processed_queries[q.id]["tokens"]
                 return
             else:
                 print("Submitting remotely...")
@@ -304,7 +314,8 @@ if __name__ == "__main__":
                         for q in queries:
                             if q.prompt != processed_queries[q.id]:
                                 SubmissionError("Remote error: prompt mismatch for query id " + str(q.id))
-                            q.response = processed_queries[q.id]
+                            q.response = processed_queries[q.id]["response"]
+                            q.tokens = processed_queries[q.id]["tokens"]
                         return
                 except FileNotFoundError:
                     pass

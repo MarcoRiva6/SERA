@@ -60,6 +60,6 @@ class LmstudioModel(Model):
         for query in queries:
             query.response = self._submit_direct_inline(query.prompt, query.response_json_schema)
 
-    def _submit_lotus(self, queries: list[Query], df) -> None:
+    def _submit_lotus(self, queries: list[Query]) -> None:
         for query in queries:
             query.response = self._submit_lotus_inline(query.prompt, df)

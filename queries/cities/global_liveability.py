@@ -7,6 +7,7 @@ import pandas as pd
 from pydantic import BaseModel, Field, ValidationError
 from tqdm import tqdm
 
+from experiments.run_type import RunType
 from queries.test import Test, data_folder, Query, Evaluations, mark_duplicates, QueryParameters, TestParameters, \
     PromptLevel, NamesLevel
 from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k, standard_ndcg_scoring
@@ -42,23 +43,36 @@ def closest_cities(df: DataFrame, target_city: str) -> DataFrame:
     )
     return out
 
-def create_prompt(df: DataFrame, target: str, top_k: int, prompt_level: PromptLevel) -> str:
+def create_prompt(df: DataFrame, target: str, top_k: int, prompt_level: PromptLevel, run_type: RunType) -> str:
     job = f"You are given a dataset of cities, with various attributes:\n{df.to_string(index=False)}"
     output = "Your output must contain only the required list of cities."
+    formula_string = f"GLI = ({" + ".join([f"'{c}' * {str(w)}" for c, w in wights.items()])})"
+    # questa stringa fornisce i nomi delle colonne con il formato che LOTUS si aspetta
+    target_attributes_string = ", ".join([f"{{{col}}}: {val}" for col, val in df[df[named_index_col] == target].iloc[0].items()])
 
-    match prompt_level:
-        case PromptLevel.instruct:
-            instruct = f"Return the {top_k} most similar cities to '{target}', based only on the Global Liveability Index (GLI) using only the provided data."
-        case PromptLevel.formula:
-            instruct = f"Using only the Global Liveability Index (GLI), which can be computed with the formula GLI = ({" + ".join(["'"+c+"'"+'*'+str(w) for c, w in wights.items()])}), return the {top_k} most similar cities to '{target}'."
-        case PromptLevel.generic:
-            instruct = f"Return the {top_k} most similar cities to '{target}', based only on the provided data."
-
-    prompt = f"""{job}
+    match run_type:
+        case RunType.LOTUS:
+            match prompt_level:
+                case PromptLevel.instruct:
+                    prompt = f"Return the most similar {named_index_col} to '{target}', whose attributes are:\n{target_attributes_string}\nbased only on the Global Liveability Index (GLI)."
+                case PromptLevel.formula:
+                    prompt = f"Using only the Global Liveability Index (GLI), which can be computed with the formula {formula_string}, return the most similar {named_index_col} to '{target}' (whose attributes are: {target_attributes_string})."
+                case PromptLevel.generic:
+                    prompt = f"Return the most similar {named_index_col} to '{target}', based only on the provided attributes ({", ".join([f"{{{c}}}" for c in df.columns.tolist()])})."
+        case RunType.DIRECT:
+            match prompt_level:
+                case PromptLevel.instruct:
+                    instruct = f"Return the {top_k} most similar cities to '{target}', based only on the Global Liveability Index (GLI) using only the provided data."
+                case PromptLevel.formula:
+                    instruct = f"Using only the Global Liveability Index (GLI), which can be computed with the formula {formula_string}, return the {top_k} most similar cities to '{target}'."
+                case PromptLevel.generic:
+                    instruct = f"Return the {top_k} most similar cities to '{target}', based only on the provided data."
+            prompt = f"""{job}
 
 {instruct}
 
 {output}"""
+
     return prompt
 
 @dataclass
@@ -70,13 +84,14 @@ class global_liveability(Test[CityTestParameters]):
     name: str = "Global Liveability Index"
     name_short: str = "GLI"
     json_schema = MostSimilarCities
+    named_index_col = named_index_col
     full_ds: DataFrame = None
 
     def _load_dataset(self):
         self.full_ds = pd.read_excel(data_folder / 'cities' / 'global_liveability.xlsx', sheet_name='Foglio2', index_col=index_col)
 
     def _build_prompt(self, df: DataFrame, target: str, top_k: int, prompt_level: PromptLevel) -> str:
-        return create_prompt(df, target, top_k, prompt_level)
+        return create_prompt(df, target, top_k, prompt_level, self.run_type)
 
     def prepare_queries_for_direct(self):
         self.queries = []
@@ -120,10 +135,12 @@ class global_liveability(Test[CityTestParameters]):
                                     target = target_city
 
                             gt_df: DataFrame = closest_cities(curr_df, target)
+                            prompt_df = curr_df.drop(columns=score_col)
                             q = Query(
                                 id=counter,
                                 ds_id=ds_id,
-                                prompt=self._build_prompt(curr_df.drop(columns=score_col), target, k, prompt_level),
+                                prompt=self._build_prompt(prompt_df, target, k, prompt_level),
+                                prompt_df=prompt_df if self.run_type == RunType.LOTUS else None,
                                 ground_truth=gt_df[named_index_col].tolist(),
                                 ground_truth_scores=(1-gt_df['diff']).tolist(),
                                 parameters=QueryParameters(k=k, prompt_level=prompt_level,names_level=names_level, n_elems=c_per_query),

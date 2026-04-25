@@ -1,21 +1,27 @@
+import os
+import sys
+
+cartella_corrente = os.path.dirname(os.path.abspath(__file__))
+if cartella_corrente not in sys.path:
+    sys.path.append(cartella_corrente)
+
 import ast
 import csv
 import json
-import os
 import re
 import shutil
-from abc import abstractmethod, ABC
+from abc import ABC
 from dataclasses import dataclass, asdict, field
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, get_type_hints, get_origin, Counter, TypeVar, Generic
+from typing import get_type_hints, get_origin, TypeVar, Generic
 
 import kagglehub
 import pandas as pd
 import requests
-from openai.types.responses import parsed_response
+
 from pandas import DataFrame
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from experiments.run_type import RunType
 from metrics import *
@@ -64,6 +70,7 @@ class Evaluations:
     kendall: float
     kendall_k: float
     hallucination_rate: float
+    tokens: int
 
 def mark_duplicates(llm_response: list[Any]) -> list[Any]:
     """
@@ -197,13 +204,15 @@ class Query:
     parsed_response: list[str] | None = None
     evaluations: Evaluations | None = None
     parsing_failed: bool | None = None
+    tokens: int | None = None
 
     def to_dict(self) -> dict:
         base: dict = asdict(self)
         # Normalize the prompt
         if self.prompt_df is not None:
             base["prompt_df"] = self.prompt_df.to_string(index=False)
-            base["response"] = self.response.to_string(index=False)
+            if isinstance(self.response, DataFrame):
+                base["response"] = self.response.to_string(index=False)
         # Extract and flatten parameters, if present
         try:
             parameters = base["parameters"]
@@ -239,8 +248,8 @@ class Test(ABC, Generic[T_TestParameters]):
     family: str # the family this test belongs to (e.g. "movies", "molecules")
     name_path: str # the path-safe name of the test
     run_type: RunType
-    run_folder: Path # /data
-    json_schema: BaseModel | None = None
+    run_folder: Path # /data/{direct | lotus}
+    #json_schema: BaseModel
     queries: list[Query] = None # The list of queries generated for this test.
     prepared_queries_file_name: str = "prepared_queries.pkl" # Path to the file where prepared queries are stored.
     parameters: T_TestParameters = None
@@ -271,7 +280,7 @@ class Test(ABC, Generic[T_TestParameters]):
         After this method is called, variable 'queries' should be populated.
         It automatically calls the appropriate 'prepare' method (based on the current run_type) as 'prepare_queries_for_<run_type>()'.
         """
-        method_name = 'prepare_queries_for_' + self.run_type.value
+        method_name = 'prepare_queries_for_' + "direct"
         try:
             method = getattr(self, method_name)
             method()
@@ -283,24 +292,29 @@ class Test(ABC, Generic[T_TestParameters]):
         raise NotImplementedError("Parsing of not structured output is not implemented.")
 
     def parse_query(self, query: Query) -> None:
-        parsing_failed = True
-
-        if isinstance(query.response, DataFrame):
-            query.parsed_response = query.response.iloc[:, 0].tolist() # take the first column as the response list
-            parsing_failed = False
-        elif isinstance(query.response, str):
-            if query.response_json_schema is not None:
+        match query.response:
+            case DataFrame():
                 try:
-                    parsed_response = self.json_schema.model_validate_json(query.response)
-                    query.parsed_response = getattr(parsed_response, list(self.json_schema.model_fields.keys())[0])
+                    # take the first column as the response list
+                    query.parsed_response = query.response[self.named_index_col].tolist()
                     parsing_failed = False
-                except ValidationError:
+                except IndexError:
                     parsing_failed = True
-            else:
-                parsing_failed = self._parse_query_manual(query)
+            case str():
+                if query.response_json_schema is not None:
+                    try:
+                        parsed_response = self.json_schema.model_validate_json(query.response)
+                        query.parsed_response = getattr(parsed_response, list(self.json_schema.model_fields.keys())[0])
+                        parsing_failed = False
+                    except ValidationError:
+                        parsing_failed = True
+                else:
+                    parsing_failed = self._parse_query_manual(query)
+            case _:
+                parsing_failed = True
 
         if parsing_failed:
-            print(f"Couldn't evaluate query {query.id}")
+            print(f"Couldn't evaluate query {query.id}. Response was: {query.response}")
         query.parsing_failed = parsing_failed
 
     def evaluate_query(self, query: Query) -> Evaluations:
@@ -309,10 +323,11 @@ class Test(ABC, Generic[T_TestParameters]):
         :param query: the query to evaluate
         :return: A dictionary (an Evaluations object: dict[Metric, Number]) with the evaluation metrics for the query.
         """
-        failing_scores = Evaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1)
+        failing_scores = Evaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1, tokens=query.tokens if query.tokens is not None else 0)
 
         if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
             return failing_scores
+        assert query.parsed_response is not None
 
         llm_answer_with_duplicates = query.parsed_response[:query.parameters.k]
         llm_answer = mark_duplicates(llm_answer_with_duplicates)
@@ -332,7 +347,8 @@ class Test(ABC, Generic[T_TestParameters]):
                            kendall_k=kendall_tau_k(llm_answer, query.ground_truth, query.parameters.k),
                            spearman=spearman_rho_k(llm_answer, query.ground_truth),
                            spearman_k=spearman_rho_k(llm_answer, query.ground_truth, query.parameters.k),
-                           hallucination_rate=hallucination_rate(llm_answer_with_duplicates, query.ground_truth))
+                           hallucination_rate=hallucination_rate(llm_answer_with_duplicates, query.ground_truth),
+                           tokens=query.tokens if query.tokens is not None else 0)
 
     def evaluate(self) -> dict:
         """

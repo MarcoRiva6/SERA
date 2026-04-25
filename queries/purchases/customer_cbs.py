@@ -112,7 +112,7 @@ def get_top_similar_customers(df: DataFrame, target_cid: int, alpha: float) -> p
 
     return top_customers
 
-def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool) -> str:
+def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool, run_type: RunType) -> str:
     if not json_schema:
         raise NotImplementedError("Il caso senza json_schema non è supportato")
 
@@ -120,14 +120,12 @@ def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: P
     output = "Your output must contain only the required list of customers."
 
     match level:
-        case PromptLevel.generic: # non ha senso
+        case PromptLevel.generic:
             raise NotImplementedError("generic prompt not implemented")
 
         case PromptLevel.formula:
-            prompt = \
-f"""{intro_and_dataset}
-
-Return the {top_k} customers who are most similar to the customer {cid}. The similarity score must be computed strictly following these steps:
+            instruction = \
+f"""Return the {top_k} customers who are most similar to the customer {cid}. The similarity score must be computed strictly following these steps:
 
 1. Price-Tier Affinity Representation
 1.1 Classify every purchased item into one of three tiers based on UnitPrice: "Budget" (< 2.00), "Standard" (>= 2.00 and <= 5.00), and "Premium" (> 5.00).
@@ -145,23 +143,24 @@ Return the {top_k} customers who are most similar to the customer {cid}. The sim
 3. Final Score
 Combine the two similarity measures as follows:
     - {alpha*100:.0f}% weight for the Price-Tier Affinity similarity
-    - {(1-alpha)*100:.0f}% weight for the TVA similarity
-
-{output}"""
+    - {(1-alpha)*100:.0f}% weight for the TVA similarity"""
 
         case PromptLevel.instruct:
-            prompt = \
-f"""{intro_and_dataset}
-
-Return the {top_k} customers who are most similar to customer {cid} based on their 'Customer Buying Signature' (CBS).
+            instruction = \
+f"""Return the {top_k} customers who are most similar to customer {cid} based on their 'Customer Buying Signature' (CBS).
 The CBS is a score based on two behavioral pillars. You must calculate the cosine similarity between customers for each pillar and then combine them with an {alpha*100:.0f}% weight for the first pillar (and {(1-alpha)*100:.0f}% to the second one):
 1. Price-Tier Affinity: Compare customers based on the total volume (quantity) of items they purchase across three price segments: Budget (under 2.00), Standard (2.00 to 5.00), and Premium (over 5.00).
 2. Behavioral Profile (TVA): Compare customers based on a normalized vector of three business metrics:
     - Tenure: The total duration of their relationship as a customer (in days).
     - Variety: The breadth of their product catalog interests.
-    - Average Basket: The average monetary value of their shopping carts.
+    - Average Basket: The average monetary value of their shopping carts."""
 
-{output}"""
+    match run_type:
+        case RunType.LOTUS:
+            raise Exception("LOTUS è incompatibile con il DS customers")
+            prompt = instruction.replace("customers who are most", "{CustomerID} who are most")
+        case RunType.DIRECT:
+            prompt = f"{intro_and_dataset}\n\n{instruction}\n\n{output}"
 
     return prompt
 
@@ -171,7 +170,7 @@ class customer_CBS(customer_segmentation):
     name_short = "TVA"
 
     def _build_prompt(self, df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool) -> str:
-        return create_prompt(df, cid, top_k, alpha, level, json_schema)
+        return create_prompt(df, cid, top_k, alpha, level, json_schema, self.run_type)
 
 
     def init_queries(self) -> None:
@@ -228,6 +227,7 @@ class customer_CBS(customer_segmentation):
                                 id=counter,
                                 ds_id=ds_id,
                                 prompt=self._build_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
+                                prompt_df=df if self.run_type==RunType.LOTUS else None,
                                 ground_truth=sorted_cids,
                                 ground_truth_scores=ground_truth_vals,
                                 parameters=QueryParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),

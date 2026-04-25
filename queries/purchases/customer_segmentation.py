@@ -14,11 +14,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
-from queries.test import Query, Test, Evaluations, data_folder, extract_json, extract_list, \
-    ensure_kaggle_ds, extract_separator_sequence, mark_duplicates, QueryParameters, TestParameters, PromptLevel, \
+from experiments.run_type import RunType
+from queries.test import Query, Test, Evaluations, data_folder, \
+    ensure_kaggle_ds, extract_separator_sequence, QueryParameters, TestParameters, PromptLevel, \
     NamesLevel
-from queries.metrics import ndcg_k, hallucination_rate, mare_k, spearman_rho_k, kendall_tau_k, standard_ndcg_scoring
 
+index_name = 'CustomerID'
 ALPHA = 0.7                      # weight for basket-content similarity
 TOP_N_ITEMS_MIN_PURCHASES = 1    # filter very rare items if needed (set >1 to reduce sparsity)
 N_CUSTOMERS_PER_QUERY = 30        # number of similar customers to retrieve per query
@@ -158,19 +159,22 @@ def count_row_sums(df: pd.DataFrame, threshold=1) -> int:
 class MostSimilarCustomers(BaseModel):
     top_k: list[int] = Field(description="The ordered list of top k most similar customers.")
 
-def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool) -> str:
+def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool,
+                  run_type: RunType) -> str:
     if not json_schema:
         raise NotImplementedError("il caso senza json_schema non è supportato.")
 
     output = "Your output must contain only the required list of customers."
+    #PROBLEMA: questi sono gli attributi solo della prima riga del target CID! -> LOTUS è icompatibile con questo dataset
+    attributes_without_index = ", ".join(f"{{{col}}}: {val}" for col, val in df[df[index_name] == cid].iloc[0].items() if col != index_name)
 
-    match level:
-        case PromptLevel.formula:
-                prompt = \
-f"""You are given the following dataset of customer purchase histories:
-{df.to_string(index=False)}
-
-Return the {top_k} customers who are most similar to the customer {cid}. The similarity score must be computed following these steps:
+    match run_type:
+        case RunType.LOTUS:
+            raise Exception("LOTUS è incompatibile con il DS customers")
+            match level:
+                case PromptLevel.formula:
+                    prompt = \
+                        f"""Return the {{{index_name}}} most similar to the customer {cid}, whose attributes are: {attributes_without_index}. The similarity score must be computed following these steps:
 1.	Basket-Content Representation
 	1.1	Build a customer–item matrix by cross-tabulating customers against the products they purchased.
 	1.2	Compute the cosine similarity between customers using these vectors.
@@ -179,33 +183,44 @@ Return the {top_k} customers who are most similar to the customer {cid}. The sim
 	2.2	Normalize these RFM values so that each feature is on a comparable scale.
 	2.3	Compute the cosine similarity between customers based on these normalized RFM vectors.
 3.	Final Score
-	Combine the two similarity measures as follows:
-	•	{alpha*100:.0f}% weight for the basket-content similarity
-	•	{(1-alpha)*100:.0f}% weight for the RFM similarity
-
-{output}"""
-
-        case PromptLevel.instruct:
-            prompt = \
-f""""You are given the following dataset of customer purchase histories:
-{df.to_string(index=False)}
-
-Return {top_k} customers most similar to customer {cid} based on their purchasing behavior.
-
+    Combine the two similarity measures as follows:
+    •	{alpha*100:.0f}% weight for the basket-content similarity
+    •	{(1-alpha)*100:.0f}% weight for the RFM similarity"""
+                case PromptLevel.instruct:
+                    prompt = \
+                        f"""Return the {{{index_name}}} most similar to customer {cid}, whose attributes are: {attributes_without_index}.
 To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {alpha*100:.0f}% and {(1-alpha)*100:.0f}%:
 1. Product Affinity (basket-content similarity).
-2. RFM Profile (Recency, Frequency, Monetary).
+2. RFM Profile (Recency, Frequency, Monetary)."""
+                case PromptLevel.generic:
+                    prompt = f"Return the {{{index_name}}} most similar to customer {cid}, whose attributes are: {attributes_without_index}."
 
-{output}"""
+        case RunType.DIRECT:
+            match level:
+                case PromptLevel.formula:
+                        instruction = \
+f"""Return the {top_k} customers most similar to the customer {cid}. The similarity score must be computed following these steps:
+1.	Basket-Content Representation
+	1.1	Build a customer–item matrix by cross-tabulating customers against the products they purchased.
+	1.2	Compute the cosine similarity between customers using these vectors.
+2.	RFM Behavioral Features
+	2.1	For each customer, compute Recency (days since last purchase), Frequency (number of purchase events), and Monetary value (total spend).
+	2.2	Normalize these RFM values so that each feature is on a comparable scale.
+	2.3	Compute the cosine similarity between customers based on these normalized RFM vectors.
+3.	Final Score
+    Combine the two similarity measures as follows:
+    •	{alpha*100:.0f}% weight for the basket-content similarity
+    •	{(1-alpha)*100:.0f}% weight for the RFM similarity"""
+                case PromptLevel.instruct:
+                    instruction = \
+f"""Return {top_k} customers most similar to customer {cid} based on their purchasing behavior.
+To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {alpha*100:.0f}% and {(1-alpha)*100:.0f}%:
+1. Product Affinity (basket-content similarity).
+2. RFM Profile (Recency, Frequency, Monetary)."""
+                case PromptLevel.generic:
+                    instruction = f"Return the {top_k} customers most similar to customer {cid}."
+            prompt = f"You are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}\n\n{instruction}\n\n{output}"
 
-        case PromptLevel.generic:
-            prompt = \
-f"""You are given the following dataset of customer purchase histories:
-{df.to_string(index=False)}
-
-Return the {top_k} customers who are most similar to customer {cid}.
-
-{output}"""
     return prompt
 
 class NElemsType(StrEnum):
@@ -230,6 +245,7 @@ class customer_segmentation(Test[CustomerSegmentationTestParameters]):
     clean_df: DataFrame = None
     pre_queries_df: DataFrame = None
     stats_df: DataFrame = None
+    named_index_col = index_name
 
     def load_csv(self, file_path: Path = None) -> None:
         if file_path is None:
@@ -368,7 +384,9 @@ class customer_segmentation(Test[CustomerSegmentationTestParameters]):
                             self.queries.append(Query(
                                 id=counter,
                                 ds_id=ds_id,
-                                prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
+                                prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level,
+                                                     self.parameters.enforce_json_schema, self.run_type),
+                                prompt_df=df if self.run_type==RunType.LOTUS else None,
                                 ground_truth=sorted_cids,
                                 ground_truth_scores=ground_truth_vals,
                                 parameters=QueryParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),

@@ -1,17 +1,24 @@
 import json
+import os
 from abc import ABC
 from typing import Any
 
 import math
+
+import pandas as pd
 import yaml
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from dotenv import load_dotenv
+from lotus.cache import Cache
+from lotus.models import LM
 
 from pandas import DataFrame
+from tqdm import tqdm
 
 from experiments.run_type import RunType
 from queries.test import Query
+
 
 @dataclass
 class Submission:
@@ -54,6 +61,7 @@ class Model(ABC):
     class Params(ABC):
         seed: int = 0
         no_waiting: bool = False
+        temperature: float = -1
     params: Params
 
     params_file_name: str = 'model_params.json'
@@ -105,12 +113,49 @@ class Model(ABC):
         """
         raise NotImplementedError(f"Direct submission not implemented for model {self.name}.")
 
-    def _submit_lotus(self, queries: list[Query], df: DataFrame) -> None:
+    def _get_lotus_params(self) -> tuple[str,str|None]:
+        raise NotImplementedError(f"Lotus submission not implemented for model {self.name}.")
+
+    def _prepare_lotus(self):
+        import lotus
+        from lotus.cache import CacheConfig, CacheType, CacheFactory
+        cache_config = CacheConfig(cache_type=CacheType.SQLITE, max_size=1000)
+        cache = CacheFactory.create_cache(cache_config)
+        model_string, api_string = self._get_lotus_params()
+        temperature = self.params.temperature if self.params.temperature != -1 else 0.0 # lotus' default
+        lm = LM(model=model_string, temperature=temperature, api_base=api_string, cache=cache)#, rate_limit=3)
+        lotus.settings.configure(lm=lm)
+
+    def _submit_lotus(self, queries: list[Query]) -> None:
         """
         Submit queries to the model using Lotus submission method.
         The method should populate the 'response' attribute of each Query object in the queries list.
         """
-        raise NotImplementedError(f"Lotus submission not implemented for model {self.name}.")
+        self._prepare_lotus()
+
+        for i, query in enumerate(tqdm(queries, desc="Submitting queries with Lotus",unit="query")):
+            file_path = os.path.join(self.run_folder, f"query_{i}.parquet")
+
+            # la query è già stata eseguita
+            if os.path.exists(file_path):
+                query.response = pd.read_parquet(file_path)
+                continue
+
+            try:
+                assert isinstance(query.prompt_df, DataFrame)
+                #TODO: fix stats non salvate??
+                result, stats = query.prompt_df.sem_topk(
+                    query.prompt,
+                    K=query.parameters.k,
+                    method="quick", #quick #heap, naive,
+                    return_stats=True
+                )
+                result.to_parquet(file_path, index=False)
+                query.response = result
+                query.tokens = stats["total_tokens"]
+            except Exception as e:
+                print(f"Errore durante la query {i}: {e}")
+                break
 
     def _query_fits_limit(self, query: Query) -> bool:
         """
@@ -130,7 +175,7 @@ class Model(ABC):
             model_args = yaml.load(f, Loader=yaml.FullLoader) | {k: v for k, v in kwargs.items() if k != 'file'}
             return cls(**model_args)
 
-    def run(self, queries: list[Query], df=None):
+    def run(self, queries: list[Query]):
         needs_run = any(q.response is None for q in queries)
         if not needs_run:
             print('All queries already have a response. Skipping submission.')
@@ -138,10 +183,11 @@ class Model(ABC):
         self._init_model()
         print(f"Model processing {len(queries)} queries...")
         try:
-            if self.run_type == RunType.DIRECT:
-                self._submit_direct(queries)
-            elif self.run_type == RunType.LOTUS:
-                self._submit_lotus(queries, df)
+            match self.run_type:
+                case RunType.DIRECT:
+                    self._submit_direct(queries)
+                case RunType.LOTUS:
+                    self._submit_lotus(queries)
         except Exception as e:
             raise SubmissionError(f'Error during submission: {e}')
         finally:

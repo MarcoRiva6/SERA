@@ -5,26 +5,33 @@ import os
 import numpy as np
 from pydantic_core.core_schema import JsonSchema
 
+from experiments.run_type import RunType
+
 cartella_corrente = os.path.dirname(os.path.abspath(__file__))
 if cartella_corrente not in sys.path:
     sys.path.append(cartella_corrente)
 from esi import *
 
-def _build_prompt(df: DataFrame, target: str, prompt_level: PromptLevel, top_k: int, json_schema: bool) -> str:
+def _build_prompt(df: DataFrame, target: str, prompt_level: PromptLevel, top_k: int, json_schema: bool, run_type: RunType) -> str:
+    # shadowing voluto
+    index_name = "Planet"
     if not json_schema:
         NotImplementedError("Non è implementato il caso senza json_schema per esi_free_score.")
 
     job = "You are given a dataset of planets, with various attributes:"
     output = "Your output must contain only the required list of planets."
+    attributes_without_index = ", ".join([f"{{{col}}}: {val}" for col, val in df[df[index_name] == target].iloc[0].items() if col != index_name])
 
-    match prompt_level:
-        case PromptLevel.generic:
-            raise NotImplementedError("PromptLevel.generic is not implemented for esi_free_score.")
-        case PromptLevel.instruct:
-            prompt = f"Return the sorted list of top {top_k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). This factor is computed as the planet's average density (expressed in Earth units, assuming a spherical shape) and multiplying it by the square root of the incident stellar flux."
-        case PromptLevel.formula:
-            prompt = \
-f"""Return the sorted list of top {top_k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). The DIF can be computed as follows:
+    match run_type:
+        case RunType.LOTUS:
+            match prompt_level:
+                case PromptLevel.generic:
+                    raise NotImplementedError("PromptLevel.generic is not implemented for esi_free_score.")
+                case PromptLevel.instruct:
+                    prompt = f"Return the most similar {{{index_name}}} to planet '{target}' (whose attributes are: {attributes_without_index}) using only the 'Density-Irradiance Factor' (DIF). This factor is computed as the planet's average density (expressed in Earth units, assuming a spherical shape) and multiplying it by the square root of the incident stellar flux."
+                case PromptLevel.formula:
+                    prompt = \
+f"""Return the most similar {{{index_name}}} to planet '{target}' (whose attributes are: {attributes_without_index}) using only the 'Density-Irradiance Factor' (DIF). The DIF can be computed as follows:
 
 DIF = (M / R^3) * sqrt(S)
 
@@ -33,12 +40,30 @@ Where:
 - 'R' is the planet's Radius;
 - 'S' is the planet's Flux."""
 
-    return f"""{job}
+        case RunType.DIRECT:
+            match prompt_level:
+                case PromptLevel.generic:
+                    raise NotImplementedError("PromptLevel.generic is not implemented for esi_free_score.")
+                case PromptLevel.instruct:
+                    instruction = f"Return the sorted list of top {top_k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). This factor is computed as the planet's average density (expressed in Earth units, assuming a spherical shape) and multiplying it by the square root of the incident stellar flux."
+                case PromptLevel.formula:
+                    instruction = \
+f"""Return the sorted list of top {top_k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). The DIF can be computed as follows:
+
+DIF = (M / R^3) * sqrt(S)
+
+Where:
+- 'M' is the planet's Mass;
+- 'R' is the planet's Radius;
+- 'S' is the planet's Flux."""
+            prompt = f"""{job}
 {df.to_string(index=False)}
 
-{prompt}
+{instruction}
 
 {output}"""
+
+    return prompt
 
 def compute_ground_truth(df: DataFrame, target_planet: str) -> DataFrame:
     result_df = df.copy()
@@ -94,14 +119,15 @@ class dif(esi):
 
                         target_planet = random.choice(list(q_df['Name']))
                         ground_truth_df = compute_ground_truth(q_df, target_planet)
-                        prompt_df = q_df.drop(columns=['ESI'], inplace=False)
+                        prompt_df = q_df.drop(columns=['ESI'], inplace=False).rename(columns={index_name: 'Planet'})
 
                         for prompt_level in self.parameters.prompt_levels:
                             query = Query(
                                 id=counter,
                                 ds_id=ds_id,
                                 prompt=_build_prompt(prompt_df, target_planet, prompt_level, k,
-                                                     self.parameters.enforce_json_schema),
+                                                     self.parameters.enforce_json_schema, self.run_type),
+                                prompt_df=prompt_df if self.run_type==RunType.LOTUS else None,
                                 parameters=QueryParameters(k=k, prompt_level=prompt_level, names_level=planet_name_mod,
                                                            n_elems=p_per_query),
                                 ground_truth=ground_truth_df['Name'].tolist(),

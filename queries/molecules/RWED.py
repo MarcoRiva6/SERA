@@ -2,11 +2,12 @@ from dataclasses import dataclass
 
 from pandas import DataFrame
 
+from experiments.run_type import RunType
 from queries.molecules.levenshtein import levenshtein
 from queries.test import PromptLevel
 
 
-def generate_prompt(df, prompt_level, top_k, target):
+def generate_prompt(df, prompt_level, top_k, target, run_type: RunType):
     job = f"You are given the following list of molecules represented by their SMILES strings:\n{df.to_string(index=False)}"
     output = "Your output must contain only the final ranking."
 
@@ -39,7 +40,12 @@ The Ring-Weighted Edit Distance (RWED) between two SMILES strings (SMILES A of l
         case PromptLevel.generic:
             raise NotImplementedError("prompt level generic not implemented")
 
-    prompt = f"{job}\n\n{request}\n\n{output}"
+    match run_type:
+        case RunType.LOTUS:
+            prompt = request.replace("molecules", f"{{{df.columns[0]}}}")
+        case RunType.DIRECT:
+            prompt = f"{job}\n\n{request}\n\n{output}"
+
     return prompt
 
 @dataclass
@@ -48,4 +54,4 @@ class RWED(levenshtein):
     name_short = "RWED"
 
     def _build_prompt(self, df: DataFrame, prompt_level: PromptLevel, top_k: int, target: str) -> str:
-        return generate_prompt(df=df, prompt_level=prompt_level, top_k=top_k, target=target)
+        return generate_prompt(df=df, prompt_level=prompt_level, top_k=top_k, target=target, run_type=self.run_type)

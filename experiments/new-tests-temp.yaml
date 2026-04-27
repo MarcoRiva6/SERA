@@ -16,31 +16,26 @@ models:
 #  - name: 'google/gemini-2.5-flash'
 #    no_waiting: true
 #    temperature: 0
-run_types: '*'
+run_types: 'direct'
 seed: 1234
-disabled: true
+disabled: false
 queries:
-  - name: 'cities/city_free_score'
-    n_queries: 5
+  - name: 'hr/rid'
+    n_queries: 2
     names_levels:
-      - 'real'
-      - 'fake'
+    - 'real'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
+    - 'instruct'
+    - 'formula'
     kp:
-      - 0.15
-    cities_per_query:
-      - 30
-  - name: 'planets/dif'
-    n_queries: 5
-    names_levels:
-      - 'real'
-      - 'fake'
-    planets_per_query:
-      - 30
-    kp:
-      - 0.15
-    prompt_levels:
-      - 'instruct'
-      - 'formula'
+    - 0.10
+#  - name: 'smartphones/hw_eff_score'
+#    n_queries: 2
+#    names_levels:
+#      - 'real'
+#      - 'fake'
+#    prompt_levels:
+#      - 'instruct'
+#      - 'formula'
+#    kp:
+#      - 0.10

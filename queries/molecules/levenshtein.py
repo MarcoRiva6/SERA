@@ -4,10 +4,9 @@ from dataclasses import dataclass, field
 import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
-from tqdm import tqdm
 
 from experiments.run_type import RunType
-from queries.test import QueryParameters, PromptLevel, NamesLevel, Query, TestParameters, data_folder, Test
+from queries.test import PromptLevel, NamesLevel, TestParameters, data_folder, Test
 from queries.metrics import *
 
 
@@ -73,48 +72,9 @@ def build_ground_truth(seed, target_molecule: str, molecular_df: DataFrame) -> t
     sorted_df = clean_gt_df.sort_values(by=sim_col, ascending=False)
     return sorted_df['SMILES'].tolist(), sorted_df[sim_col].tolist()
 
-def generate_prompt(prompt_level: PromptLevel, df: DataFrame, top_k: int, target: str, run_type: RunType) -> str:
-    job = f"You are given the following list of molecules represented by their SMILES strings:\n{df.to_string(index=False)}"
-    output = "Your output must contain only the final ranking."
-
-    match prompt_level:
-        case PromptLevel.instruct:
-            request = f"Return the {top_k} most similar molecules to the target molecule '{target}', based only on their normalized Levenshtein similarity."
-        case PromptLevel.formula:
-            request = \
-f"""Return the {top_k} most similar molecules to the molecule '{target}', based only on their normalized Levenshtein similarity.
-The Levenshtein distance as a similarity metric between two molecular SMILES strings (SMILES A of length M, and SMILES B of length N), can be computed with the following steps:
-
-1.  Initialize a matrix with dimensions of (M+1) rows and (N+1) columns.
-2.  Fill the first row with sequential numerical values from 0 to N.
-3.  Fill the first column with sequential numerical values from 0 to M.
-4.  Iterate through each empty cell of the matrix, starting from the upper-left corner and proceeding from left to right across each row, from top to bottom.
-5.  For the current cell (row i, column j), compare the character at position (i-1) of SMILES A with the character at position (j-1) of SMILES B.
-6.  If the two characters are identical, set the "substitution cost" variable to 0. If they are different, set the "substitution cost" to 1.
-7.  Calculate the following three temporary values for the current cell:
-	- Deletion cost: the value of the cell immediately above (row i-1, column j) + 1.
-	- Insertion cost: the value of the cell immediately to the left (row i, column j-1) + 1.
-	- Modification cost: the value of the cell diagonally to the top-left (row i-1, column j-1) + the "substitution cost".
-8.  Assign to the current cell the minimum numerical value among the three newly calculated costs.
-9.  Repeat steps 5 through 8 until every cell in the matrix is filled.
-10. Extract the Levenshtein distance: it corresponds to the value contained in the bottom-rightmost cell of the matrix (row M, column N).
-11. Divide the calculated Levenshtein distance by the maximum between M and N.
-12. Subtract the result of this division from 1 to obtain the normalized similarity score to obtain the final result.
-"""
-        case PromptLevel.generic:
-            request = f"Return the {top_k} most similar molecules to the molecule {target}, based only on their SMILES strings similarity."
-
-    match run_type:
-        case RunType.LOTUS:
-            prompt = request.replace("molecules", f"{{{df.columns[0]}}}")
-        case RunType.DIRECT:
-            prompt = f"{job}\n\n{request}\n\n{output}"
-
-    return prompt
 
 @dataclass
 class MolecularTestParameters(TestParameters):
-    elems_per_query: list[int] = field(default_factory=lambda: [30,70])
     names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
 
 @dataclass
@@ -125,70 +85,70 @@ class levenshtein(Test[MolecularTestParameters]):
     molecules_list: list[str] = field(default_factory=list)
     named_index_col = 'SMILES'
 
-    def _load_dataset(self):
+    def _load_ds(self) -> DataFrame:
         ds = pd.read_csv(data_folder / 'molecules' / 'new_dataset.csv')
         temp_set = set(ds['curated_smiles_molecule_a'].unique())
         temp_set.update(ds['curated_smiles_molecule_b'].unique())
         self.molecules_list = list(sorted(temp_set))
+        return ds
 
-    def _build_prompt(self, df: DataFrame, prompt_level: PromptLevel, top_k: int, target: str) -> str:
-        return generate_prompt(prompt_level=prompt_level, df=df, top_k=top_k, target=target, run_type=self.run_type)
+    def _ensure_enough_combinations(self, df: DataFrame) -> bool:
+        for elem_per_query in self.parameters.elems_per_query:
+            if math.comb(len(self.molecules_list), elem_per_query) < self.parameters.n_queries:
+                return False
+        return True
 
-    def prepare_queries_for_direct(self):
-        if self.queries is None or self.queries == []:
-            self.queries = []
-            self._load_dataset()
-        curr_seed = self.parameters.seed
-        counter = 0
-        ds_id = 0
-        pbar = tqdm(total=self.parameters.n_queries*len(self.parameters.elems_per_query)*len(self.parameters.kp)*len(self.parameters.prompt_levels)*len(self.parameters.names_levels),
-                    desc="Generating queries",
-                    unit="query",
-                    colour='green')
+    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel)  -> str:
+        job = f"You are given the following list of molecules represented by their SMILES strings:\n{df.to_string(index=False)}"
+        output = "Your output must contain only the final ranking."
+        match prompt_level:
+            case PromptLevel.instruct:
+                request = f"Return the {k} most similar molecules to the target molecule '{target}', based only on their normalized Levenshtein similarity."
+            case PromptLevel.formula:
+                request = \
+                    f"""Return the {k} most similar molecules to the molecule '{target}', based only on their normalized Levenshtein similarity.
+The Levenshtein distance as a similarity metric between two molecular SMILES strings (SMILES A of length M, and SMILES B of length N), can be computed with the following steps:
 
-        for i in range(self.parameters.n_queries):
-            for n_elems_in_query in self.parameters.elems_per_query:
-                while True:
-                    if self.parameters.seed != 0:
-                        random.seed(curr_seed)
+1.  Initialize a matrix with dimensions of (M+1) rows and (N+1) columns.
+2.  Fill the first row with sequential numerical values from 0 to N.
+3.  Fill the first column with sequential numerical values from 0 to M.
+4.  Iterate through each empty cell of the matrix, starting from the upper-left corner and proceeding from left to right across each row, from top to bottom.
+5.  For the current cell (row i, column j), compare the character at position (i-1) of SMILES A with the character at position (j-1) of SMILES B.
+6.  If the two characters are identical, set the "substitution cost" variable to 0. If they are different, set the "substitution cost" to 1.
+7.  Calculate the following three temporary values for the current cell:
+    - Deletion cost: the value of the cell immediately above (row i-1, column j) + 1.
+    - Insertion cost: the value of the cell immediately to the left (row i, column j-1) + 1.
+    - Modification cost: the value of the cell diagonally to the top-left (row i-1, column j-1) + the "substitution cost".
+8.  Assign to the current cell the minimum numerical value among the three newly calculated costs.
+9.  Repeat steps 5 through 8 until every cell in the matrix is filled.
+10. Extract the Levenshtein distance: it corresponds to the value contained in the bottom-rightmost cell of the matrix (row M, column N).
+11. Divide the calculated Levenshtein distance by the maximum between M and N.
+12. Subtract the result of this division from 1 to obtain the normalized similarity score to obtain the final result.
+    """
+            case PromptLevel.generic:
+                request = f"Return the {k} most similar molecules to the molecule {target}, based only on their SMILES strings similarity."
+        match self.run_type:
+            case RunType.LOTUS:
+                prompt = request.replace("molecules", f"{{{df.columns[0]}}}")
+            case RunType.DIRECT:
+                prompt = f"{job}\n\n{request}\n\n{output}"
+        return prompt
 
-                    target_mol = random.choice(self.molecules_list)
-                    mol_df = build_molecules_df(target_mol, self.molecules_list)
-                    ground_truth, ground_truth_score = build_ground_truth(curr_seed, target_molecule=target_mol, molecular_df=mol_df)
-                    if len(ground_truth) < n_elems_in_query:
-                        curr_seed += 1
-                        continue
-                    ground_truth = ground_truth[:n_elems_in_query]
-                    ground_truth_score = ground_truth_score[:n_elems_in_query]
-                    prompt_df = mol_df[mol_df['SMILES'].isin(ground_truth)]
-                    break
+    def _init_query(self, seed: int, df, elem_per_query: int) -> tuple[tuple[DataFrame, str | int | None, list[int | str], list[float]],tuple[DataFrame, str | int | None, list[int | str], list[float]]]:
+        while True:
+            if self.parameters.seed != 0:
+                random.seed(seed)
 
-                for kp in self.parameters.kp:
-                    k = max(1, math.ceil(kp * n_elems_in_query))
+            target_mol = random.choice(self.molecules_list)
+            mol_df = build_molecules_df(target_mol, self.molecules_list)
+            ground_truth, ground_truth_score = build_ground_truth(seed, target_molecule=target_mol, molecular_df=mol_df)
+            if len(ground_truth) < elem_per_query:
+                seed += 1
+                continue
+            ground_truth = ground_truth[:elem_per_query]
+            ground_truth_score = ground_truth_score[:elem_per_query]
+            prompt_df = mol_df[mol_df['SMILES'].isin(ground_truth)]
+            break
 
-                    for prompt_level in self.parameters.prompt_levels:
-                        for names_level in self.parameters.names_levels:
-                            if names_level != NamesLevel.fake:
-                                raise NotImplementedError('Only fake names are supported for this test')
-
-                            query = Query(
-                                id=counter,
-                                ds_id=ds_id,
-                                parameters=QueryParameters(
-                                    prompt_level=prompt_level,
-                                    names_level=NamesLevel.fake,
-                                    k=k,
-                                    n_elems=n_elems_in_query
-                                ),
-                                prompt=self._build_prompt(prompt_level=prompt_level, df=prompt_df, top_k=k, target=target_mol),
-                                prompt_df=prompt_df if self.run_type==RunType.LOTUS else None,
-                                ground_truth=ground_truth,
-                                ground_truth_scores=ground_truth_score,
-                                response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None
-                            )
-                            self.queries.append(query)
-                            counter += 1
-                            pbar.update(1)
-
-                ds_id += 1
-                curr_seed += 1
+        result = (prompt_df, None, ground_truth, ground_truth_score)
+        return result, result

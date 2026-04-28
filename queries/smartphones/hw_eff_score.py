@@ -83,7 +83,7 @@ Rank the smartphones in descending order based on their HES score."""
 
 @dataclass
 class SmartphoneTestParameters(TestParameters):
-    items_per_query: list[int] = field(default_factory=lambda: [50])
+    elems_per_query: list[int] = field(default_factory=lambda: [50])
 
 @dataclass
 class hw_eff_score(Test[SmartphoneTestParameters]):
@@ -99,7 +99,7 @@ class hw_eff_score(Test[SmartphoneTestParameters]):
         df = df.dropna(subset=scoring_cols)
         self.full_df = df.rename_axis(self.named_index_col).reset_index()
 
-    def init_queries(self) -> None:
+    def _prepare_queries(self, clean_df) -> None:
         if self.full_df is None:
             self.load_csv()
 
@@ -152,4 +152,4 @@ class hw_eff_score(Test[SmartphoneTestParameters]):
         print('loading dataset...')
         self.load_csv()
         print('initializing queries...')
-        self.init_queries()
+        self._prepare_queries(None)

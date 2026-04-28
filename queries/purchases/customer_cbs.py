@@ -112,131 +112,91 @@ def get_top_similar_customers(df: DataFrame, target_cid: int, alpha: float) -> p
 
     return top_customers
 
-def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool, run_type: RunType) -> str:
-    if not json_schema:
-        raise NotImplementedError("Il caso senza json_schema non è supportato")
-
-    intro_and_dataset = f"""you are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}"""
-    output = "Your output must contain only the required list of customers."
-
-    match level:
-        case PromptLevel.generic:
-            raise NotImplementedError("generic prompt not implemented")
-
-        case PromptLevel.formula:
-            instruction = \
-f"""Return the {top_k} customers who are most similar to the customer {cid}. The similarity score must be computed strictly following these steps:
-
-1. Price-Tier Affinity Representation
-1.1 Classify every purchased item into one of three tiers based on UnitPrice: "Budget" (< 2.00), "Standard" (>= 2.00 and <= 5.00), and "Premium" (> 5.00).
-1.2 For each customer, build a 3-dimensional vector representing the total Quantity of items purchased in each of the three tiers.
-1.3 Compute the cosine similarity between customers using these 3D Price-Tier vectors.
-
-2. TVA Behavioral Features
-2.1 For each customer, compute:
-    - Tenure (T): Number of days between their very first purchase and their latest purchase in the dataset.
-    - Variety (V): Total number of unique StockCodes purchased.
-    - Average Basket (A): Total monetary spend divided by the number of unique InvoiceNos.
-2.2 Normalize these T, V, and A values so that each feature is on a comparable scale (e.g., Min-Max scaling).
-2.3 Compute the cosine similarity between customers based on these normalized TVA vectors.
-
-3. Final Score
-Combine the two similarity measures as follows:
-    - {alpha*100:.0f}% weight for the Price-Tier Affinity similarity
-    - {(1-alpha)*100:.0f}% weight for the TVA similarity"""
-
-        case PromptLevel.instruct:
-            instruction = \
-f"""Return the {top_k} customers who are most similar to customer {cid} based on their 'Customer Buying Signature' (CBS).
-The CBS is a score based on two behavioral pillars. You must calculate the cosine similarity between customers for each pillar and then combine them with an {alpha*100:.0f}% weight for the first pillar (and {(1-alpha)*100:.0f}% to the second one):
-1. Price-Tier Affinity: Compare customers based on the total volume (quantity) of items they purchase across three price segments: Budget (under 2.00), Standard (2.00 to 5.00), and Premium (over 5.00).
-2. Behavioral Profile (TVA): Compare customers based on a normalized vector of three business metrics:
-    - Tenure: The total duration of their relationship as a customer (in days).
-    - Variety: The breadth of their product catalog interests.
-    - Average Basket: The average monetary value of their shopping carts."""
-
-    match run_type:
-        case RunType.LOTUS:
-            raise Exception("LOTUS è incompatibile con il DS customers")
-            prompt = instruction.replace("customers who are most", "{CustomerID} who are most")
-        case RunType.DIRECT:
-            prompt = f"{intro_and_dataset}\n\n{instruction}\n\n{output}"
-
-    return prompt
-
 @dataclass
 class customer_CBS(customer_segmentation):
     name: str = "Customer CBS"
     name_short = "TVA"
 
-    def _build_prompt(self, df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool) -> str:
-        return create_prompt(df, cid, top_k, alpha, level, json_schema, self.run_type)
+    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
+        if not self.parameters.enforce_json_schema:
+            raise NotImplementedError("Il caso senza json_schema non è supportato")
 
+        intro_and_dataset = f"""you are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}"""
+        output = "Your output must contain only the required list of customers."
 
-    def init_queries(self) -> None:
-        current_seed = self.parameters.seed
+        match prompt_level:
+            case PromptLevel.generic:
+                raise NotImplementedError("generic prompt not implemented")
 
-        self.queries: list[Query] = []
-        counter = 0
-        ds_id = 0
-        pbar = tqdm(total=self.parameters.n_queries * len(self.parameters.n_elems_per_query) * len(self.parameters.kp) * len(self.parameters.names_levels) * len(self.parameters.prompt_levels),
-                    desc="Generating queries",
-                    unit="query",
-                    colour='green')
+            case PromptLevel.formula:
+                instruction = \
+                    f"""Return the {k} customers who are most similar to the customer {target}. The similarity score must be computed strictly following these steps:
+    
+    1. Price-Tier Affinity Representation
+    1.1 Classify every purchased item into one of three tiers based on UnitPrice: "Budget" (< 2.00), "Standard" (>= 2.00 and <= 5.00), and "Premium" (> 5.00).
+    1.2 For each customer, build a 3-dimensional vector representing the total Quantity of items purchased in each of the three tiers.
+    1.3 Compute the cosine similarity between customers using these 3D Price-Tier vectors.
+    
+    2. TVA Behavioral Features
+    2.1 For each customer, compute:
+        - Tenure (T): Number of days between their very first purchase and their latest purchase in the dataset.
+        - Variety (V): Total number of unique StockCodes purchased.
+        - Average Basket (A): Total monetary spend divided by the number of unique InvoiceNos.
+    2.2 Normalize these T, V, and A values so that each feature is on a comparable scale (e.g., Min-Max scaling).
+    2.3 Compute the cosine similarity between customers based on these normalized TVA vectors.
+    
+    3. Final Score
+    Combine the two similarity measures as follows:
+        - {self.parameters.alpha*100:.0f}% weight for the Price-Tier Affinity similarity
+        - {(1-self.parameters.alpha)*100:.0f}% weight for the TVA similarity"""
 
-        for _ in range(self.parameters.n_queries):
-            for elem_per_query in self.parameters.n_elems_per_query:
-                if self.parameters.seed != 0:
-                    random.seed(current_seed)
-                k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
-                min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
+            case PromptLevel.instruct:
+                instruction = \
+                    f"""Return the {k} customers who are most similar to customer {target} based on their 'Customer Buying Signature' (CBS).
+    The CBS is a score based on two behavioral pillars. You must calculate the cosine similarity between customers for each pillar and then combine them with an {self.parameters.alpha*100:.0f}% weight for the first pillar (and {(1-self.parameters.alpha)*100:.0f}% to the second one):
+    1. Price-Tier Affinity: Compare customers based on the total volume (quantity) of items they purchase across three price segments: Budget (under 2.00), Standard (2.00 to 5.00), and Premium (over 5.00).
+    2. Behavioral Profile (TVA): Compare customers based on a normalized vector of three business metrics:
+        - Tenure: The total duration of their relationship as a customer (in days).
+        - Variety: The breadth of their product catalog interests.
+        - Average Basket: The average monetary value of their shopping carts."""
 
-                temp_df = pd.DataFrame()
-                while True:
-                    match self.parameters.n_elems_type:
-                        case NElemsType.customers:
-                            cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
-                            selected_cids = random.sample(cids_unique_full, elem_per_query)
-                            temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
-                        case NElemsType.rows:
-                            temp_df = self.generate_prompt_dataset(target_rows=elem_per_query, min_customers=min_customers_needed, seed=current_seed)
+        match self.run_type:
+            case RunType.LOTUS:
+                raise Exception("LOTUS è incompatibile con il DS customers")
+                prompt = instruction.replace("customers who are most", "{CustomerID} who are most")
+            case RunType.DIRECT:
+                prompt = f"{intro_and_dataset}\n\n{instruction}\n\n{output}"
 
-                    if len(temp_df) > self.parameters.rows_in_prompt_limit:
-                        current_seed += 1
-                        continue
+        return prompt
 
-                    df = temp_df
-                    selected_cid = random.choice(df['CustomerID'].unique().tolist())
-                    top_similar_df = get_top_similar_customers(df, selected_cid, self.parameters.alpha)
-                    if top_similar_df.values.tolist()[0] < 0.4:
-                        current_seed += 1
-                        continue
-                    break
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, str | int | None, list[int | str], list[float]],tuple[DataFrame, str | int | None, list[int | str], list[float]]]:
+        k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
+        min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
 
-                sorted_cids = top_similar_df.index.tolist()
-                ground_truth_vals = top_similar_df.values.tolist()
+        temp_df = pd.DataFrame()
+        while True:
+            match self.parameters.n_elems_type:
+                case NElemsType.customers:
+                    cids_unique_full = df['CustomerID'].unique().tolist()
+                    selected_cids = random.sample(cids_unique_full, elem_per_query)
+                    temp_df = df[df['CustomerID'].isin(selected_cids)]
+                case NElemsType.rows:
+                    temp_df = self.generate_prompt_dataset(target_rows=elem_per_query, min_customers=min_customers_needed, seed=seed)
 
-                for k in k_list:
+            if len(temp_df) > self.parameters.rows_in_prompt_limit:
+                seed += 1
+                continue
 
-                    for n_level in self.parameters.names_levels:
-                        if n_level != NamesLevel.fake:
-                            Exception(f"Unsupported names_level {n_level} in parameters.")
+            df = temp_df
+            selected_cid = random.choice(df['CustomerID'].unique().tolist())
+            top_similar_df = get_top_similar_customers(df, selected_cid, self.parameters.alpha)
+            if top_similar_df.values.tolist()[0] < 0.4:
+                seed += 1
+                continue
+            break
 
-                        for p_level in self.parameters.prompt_levels:
-                            self.queries.append(Query(
-                                id=counter,
-                                ds_id=ds_id,
-                                prompt=self._build_prompt(df, selected_cid, k, self.parameters.alpha, p_level, self.parameters.enforce_json_schema),
-                                prompt_df=df if self.run_type==RunType.LOTUS else None,
-                                ground_truth=sorted_cids,
-                                ground_truth_scores=ground_truth_vals,
-                                parameters=QueryParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),
-                                response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None,
-                            ))
-                            counter += 1
-                            pbar.update(1)
+        sorted_cids = top_similar_df.index.tolist()
+        ground_truth_vals = top_similar_df.values.tolist()
 
-                current_seed += 1
-                ds_id += 1
-
-        pbar.close()
+        result = (df, selected_cid, sorted_cids, ground_truth_vals)
+        return result, result

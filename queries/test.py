@@ -1,5 +1,9 @@
 import os
+import random
 import sys
+from itertools import product
+
+from tqdm import tqdm
 
 cartella_corrente = os.path.dirname(os.path.abspath(__file__))
 if cartella_corrente not in sys.path:
@@ -46,6 +50,7 @@ class TestParameters(ABC):
     seed: int = 0 # if set to 0, a random seed is used
     n_queries: int = 10
     kp: list[float] = field(default_factory=lambda: [0.05, 0.15, 0.25])
+    elems_per_query: list[int] = field(default_factory=lambda: [30, 70])
     prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
     names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel)
     enforce_json_schema: bool = True
@@ -287,6 +292,127 @@ class Test(ABC, Generic[T_TestParameters]):
         except AttributeError:
             raise NotImplementedError(
                 f'Run mode {self.run_type} not implemented for this test (method {method_name} does not exists).')
+
+    def _sample_for_query(self, current_seed: int, df: DataFrame, elem_per_query: int) -> DataFrame:
+        """first item is the query general DF, second is the current seed
+        """
+        raise NotImplementedError()
+
+    def _anonymize_query_df(self, df: DataFrame) -> DataFrame:
+        """returns the query DataFrame with real or fake names according to name_mode. If not overridden, returns the original DF."""
+        return df
+
+    def _select_query_target(self, current_seed, real_df: DataFrame, anon_df) -> tuple[str | int | None, str | int | None]:
+        return None, None
+
+    def _build_ground_truth(self, df: DataFrame, target: str|int|None) -> tuple[list[str | int], list[float]]:
+        """returns a tuple with the list of ground truth ids and the list of their relevance scores
+        :param target:
+        """
+        raise NotImplementedError()
+
+    def _build_prompt_df(self, df: DataFrame) -> DataFrame:
+        """Returns the cleaned version of the DF, ready for create_prompt. It's called right before creating the Query. By default, it returns the input."""
+        return df
+
+    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
+        """returns the prompt string built according to the given parameters"""
+        raise NotImplementedError()
+
+    def _build_query(self, q_id: int, ds_id: int, df: DataFrame, target: str|int|None, k: int, gt_ids: list[str], gt_vals: list[float], prompt_level: PromptLevel, names_level: NamesLevel, n_elems: int) -> Query:
+        return Query(
+            id=q_id,
+            ds_id=ds_id,
+            prompt=self._create_prompt(df, target, k, prompt_level),
+            prompt_df=df if self.run_type==RunType.LOTUS else None,
+            ground_truth=gt_ids,
+            ground_truth_scores=gt_vals,
+            parameters=QueryParameters(k=k, prompt_level=prompt_level, names_level=names_level, n_elems=n_elems),
+            response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None,
+        )
+
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, str | int | None, list[int | str], list[float]],tuple[DataFrame, str | int | None, list[int | str], list[float]]]:
+        sampled_df = self._sample_for_query(seed, df, elem_per_query)
+        anon_sampled_df = self._anonymize_query_df(sampled_df)
+        target, anon_target = self._select_query_target(seed, sampled_df, anon_sampled_df)
+        gt_ids, gt_scores = self._build_ground_truth(sampled_df, target)
+        anon_gt_ids, anon_gt_scores = self._build_ground_truth(anon_sampled_df, anon_target)
+        prompt_df = self._build_prompt_df(sampled_df)
+        anon_prompt_df = self._build_prompt_df(anon_sampled_df)
+        return (prompt_df, target, gt_ids, gt_scores), (anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores)
+
+    def _prepare_queries(self, clean_df) -> list[Query]:
+        queries = []
+        current_seed = self.parameters.seed
+        counter = 0
+        ds_id = 0
+
+        total_iters = (self.parameters.n_queries
+                       * len(self.parameters.elems_per_query)
+                       * len(self.parameters.kp)
+                       * len(self.parameters.prompt_levels)
+                       * len(self.parameters.names_levels))
+        with tqdm(total=total_iters, desc="Generating queries", unit='query', colour='green') as pbar:
+
+            for _ in range(self.parameters.n_queries):
+                for elem_per_query in self.parameters.elems_per_query:
+                    if self.parameters.seed != 0:
+                        random.seed(current_seed)
+
+                    (real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
+                        current_seed, clean_df, elem_per_query)
+
+                    for kp, name_mode, prompt_level in product(self.parameters.kp, self.parameters.names_levels, self.parameters.prompt_levels):
+                        k = max(1, math.ceil(kp * elem_per_query))
+                        match name_mode:
+                            case NamesLevel.real:
+                                prompt_df = real_prompt_df
+                                target = real_target
+                                gt_ids = real_gt_ids
+                                gt_scores = real_gt_scores
+                            case NamesLevel.fake:
+                                prompt_df = anon_prompt_df
+                                target = anon_target
+                                gt_ids = anon_gt_ids
+                                gt_scores = anon_gt_scores
+
+                        query = self._build_query(q_id=counter, ds_id=ds_id, df=prompt_df, target=target, k=k,
+                                                  gt_ids=gt_ids, gt_vals=gt_scores, prompt_level=prompt_level,
+                                                  names_level=name_mode, n_elems=elem_per_query)
+                        queries.append(query)
+
+                        counter += 1
+                        pbar.update(1)
+
+                    current_seed += 1
+                    ds_id += 1
+
+        return queries
+
+    def _load_ds(self) -> DataFrame:
+        """loads the dataset file as a DataFrame"""
+        raise NotImplementedError()
+
+    def _prepare_df(self, df: DataFrame) -> DataFrame:
+        """Here the loaded dataset's DataFrame" can be processed, if necessary. By default, it passes the input."""
+        return df
+
+    def _ensure_enough_combinations(self, df: DataFrame) -> bool:
+        for elem_per_query in self.parameters.elems_per_query:
+            if math.comb(len(df), elem_per_query) < self.parameters.n_queries:
+                return False
+        return True
+
+    def prepare_queries_for_direct(self) -> None:
+        print('loading dataset...')
+        full_df = self._load_ds()
+        print('preparing DF...')
+        clean_df = self._prepare_df(full_df)
+        print('initializing queries...')
+        if not self._ensure_enough_combinations(clean_df):
+            raise ValueError(
+                f"Not enough unique combinations of elems to generate the requested number of queries.")
+        self.queries = self._prepare_queries(clean_df)
 
     def _parse_query_manual(self, query: Query) -> bool:
         raise NotImplementedError("Parsing of not structured output is not implemented.")

@@ -20,11 +20,11 @@ class city_free_score(global_liveability):
     name: str = "City Free Score"
     name_short = "Average"
 
-    def _load_dataset(self):
-        super()._load_dataset()
-        self.full_ds = redefine_ranking(self.full_ds)
+    def _load_ds(self) -> DataFrame:
+        df = super()._load_ds()
+        return redefine_ranking(df)
 
-    def _build_prompt(self, df: DataFrame, target: str, top_k: int, prompt_level: PromptLevel) -> str:
+    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
         job = f"You are given a dataset of cities, with various attributes:\n{df.to_string(index=False)}"
         output = "Your output must contain only the required list of cities."
 
@@ -46,16 +46,12 @@ class city_free_score(global_liveability):
             case RunType.DIRECT:
                 match prompt_level:
                     case PromptLevel.instruct:
-                        instruct = f"Return the {top_k} most similar cities to '{target}', based on the average of all the attributes except '{ignoring_column}'."
+                        instruct = f"Return the {k} most similar cities to '{target}', based on the average of all the attributes except '{ignoring_column}'."
                     case PromptLevel.formula:
-                        instruct = f"Using the following formula:\n\n{formula_string}\n\nreturn the {top_k} most similar cities to '{target}', based ONLY on the computed city_score(s)."
+                        instruct = f"Using the following formula:\n\n{formula_string}\n\nreturn the {k} most similar cities to '{target}', based ONLY on the computed city_score(s)."
                     case PromptLevel.generic:
                         raise NotImplementedError("Generic prompt level is not implemented for city_free_score.")
 
-                prompt = f"""{job}
-
-{instruct}
-
-{output}"""
+                prompt = f"""{job}\n\n{instruct}\n\n{output}"""
 
         return prompt

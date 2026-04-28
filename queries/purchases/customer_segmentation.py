@@ -1,23 +1,19 @@
 import math
 import random
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import timedelta
 from enum import StrEnum
-from json import JSONDecodeError
-from pathlib import Path
 
 import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
-from tqdm import tqdm
 
 from experiments.run_type import RunType
 from queries.test import Query, Test, Evaluations, data_folder, \
-    ensure_kaggle_ds, extract_separator_sequence, QueryParameters, TestParameters, PromptLevel, \
-    NamesLevel
+    ensure_kaggle_ds, extract_separator_sequence, TestParameters, PromptLevel, NamesLevel
 
 index_name = 'CustomerID'
 ALPHA = 0.7                      # weight for basket-content similarity
@@ -159,70 +155,6 @@ def count_row_sums(df: pd.DataFrame, threshold=1) -> int:
 class MostSimilarCustomers(BaseModel):
     top_k: list[int] = Field(description="The ordered list of top k most similar customers.")
 
-def create_prompt(df: pd.DataFrame, cid: int, top_k: int, alpha: float, level: PromptLevel, json_schema: bool,
-                  run_type: RunType) -> str:
-    if not json_schema:
-        raise NotImplementedError("il caso senza json_schema non è supportato.")
-
-    output = "Your output must contain only the required list of customers."
-    #PROBLEMA: questi sono gli attributi solo della prima riga del target CID! -> LOTUS è icompatibile con questo dataset
-    attributes_without_index = ", ".join(f"{{{col}}}: {val}" for col, val in df[df[index_name] == cid].iloc[0].items() if col != index_name)
-
-    match run_type:
-        case RunType.LOTUS:
-            raise Exception("LOTUS è incompatibile con il DS customers")
-            match level:
-                case PromptLevel.formula:
-                    prompt = \
-                        f"""Return the {{{index_name}}} most similar to the customer {cid}, whose attributes are: {attributes_without_index}. The similarity score must be computed following these steps:
-1.	Basket-Content Representation
-	1.1	Build a customer–item matrix by cross-tabulating customers against the products they purchased.
-	1.2	Compute the cosine similarity between customers using these vectors.
-2.	RFM Behavioral Features
-	2.1	For each customer, compute Recency (days since last purchase), Frequency (number of purchase events), and Monetary value (total spend).
-	2.2	Normalize these RFM values so that each feature is on a comparable scale.
-	2.3	Compute the cosine similarity between customers based on these normalized RFM vectors.
-3.	Final Score
-    Combine the two similarity measures as follows:
-    •	{alpha*100:.0f}% weight for the basket-content similarity
-    •	{(1-alpha)*100:.0f}% weight for the RFM similarity"""
-                case PromptLevel.instruct:
-                    prompt = \
-                        f"""Return the {{{index_name}}} most similar to customer {cid}, whose attributes are: {attributes_without_index}.
-To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {alpha*100:.0f}% and {(1-alpha)*100:.0f}%:
-1. Product Affinity (basket-content similarity).
-2. RFM Profile (Recency, Frequency, Monetary)."""
-                case PromptLevel.generic:
-                    prompt = f"Return the {{{index_name}}} most similar to customer {cid}, whose attributes are: {attributes_without_index}."
-
-        case RunType.DIRECT:
-            match level:
-                case PromptLevel.formula:
-                        instruction = \
-f"""Return the {top_k} customers most similar to the customer {cid}. The similarity score must be computed following these steps:
-1.	Basket-Content Representation
-	1.1	Build a customer–item matrix by cross-tabulating customers against the products they purchased.
-	1.2	Compute the cosine similarity between customers using these vectors.
-2.	RFM Behavioral Features
-	2.1	For each customer, compute Recency (days since last purchase), Frequency (number of purchase events), and Monetary value (total spend).
-	2.2	Normalize these RFM values so that each feature is on a comparable scale.
-	2.3	Compute the cosine similarity between customers based on these normalized RFM vectors.
-3.	Final Score
-    Combine the two similarity measures as follows:
-    •	{alpha*100:.0f}% weight for the basket-content similarity
-    •	{(1-alpha)*100:.0f}% weight for the RFM similarity"""
-                case PromptLevel.instruct:
-                    instruction = \
-f"""Return {top_k} customers most similar to customer {cid} based on their purchasing behavior.
-To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {alpha*100:.0f}% and {(1-alpha)*100:.0f}%:
-1. Product Affinity (basket-content similarity).
-2. RFM Profile (Recency, Frequency, Monetary)."""
-                case PromptLevel.generic:
-                    instruction = f"Return the {top_k} customers most similar to customer {cid}."
-            prompt = f"You are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}\n\n{instruction}\n\n{output}"
-
-    return prompt
-
 class NElemsType(StrEnum):
     customers = 'customers'
     rows = 'rows'
@@ -232,7 +164,6 @@ class CustomerSegmentationTestParameters(TestParameters):
     alpha: float = ALPHA
     top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
     n_elems_type: NElemsType = NElemsType.customers # customers | rows
-    n_elems_per_query: list[int] = field(default_factory=lambda: [N_CUSTOMERS_PER_QUERY])
     rows_in_prompt_limit: int = 5500
     names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel.fake)
 
@@ -241,18 +172,14 @@ class customer_segmentation(Test[CustomerSegmentationTestParameters]):
     name: str = "Customer Segmentation"
     name_short: str = "RFM"
     json_schema = MostSimilarCustomers
-    full_df: DataFrame = None
-    clean_df: DataFrame = None
-    pre_queries_df: DataFrame = None
     stats_df: DataFrame = None
     named_index_col = index_name
 
-    def load_csv(self, file_path: Path = None) -> None:
-        if file_path is None:
-            file_path = data_folder / self.family / 'Online Retail.xlsx'
+    def _load_ds(self) -> DataFrame:
+        file_path = data_folder / self.family / 'Online Retail.xlsx'
         ds_name = "yasserh/customer-segmentation-dataset"
         ensure_kaggle_ds(ds_name, file_path)
-        self.full_df = pd.read_excel(file_path)
+        return pd.read_excel(file_path)
 
     def _parse_query_manual(self, query: Query) -> bool:
         matched_lists: list[list[str]] = extract_separator_sequence(query.response, CHOSEN_SEPARATOR, query.parameters.k)
@@ -306,120 +233,142 @@ class customer_segmentation(Test[CustomerSegmentationTestParameters]):
 
         return result
 
-    def init_queries(self) -> None:
-        current_seed = self.parameters.seed
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, str | int | None, list[int | str], list[float]],tuple[DataFrame, str | int | None, list[int | str], list[float]]]:
+        cids_unique_full = df['CustomerID'].unique().tolist()
+        k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
+        min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
+        # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
+        temp_df = pd.DataFrame()
+        while True:
+            match self.parameters.n_elems_type:
+                case NElemsType.customers:
+                    selected_cids = random.sample(cids_unique_full, elem_per_query)
+                    temp_df = df[df['CustomerID'].isin(selected_cids)]
+                case NElemsType.rows:
+                    temp_df = self.generate_prompt_dataset(target_rows=elem_per_query, min_customers=min_customers_needed, seed=seed)
 
-        self.queries: list[Query] = []
-        cids_unique_full = self.clean_df['CustomerID'].unique().tolist()
-        counter = 0
-        ds_id = 0
-        pbar = tqdm(total=self.parameters.n_queries * len(self.parameters.n_elems_per_query) * len(self.parameters.kp) * len(self.parameters.names_levels) * len(self.parameters.prompt_levels),
-                    desc="Generating queries",
-                    unit="query",
-                    colour='green')
+            if len(temp_df) > self.parameters.rows_in_prompt_limit:
+                seed += 1
+                continue
 
-        for _ in range(self.parameters.n_queries):
-            # contatori statistici èer debugging
-            failed_n_customers = 0
-            failed_n_rows_interesting = 0
-            failed_similarity_score = 0
-            for elem_per_query in self.parameters.n_elems_per_query:
-                if self.parameters.seed != 0:
-                    random.seed(current_seed)
-                k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
-                min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
-                # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
-                temp_df = pd.DataFrame()
-                while True:
-                    match self.parameters.n_elems_type:
-                        case NElemsType.customers:
-                            selected_cids = random.sample(cids_unique_full, elem_per_query)
-                            temp_df = self.clean_df[self.clean_df['CustomerID'].isin(selected_cids)]
-                        case NElemsType.rows:
-                            temp_df = self.generate_prompt_dataset(target_rows=elem_per_query, min_customers=min_customers_needed, seed=current_seed)
+            df = temp_df
+            basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
 
-                    if len(temp_df) > self.parameters.rows_in_prompt_limit:
-                        current_seed += 1
-                        continue
+            min_n_interesting_rows = min_customers_needed
+            match self.parameters.n_elems_type:
+                case NElemsType.rows:
+                    threshold = 1
+                case NElemsType.customers:
+                    threshold = 2
+            if count_row_sums(basket, threshold) < min_n_interesting_rows: # n of interesting rows
+                seed += 1
+                continue
 
-                    df = temp_df
-                    basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
+            basket_sim = compute_basket_similarity(basket)
 
-                    min_n_interesting_rows = min_customers_needed
-                    match self.parameters.n_elems_type:
-                        case NElemsType.rows:
-                            threshold = 1
-                        case NElemsType.customers:
-                            threshold = 2
-                    if count_row_sums(basket, threshold) < min_n_interesting_rows: # n of interesting rows
-                        current_seed += 1
-                        failed_n_rows_interesting += 1
-                        continue
+            rfm = build_rfm_features(df)
+            rfm_sim = compute_rfm_similarity(rfm)
 
-                    basket_sim = compute_basket_similarity(basket)
+            hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.parameters.alpha)
 
-                    rfm = build_rfm_features(df)
-                    rfm_sim = compute_rfm_similarity(rfm)
+            selected_cid = random.choice(df['CustomerID'].unique().tolist())
+            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=elem_per_query)
+            if top_similar_df.values.tolist()[0] < 0.4:
+                seed += 1
+                continue # if the most similar customer has a very low similarity score, the query is not interesting: resample
+            break
 
-                    hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.parameters.alpha)
+        sorted_cids = top_similar_df.index.tolist()
+        ground_truth_vals = top_similar_df.values.tolist()
 
-                    selected_cid = random.choice(df['CustomerID'].unique().tolist())
-                    top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=elem_per_query)
-                    if top_similar_df.values.tolist()[0] < 0.4:
-                        current_seed += 1
-                        failed_similarity_score += 1
-                        continue # if the most similar customer has a very low similarity score, the query is not interesting: resample
-                    break
+        result = (df, selected_cid, sorted_cids, ground_truth_vals)
+        return result, result
 
-                sorted_cids = top_similar_df.index.tolist()
-                ground_truth_vals = top_similar_df.values.tolist()
+    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
+        if not self.parameters.enforce_json_schema:
+            raise NotImplementedError("il caso senza json_schema non è supportato.")
 
-                for k in k_list:
+        output = "Your output must contain only the required list of customers."
+        #PROBLEMA: questi sono gli attributi solo della prima riga del target CID! -> LOTUS è icompatibile con questo dataset
+        attributes_without_index = ", ".join(f"{{{col}}}: {val}" for col, val in df[df[index_name] == target].iloc[0].items() if col != index_name)
 
-                    for n_level in self.parameters.names_levels:
-                        if n_level != NamesLevel.fake:
-                            raise Exception(f"Unsupported names_level {n_level} in parameters.")
+        match self.run_type:
+            case RunType.LOTUS:
+                raise Exception("LOTUS è incompatibile con il DS customers")
+                match level:
+                    case PromptLevel.formula:
+                        prompt = \
+                            f"""Return the {{{index_name}}} most similar to the customer {cid}, whose attributes are: {attributes_without_index}. The similarity score must be computed following these steps:
+    1.	Basket-Content Representation
+        1.1	Build a customer–item matrix by cross-tabulating customers against the products they purchased.
+        1.2	Compute the cosine similarity between customers using these vectors.
+    2.	RFM Behavioral Features
+        2.1	For each customer, compute Recency (days since last purchase), Frequency (number of purchase events), and Monetary value (total spend).
+        2.2	Normalize these RFM values so that each feature is on a comparable scale.
+        2.3	Compute the cosine similarity between customers based on these normalized RFM vectors.
+    3.	Final Score
+        Combine the two similarity measures as follows:
+        •	{alpha*100:.0f}% weight for the basket-content similarity
+        •	{(1-alpha)*100:.0f}% weight for the RFM similarity"""
+                    case PromptLevel.instruct:
+                        prompt = \
+                            f"""Return the {{{index_name}}} most similar to customer {cid}, whose attributes are: {attributes_without_index}.
+    To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {alpha*100:.0f}% and {(1-alpha)*100:.0f}%:
+    1. Product Affinity (basket-content similarity).
+    2. RFM Profile (Recency, Frequency, Monetary)."""
+                    case PromptLevel.generic:
+                        prompt = f"Return the {{{index_name}}} most similar to customer {cid}, whose attributes are: {attributes_without_index}."
 
-                        for p_level in self.parameters.prompt_levels:
-                            self.queries.append(Query(
-                                id=counter,
-                                ds_id=ds_id,
-                                prompt=create_prompt(df, selected_cid, k, self.parameters.alpha, p_level,
-                                                     self.parameters.enforce_json_schema, self.run_type),
-                                prompt_df=df if self.run_type==RunType.LOTUS else None,
-                                ground_truth=sorted_cids,
-                                ground_truth_scores=ground_truth_vals,
-                                parameters=QueryParameters(k=k, prompt_level=p_level, names_level=n_level, n_elems=elem_per_query),
-                                response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None,
-                            ))
-                            counter += 1
-                            pbar.update(1)
+            case RunType.DIRECT:
+                match prompt_level:
+                    case PromptLevel.formula:
+                        instruction = \
+                            f"""Return the {k} customers most similar to the customer {target}. The similarity score must be computed following these steps:
+    1.	Basket-Content Representation
+        1.1	Build a customer–item matrix by cross-tabulating customers against the products they purchased.
+        1.2	Compute the cosine similarity between customers using these vectors.
+    2.	RFM Behavioral Features
+        2.1	For each customer, compute Recency (days since last purchase), Frequency (number of purchase events), and Monetary value (total spend).
+        2.2	Normalize these RFM values so that each feature is on a comparable scale.
+        2.3	Compute the cosine similarity between customers based on these normalized RFM vectors.
+    3.	Final Score
+        Combine the two similarity measures as follows:
+        •	{self.parameters.alpha*100:.0f}% weight for the basket-content similarity
+        •	{(1-self.parameters.alpha)*100:.0f}% weight for the RFM similarity"""
+                    case PromptLevel.instruct:
+                        instruction = \
+                            f"""Return {k} customers most similar to customer {target} based on their purchasing behavior.
+To determine similarity, evaluate customers across two standard retail dimensions, weighting them respectively {self.parameters.alpha*100:.0f}% and {(1-self.parameters.alpha)*100:.0f}%:
+    1. Product Affinity (basket-content similarity).
+    2. RFM Profile (Recency, Frequency, Monetary)."""
+                    case PromptLevel.generic:
+                        instruction = f"Return the {k} customers most similar to customer {target}."
+                prompt = f"You are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}\n\n{instruction}\n\n{output}"
 
-                current_seed += 1
-                ds_id += 1
+        return prompt
 
-        pbar.close()
-
-    def prepare_df(self) -> None:
+    def _prepare_df(self, df: DataFrame) -> DataFrame:
         # Drop unnecessary columns
-        self.clean_df = self.full_df.drop(columns=["Description", "Country"])
+        clean_df = df.drop(columns=["Description", "Country"])
         # Remove rows with missing CustomerID
-        self.clean_df = self.clean_df.dropna(subset=["CustomerID"])
+        clean_df = clean_df.dropna(subset=["CustomerID"])
         # Convert CustomerID to int
-        self.clean_df["CustomerID"] = self.clean_df["CustomerID"].astype(int)
+        clean_df["CustomerID"] = clean_df["CustomerID"].astype(int)
         # Remove cancellations (InvoiceNo that start with 'C')
-        self.clean_df = self.clean_df[~self.clean_df["InvoiceNo"].astype(str).str.startswith("C")]
+        clean_df = clean_df[~clean_df["InvoiceNo"].astype(str).str.startswith("C")]
         # Remove negative or zero quantities / unit prices
-        self.clean_df = self.clean_df[(self.clean_df["Quantity"] > 0) & (self.clean_df["UnitPrice"] > 0)]
+        clean_df = clean_df[(clean_df["Quantity"] > 0) & (clean_df["UnitPrice"] > 0)]
         # Total price per line
-        self.clean_df["TotalPrice"] = self.clean_df["Quantity"] * self.clean_df["UnitPrice"]
+        clean_df["TotalPrice"] = clean_df["Quantity"] * clean_df["UnitPrice"]
 
         # 2. Raggruppiamo per cliente per calcolare le loro statistiche base nel dataset completo
-        df_valid = self.clean_df.copy()
+        df_valid = clean_df.copy()
         self.stats_df = df_valid.groupby('CustomerID').agg(
             NumRows=('InvoiceNo', 'count'),
             NumInvoices=('InvoiceNo', 'nunique')
         )
+
+        return clean_df
 
     def generate_prompt_dataset(self, target_rows: int, min_customers: int, seed: int) -> DataFrame:
         """
@@ -458,16 +407,3 @@ class customer_segmentation(Test[CustomerSegmentationTestParameters]):
                 # Mischiamo le righe in modo casuale
                 df_finale = df_finale.sample(frac=1, random_state=seed).reset_index(drop=True)
                 return df_finale
-
-    # def prepare_lotus(self) -> None:
-    #     self.load_csv()
-    #     self.prepare_df()
-    #     pass
-
-    def prepare_queries_for_direct(self) -> None:
-        print('loading dataset...')
-        self.load_csv()
-        print('preparing DF...')
-        self.prepare_df()
-        print('initializing queries...')
-        self.init_queries()

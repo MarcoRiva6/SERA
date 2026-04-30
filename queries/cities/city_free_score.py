@@ -25,7 +25,7 @@ class city_free_score(global_liveability):
         return redefine_ranking(df)
 
     def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
-        job = f"You are given a dataset of cities, with various attributes:\n{df.to_string(index=False)}"
+        job = f"You are given a dataset of cities, with various attributes:\n{self._df_to_string_for_prompt(df)}"
         output = "Your output must contain only the required list of cities."
 
         SC = scoring_cols.copy()

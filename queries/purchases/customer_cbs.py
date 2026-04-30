@@ -121,7 +121,7 @@ class customer_CBS(customer_segmentation):
         if not self.parameters.enforce_json_schema:
             raise NotImplementedError("Il caso senza json_schema non è supportato")
 
-        intro_and_dataset = f"""you are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}"""
+        intro_and_dataset = f"""you are given the following dataset of customer purchase histories:\n{self._df_to_string_for_prompt(df)}"""
         output = "Your output must contain only the required list of customers."
 
         match prompt_level:

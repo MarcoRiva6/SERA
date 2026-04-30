@@ -72,7 +72,7 @@ class rid(Test[TestParameters]):
     def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
         if not self.parameters.enforce_json_schema:
             raise NotImplementedError("il caso senza json_schema non è più supportato")
-        job = f"Your are given a dataset of employees:\n{df.to_markdown(index=False)}"
+        job = f"Your are given a dataset of employees:\n{self._df_to_string_for_prompt(df)}"
         output = f"Your output must contain only the required list of {named_index_col}."
         match self.run_type:
             case RunType.LOTUS:

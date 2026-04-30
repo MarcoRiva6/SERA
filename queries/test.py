@@ -405,6 +405,9 @@ class Test(ABC, Generic[T_TestParameters]):
         """returns the prompt string built according to the given parameters"""
         raise NotImplementedError()
 
+    def _df_to_string_for_prompt(self, df: DataFrame) -> str:
+        return df.to_markdown(index=False)
+
     def _build_query(self, q_id: int, ds_id: int, df: DataFrame, target: str|int|None, k: int, gt_ids: list[str], gt_vals: list[float], prompt_level: PromptLevel, names_level: NamesLevel, n_elems: int) -> Query:
         return Query(
             id=q_id,

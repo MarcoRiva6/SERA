@@ -353,7 +353,7 @@ To determine similarity, evaluate customers across two standard retail dimension
     2. RFM Profile (Recency, Frequency, Monetary)."""
                     case PromptLevel.generic:
                         instruction = f"Return the {k} customers most similar to customer {target}."
-                prompt = f"You are given the following dataset of customer purchase histories:\n{df.to_string(index=False)}\n\n{instruction}\n\n{output}"
+                prompt = f"You are given the following dataset of customer purchase histories:\n{self._df_to_string_for_prompt(df)}\n\n{instruction}\n\n{output}"
 
         return prompt
 

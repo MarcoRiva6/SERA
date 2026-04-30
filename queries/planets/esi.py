@@ -102,7 +102,7 @@ class esi(Test[PlanetTestParameters]):
         if not self.parameters.enforce_json_schema:
             raise NotImplementedError("il caso senza json_schema non è più supportato.")
 
-        job = f"You are given a dataset of planets, with various attributes:\n{df.to_string(index=False)}"
+        job = f"You are given a dataset of planets, with various attributes:\n{self._df_to_string_for_prompt(df)}"
         output = "Your output must contain only the required list of planets."
         lotus_attributes_without_index = {", ".join([f"{{{c}}}" for c in df.columns if c != index_name])}
 

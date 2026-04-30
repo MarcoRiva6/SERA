@@ -62,7 +62,7 @@ class spa(Test[TestParameters]):
         if not self.parameters.enforce_json_schema:
             raise NotImplementedError("il caso senza json_schema non è più supportato")
 
-        job = f"You are given a dataset of household electricity consumptions:\n{df.to_markdown(index=False)}"
+        job = f"You are given a dataset of household electricity consumptions:\n{self._df_to_string_for_prompt(df)}"
         output = f"Your output must contain only the required list of household ids ({self.named_index_col})."
 
         match self.run_type:

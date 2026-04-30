@@ -79,7 +79,7 @@ Where:
 - 'R' is the planet's Radius;
 - 'S' is the planet's Flux."""
                 prompt = f"""{job}
-    {df.to_string(index=False)}
+    {self._df_to_string_for_prompt(df)}
     
     {instruction}
     

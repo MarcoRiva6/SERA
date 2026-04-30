@@ -99,7 +99,7 @@ class levenshtein(Test[MolecularTestParameters]):
         return True
 
     def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel)  -> str:
-        job = f"You are given the following list of molecules represented by their SMILES strings:\n{df.to_string(index=False)}"
+        job = f"You are given the following list of molecules represented by their SMILES strings:\n{self._df_to_string_for_prompt(df)}"
         output = "Your output must contain only the final ranking."
         match prompt_level:
             case PromptLevel.instruct:

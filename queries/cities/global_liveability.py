@@ -54,7 +54,7 @@ class global_liveability(Test[TestParameters]):
         return df
 
     def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
-        job = f"You are given a dataset of cities, with various attributes:\n{df.to_string(index=False)}"
+        job = f"You are given a dataset of cities, with various attributes:\n{self._df_to_string_for_prompt()}"
         output = "Your output must contain only the required list of cities."
         formula_string = f"GLI = ({" + ".join([f"'{c}' * {str(w)}" for c, w in wights.items()])})"
         # questa stringa fornisce i nomi delle colonne con il formato che LOTUS si aspetta

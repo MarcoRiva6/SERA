@@ -177,21 +177,21 @@ class customer_CBS(customer_segmentation):
         while True:
             match self.parameters.n_elems_type:
                 case NElemsType.customers:
-                    cids_unique_full = df['CustomerID'].unique().tolist()
+                    cids_unique_full = df[self.named_index_col].unique().tolist()
                     selected_cids = random.sample(cids_unique_full, elem_per_query)
-                    temp_df = df[df['CustomerID'].isin(selected_cids)]
+                    temp_df = df[df[self.named_index_col].isin(selected_cids)]
                 case NElemsType.rows:
-                    temp_df = self.generate_prompt_dataset(target_rows=elem_per_query, min_customers=min_customers_needed, seed=seed)
+                    temp_df = sample_ds_interesting(df, length=elem_per_query, min_unique=min_customers_needed+3, key=self.named_index_col)
+                    #temp_df = self.generate_prompt_dataset(df=df, target_rows=elem_per_query,
+                    #                                       min_customers=min_customers_needed, seed=seed)
 
             if len(temp_df) > self.parameters.rows_in_prompt_limit:
-                seed += 1
                 continue
 
             df = temp_df
-            selected_cid = random.choice(df['CustomerID'].unique().tolist())
+            selected_cid = random.choice(df[self.named_index_col].unique().tolist())
             top_similar_df = get_top_similar_customers(df, selected_cid, self.parameters.alpha)
-            if top_similar_df.values.tolist()[0] < 0.4:
-                seed += 1
+            if top_similar_df.values.tolist()[0] < 0.3:
                 continue
             break
 
@@ -200,3 +200,42 @@ class customer_CBS(customer_segmentation):
 
         result = (df, selected_cid, sorted_cids, ground_truth_vals)
         return result, result
+
+    # non è più utilizzato
+    def generate_prompt_dataset(self, df, target_rows: int, min_customers: int, seed: int) -> DataFrame:
+        """
+        Estrae un sotto-dataset di esattamente 'target_rows' righe e almeno
+        'min_customers' clienti, garantendo che le metriche comportamentali siano calcolabili.
+        Viene utilizzato "random", di cui NON viene ri-settato il seed, che invece viene utilizzato per le funzioni random
+        di pandas.
+        """
+        # 3. Creiamo un "bacino" di clienti ideali per il test.
+        # Devono avere almeno 2 fatture (per calcolare la Tenure) e non troppe righe
+        # (altrimenti un solo cliente occuperebbe tutto il test da 30 righe).
+        max_rows_per_cust = (target_rows // min_customers) + 3
+
+        clienti_idonei = self.stats_df[
+            (self.stats_df['NumInvoices'] >= 2) &
+            (self.stats_df['NumRows'] >= 2) &
+            (self.stats_df['NumRows'] <= max_rows_per_cust)
+            ].index.tolist()
+
+        if len(clienti_idonei) < min_customers:
+            raise ValueError("Non ci sono abbastanza clienti con questi requisiti nel dataset.")
+
+        # 4. Ricerca della combinazione esatta (ciclo veloce basato sulla casualità)
+        # Poiché il dataset è enorme, troverà la combinazione in frazioni di secondo.
+        while True:
+            # Decidiamo quanti clienti pescare (tra il minimo richiesto e il massimo possibile)
+            num_clienti_da_pescare = random.randint(min_customers, target_rows // 2)
+            # Peschiamo casualmente i clienti dal nostro bacino idoneo
+            clienti_scelti = random.sample(clienti_idonei, num_clienti_da_pescare)
+            # Contiamo quante righe totali occupano questi clienti
+            righe_totali = self.stats_df.loc[clienti_scelti, 'NumRows'].sum()
+            # Se la somma fa ESATTAMENTE il numero di righe che vogliamo (es. 30), ci fermiamo!
+            if righe_totali == target_rows:
+                # Estraiamo le righe reali di questi clienti dal dataset originale
+                df_finale = df[df['CustomerID'].isin(clienti_scelti)].copy()
+                # Mischiamo le righe in modo casuale
+                df_finale = df_finale.sample(frac=1, random_state=seed).reset_index(drop=True)
+                return df_finale

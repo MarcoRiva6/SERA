@@ -191,6 +191,92 @@ def download_csv(url: str, dest_path: Path) -> None:
     else:
         raise Exception(response.text)
 
+def sample_ds_interesting(df: pd.DataFrame, length: int, min_unique: int, key: str) -> pd.DataFrame:
+    """
+    Estrae esattamente 'length' righe, garantendo almeno 'min_unique' id univoci.
+    Massimizza il numero di righe per id.
+    """
+    indici_per_id = df.groupby(key).groups
+    # Ordiniamo gli ID in base a quante righe hanno (dal più grande al più piccolo).
+    # Questo garantisce che sceglieremo "serbatoi" grandi che possono assorbire molte righe.
+    tutti_id = list(indici_per_id.keys())
+    # 1. Ordiniamo rigorosamente dal più grande al più piccolo
+    tutti_id.sort(key=lambda x: len(indici_per_id[x]), reverse=True)
+    # 2. CAOS CONTROLLATO: Definiamo quanto deve essere grande il "bacino" di pesca
+    # Moltiplicare k per 3 o 4 dà ottima varietà garantendo comunque household molto densi
+    ampiezza_bacino = min(len(tutti_id), min_unique * 4)
+    # 3. Estraiamo l'élite, la mischiamo, e la rimettiamo in cima
+    elite_id = tutti_id[:ampiezza_bacino]
+    random.shuffle(elite_id)
+    tutti_id[:ampiezza_bacino] = elite_id
+
+    id_potenziali_multi = [uid for uid in tutti_id if len(indici_per_id[uid]) >= 2]
+
+    m_min = (min_unique + 1) // 2
+    s_max = min_unique - m_min
+
+    if len(id_potenziali_multi) < m_min:
+        raise ValueError(f"Servono almeno {m_min} id con >=2 righe.")
+
+    # Selezioniamo i 'min_unique' elementi iniziali e assegniamo il minimo
+    scelti_multi = id_potenziali_multi[:m_min]
+    rimanenti_disponibili = [uid for uid in tutti_id if uid not in scelti_multi]
+    scelti_resto = rimanenti_disponibili[:s_max]
+
+    quote = {}
+    for uid in scelti_multi: quote[uid] = 2
+    for uid in scelti_resto: quote[uid] = 1
+
+    righe_assegnate = sum(quote.values())
+    if length < righe_assegnate:
+        raise ValueError(f"l={length} è troppo piccolo. Ne servono almeno {righe_assegnate}.")
+
+    da_assegnare = length - righe_assegnate
+
+    # Distribuzione densa (Il cambiamento principale)
+    # espandibili = elementi attualmente selezionati che hanno ancora righe a disposizione
+    espandibili = {uid for uid in quote if quote[uid] < len(indici_per_id[uid])}
+    non_ancora_scelti = set(rimanenti_disponibili[s_max:])
+
+    while da_assegnare > 0:
+        if espandibili:
+            # PRIMA SCELTA ASSOLUTA: Aggiungiamo righe a chi è già nel pool!
+            # Non introduciamo nuovi elementi finché c'è spazio in questi.
+            uid = random.choice(list(espandibili))
+            quote[uid] += 1
+            da_assegnare -= 1
+
+            # Se ha esaurito tutte le sue righe originali, non è più espandibile
+            if quote[uid] == len(indici_per_id[uid]):
+                espandibili.remove(uid)
+        else:
+            # Tutti i 'k' elementi selezionati sono stati "spremuti" al massimo
+            # e ci mancano ancora righe per arrivare a 'l'.
+            # Solo in questo caso introduciamo un NUOVO elementi.
+            if not non_ancora_scelti:
+                raise ValueError("Dataset esaurito! Hai richiesto più righe di quelle totali disponibili.")
+
+            # Prendiamo il prossimo elementi disponibile
+            # Visto che non usiamo random.pop() sui set per mantenere l'ordinamento:
+            uid = next(uid for uid in tutti_id if uid in non_ancora_scelti)
+            non_ancora_scelti.remove(uid)
+
+            # Gli assegnamo la sua prima riga
+            quote[uid] = 1
+            da_assegnare -= 1
+            if len(indici_per_id[uid]) > 1:
+                espandibili.add(uid)
+
+    # Estrazione vera e propria dei dati
+    indici_finali = []
+    for uid, num_righe in quote.items():
+        indici_scelti = random.sample(list(indici_per_id[uid]), num_righe)
+        indici_finali.extend(indici_scelti)
+
+    df_finale = df.loc[indici_finali].sample(frac=1).reset_index(drop=True)
+
+    return df_finale
+
 @dataclass
 class Query:
     """

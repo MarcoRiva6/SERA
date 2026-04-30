@@ -1,11 +1,11 @@
 models:
   - name: 'ollama/gemma3-27b'
-    no_waiting: false
-    remote_job: false
+    no_waiting: true
+    remote_job: true
     temperature: 0
   - name: 'ollama/qwen3-30b'
-    no_waiting: false
-    remote_job: false
+    no_waiting: true
+    remote_job: true
     temperature: 0
 #  - name: 'together/deepseek-V3-together'
 #    no_waiting: true
@@ -19,23 +19,86 @@ models:
 run_types: 'direct'
 seed: 1234
 disabled: false
+skip_model: true
 queries:
-  - name: 'hr/rid'
-    n_queries: 2
+  - name: 'meters/spa'
+    n_queries: 5
+    elems_per_query:
+      - 30
+      - 70
     names_levels:
-    - 'real'
+      - 'fake'
+      - 'real'
     prompt_levels:
-    - 'instruct'
-    - 'formula'
-    kp:
-    - 0.10
-#  - name: 'smartphones/hw_eff_score'
-#    n_queries: 2
+      - 'instruct'
+      - 'formula'
+#  - name: 'cities/cit7_free_score'
+#    cities_per_query:
+#      - 30
+#      - 70
 #    names_levels:
-#      - 'real'
 #      - 'fake'
+#      - 'real'
 #    prompt_levels:
 #      - 'instruct'
 #      - 'formula'
-#    kp:
-#      - 0.10
+#  - name: 'cities/global_liveability'
+#    cities_per_query:
+#      - 30
+#      - 70
+#    names_levels:
+#      - 'fake'
+#      - 'real'
+#    prompt_levels:
+#      - 'generic'
+#      - 'instruct'
+#      - 'formula'
+#  - name: 'molecules/levenshtein'
+#    elems_per_query:
+#      - 30
+#      - 70
+#    names_levels:
+#      - 'fake'
+#    prompt_levels:
+#      - 'generic'
+#      - 'instruct'
+#      - 'formula'
+#  - name: 'planets/dif'
+#    planets_per_query:
+#      - 30
+#      - 69
+#    names_levels:
+#      - 'fake'
+#      - 'real'
+#    prompt_levels:
+#      - 'instruct'
+#      - 'formula'
+#  - name: 'planets/esi'
+#    planets_per_query:
+#      - 30
+#      - 69
+#    names_levels:
+#      - 'fake'
+#      - 'real'
+#    prompt_levels:
+#      - 'generic'
+#      - 'instruct'
+#      - 'formula'
+  - name: 'purchases/customer_cbs'
+    elems_per_query:
+      - 30
+      - 70
+    names_levels:
+      - 'real'
+    prompt_levels:
+      - 'instruct'
+      - 'formula'
+#  - name: 'purchases/customer_cbs'
+#    elems_per_query:
+#      - 30
+#      - 70
+#    names_levels:
+#      - 'real'
+#    prompt_levels:
+#      - 'instruct'
+#      - 'formula'

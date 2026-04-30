@@ -13,7 +13,7 @@ from sklearn.preprocessing import StandardScaler
 
 from experiments.run_type import RunType
 from queries.test import Query, Test, Evaluations, data_folder, \
-    ensure_kaggle_ds, extract_separator_sequence, TestParameters, PromptLevel, NamesLevel
+    ensure_kaggle_ds, extract_separator_sequence, TestParameters, PromptLevel, NamesLevel, sample_ds_interesting
 
 index_name = 'CustomerID'
 ALPHA = 0.7                      # weight for basket-content similarity
@@ -163,7 +163,7 @@ class NElemsType(StrEnum):
 class CustomerSegmentationTestParameters(TestParameters):
     alpha: float = ALPHA
     top_n_items_min_purchases: int = TOP_N_ITEMS_MIN_PURCHASES
-    n_elems_type: NElemsType = NElemsType.customers # customers | rows
+    n_elems_type: NElemsType = NElemsType.rows # customers | rows
     rows_in_prompt_limit: int = 5500
     names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel.fake)
 
@@ -234,55 +234,65 @@ class customer_segmentation(Test[CustomerSegmentationTestParameters]):
         return result
 
     def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, str | int | None, list[int | str], list[float]],tuple[DataFrame, str | int | None, list[int | str], list[float]]]:
-        cids_unique_full = df['CustomerID'].unique().tolist()
+        cids_unique_full = df[self.named_index_col].unique().tolist()
         k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
         min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
-        # trim dataset to N_CUSTOMERS_PER_QUERY customers and verify it is interesting
-        temp_df = pd.DataFrame()
+        min_customers_requested = min_customers_needed + 3
         while True:
+            # --- 1. CAMPIONAMENTO ---
             match self.parameters.n_elems_type:
                 case NElemsType.customers:
                     selected_cids = random.sample(cids_unique_full, elem_per_query)
-                    temp_df = df[df['CustomerID'].isin(selected_cids)]
+                    final_df = df[df[self.named_index_col].isin(selected_cids)]
+
+                    if len(final_df) > self.parameters.rows_in_prompt_limit:
+                        continue
+
                 case NElemsType.rows:
-                    temp_df = self.generate_prompt_dataset(target_rows=elem_per_query, min_customers=min_customers_needed, seed=seed)
-
-            if len(temp_df) > self.parameters.rows_in_prompt_limit:
-                seed += 1
+                    final_df = sample_ds_interesting(
+                        df,
+                        length=elem_per_query,
+                        min_unique=min_customers_requested,
+                        key=self.named_index_col
+                    )
+            # --- 2. CONTROLLO BASKET ---
+            basket = build_basket_matrix(final_df, self.parameters.top_n_items_min_purchases)
+            threshold = 1 if self.parameters.n_elems_type == NElemsType.rows else 2
+            if count_row_sums(basket, threshold) < min_customers_requested:
                 continue
-
-            df = temp_df
-            basket = build_basket_matrix(temp_df, self.parameters.top_n_items_min_purchases)
-
-            min_n_interesting_rows = min_customers_needed
-            match self.parameters.n_elems_type:
-                case NElemsType.rows:
-                    threshold = 1
-                case NElemsType.customers:
-                    threshold = 2
-            if count_row_sums(basket, threshold) < min_n_interesting_rows: # n of interesting rows
-                seed += 1
-                continue
-
+            # --- 3. CALCOLO SIMILARITÀ ---
             basket_sim = compute_basket_similarity(basket)
-
-            rfm = build_rfm_features(df)
+            rfm = build_rfm_features(final_df)
             rfm_sim = compute_rfm_similarity(rfm)
-
             hybrid_sim = compute_hybrid_similarity(basket_sim, rfm_sim, alpha=self.parameters.alpha)
+            # --- 4. RICERCA DEL CLIENTE INTERESSANTE ---
+            # Mischiamo la lista clienti. Li testiamo uno a uno finché non troviamo
+            # il primo che ha un vicino >= 0.4. Appena lo troviamo, abbiamo vinto.
+            tutti_i_clienti = final_df[self.named_index_col].unique().tolist()
+            random.shuffle(tutti_i_clienti)
 
-            selected_cid = random.choice(df['CustomerID'].unique().tolist())
-            top_similar_df = get_top_k_similar(hybrid_sim, selected_cid, k=elem_per_query)
-            if top_similar_df.values.tolist()[0] < 0.4:
-                seed += 1
-                continue # if the most similar customer has a very low similarity score, the query is not interesting: resample
-            break
+            trovato_interessante = False
+            selected_cid = None
 
-        sorted_cids = top_similar_df.index.tolist()
-        ground_truth_vals = top_similar_df.values.tolist()
+            for cid in tutti_i_clienti:
+                top_similar_df = get_top_k_similar(hybrid_sim, cid, k=elem_per_query)
 
-        result = (df, selected_cid, sorted_cids, ground_truth_vals)
-        return result, result
+                # Controlliamo il livello di similarità del più vicino
+                if top_similar_df.values.tolist()[0] >= 0.3:
+                    selected_cid = cid
+                    trovato_interessante = True
+                    break
+
+            # Se NESSUN cliente del batch ha similarità >= 0.3, buttiamo il dataset
+            if not trovato_interessante:
+                continue
+
+            sorted_cids = top_similar_df.index.tolist()
+            ground_truth_vals = top_similar_df.values.tolist()
+
+            result = (final_df, selected_cid, sorted_cids, ground_truth_vals)
+            return result, result
+
 
     def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
         if not self.parameters.enforce_json_schema:
@@ -369,41 +379,3 @@ To determine similarity, evaluate customers across two standard retail dimension
         )
 
         return clean_df
-
-    def generate_prompt_dataset(self, target_rows: int, min_customers: int, seed: int) -> DataFrame:
-        """
-        Estrae un sotto-dataset di esattamente 'target_rows' righe e almeno
-        'min_customers' clienti, garantendo che le metriche comportamentali siano calcolabili.
-        Viene utilizzato "random", di cui NON viene ri-settato il seed, che invece viene utilizzato per le funzioni random
-        di pandas.
-        """
-        # 3. Creiamo un "bacino" di clienti ideali per il test.
-        # Devono avere almeno 2 fatture (per calcolare la Tenure) e non troppe righe
-        # (altrimenti un solo cliente occuperebbe tutto il test da 30 righe).
-        max_rows_per_cust = (target_rows // min_customers) + 3
-
-        clienti_idonei = self.stats_df[
-            (self.stats_df['NumInvoices'] >= 2) &
-            (self.stats_df['NumRows'] >= 2) &
-            (self.stats_df['NumRows'] <= max_rows_per_cust)
-            ].index.tolist()
-
-        if len(clienti_idonei) < min_customers:
-            raise ValueError("Non ci sono abbastanza clienti con questi requisiti nel dataset.")
-
-        # 4. Ricerca della combinazione esatta (ciclo veloce basato sulla casualità)
-        # Poiché il dataset è enorme, troverà la combinazione in frazioni di secondo.
-        while True:
-            # Decidiamo quanti clienti pescare (tra il minimo richiesto e il massimo possibile)
-            num_clienti_da_pescare = random.randint(min_customers, target_rows // 2)
-            # Peschiamo casualmente i clienti dal nostro bacino idoneo
-            clienti_scelti = random.sample(clienti_idonei, num_clienti_da_pescare)
-            # Contiamo quante righe totali occupano questi clienti
-            righe_totali = self.stats_df.loc[clienti_scelti, 'NumRows'].sum()
-            # Se la somma fa ESATTAMENTE il numero di righe che vogliamo (es. 30), ci fermiamo!
-            if righe_totali == target_rows:
-                # Estraiamo le righe reali di questi clienti dal dataset originale
-                df_finale = self.clean_df[self.clean_df['CustomerID'].isin(clienti_scelti)].copy()
-                # Mischiamo le righe in modo casuale
-                df_finale = df_finale.sample(frac=1, random_state=seed).reset_index(drop=True)
-                return df_finale

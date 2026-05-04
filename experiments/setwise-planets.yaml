@@ -4,8 +4,8 @@ models:
     remote_job: false
     temperature: 0
 #  - name: 'ollama/qwen3-30b'
-#    no_waiting: true
-#    remote_job: true
+#    no_waiting: false
+#    remote_job: false
 #    temperature: 0
 #  - name: 'together/deepseek-V3-together'
 #    no_waiting: true
@@ -24,7 +24,7 @@ disabled: true
 skip_model: false
 queries:
   - name: 'planets/esi'
-    n_queries: 2
+    n_queries: 8
     elems_per_query:
       - 30
       - 69
@@ -35,7 +35,19 @@ queries:
       - 'instruct'
       - 'formula'
     kp:
+      - 0.05
       - 0.10
+#  - name: 'smartphones/hw_eff_score'
+#    n_queries: 8
+#    elems_per_query:
+#      - 30
+#      - 70
+#    prompt_levels:
+#      - 'instruct'
+#      - 'formula'
+#    kp:
+#      - 0.05
+#      - 0.10
 #  - name: 'cities/cit7_free_score'
 #    cities_per_query:
 #      - 30

@@ -56,7 +56,7 @@ class Experiment:
             print('Skipping model...')
         else:
             try:
-                self.model.run(self.test.queries)
+                self.model.run(self.test.queries, self.test)
                 print('Model processing complete.')
             except NotImplementedError as e:
                 print(e)
@@ -67,11 +67,14 @@ class Experiment:
                 print('An unknown error occurred during submission:', e)
                 return
 
-        at_least_one_completed = any(q.response is not None for q in self.test.queries)
+        # facciamo partire il parsing e la valutazione delle query solo se ce n'è almeno una con risposta.
+        # Poi, verranno valutate tutte le query, anche quelle senza risposta, le quali risulteranno quindi parsing_failed = True
+        at_least_one_completed = any(q.is_answered() for q in self.test.queries)
         if at_least_one_completed:
             for q in tqdm(self.test.queries, desc='Parsing and evaluating queries', unit='query', colour='blue'):
-                self.test.parse_query(q)
-                q.evaluations = self.test.evaluate_query(q)
+                if q.is_answered():
+                    self.test.parse_query(q)
+                    q.evaluations = self.test.evaluate_query(q)
 
             print('Storing answered queries...')
             self.test.queries_to_csv('evaluated_queries.csv', self.inner_folder)

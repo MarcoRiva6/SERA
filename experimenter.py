@@ -168,7 +168,8 @@ def load_experiments() -> list[Run]:
             for run_type in RunType:
                 run_types.append(run_type)
         else:
-            run_types.append(RunType(raw_run_types))
+            for rt in raw_run_types:
+                run_types.append(RunType(rt))
         if not run_types:
             print("Warning: No run types matched for experiment file:", test_file)
             continue
@@ -211,7 +212,7 @@ def instantiate_test(exp_seed: int, inner_run_folder: Path, query_dictionary: di
     q_module_path = 'queries.' + query_dictionary['name'].replace('/', '.')
     q_class = get_test_class(q_module_path)
 
-    q_param_class = get_test_generic_types(q_class)[0]
+    q_param_class = get_test_generic_types(q_class)[1]
 
     # instantiate test parameters object
     q_external_params = {k: v for k, v in query_dictionary.items() if k != 'name'}

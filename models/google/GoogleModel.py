@@ -11,7 +11,8 @@ from google.genai.types import BatchJob, ThinkingConfig, GenerationConfig, Conte
 from tqdm import tqdm
 
 from models.model import Model, write_jsonl, _split_queries
-from queries.test import Query
+from queries.test import Query, DirectQuery
+
 
 def convert_schema_to_gemini(schema):
     #TODO: rimuovere warning di pydantic
@@ -58,7 +59,10 @@ class GoogleModel(Model):
         response = self.client.models.count_tokens(contents=prompt, model=self.name_api)
         return response.total_tokens
 
-    def _submit_direct_inline(self, prompt: str) -> str | None:
+    def _submit_direct_query(self, query: DirectQuery) -> None:
+        query.response = self._submit_direct_query_inline(query.prompt)
+
+    def _submit_direct_query_inline(self, prompt: str) -> str | None:
         MAX_RETRIES = 3
         TIMEOUT = 600
         RETRY_DELAY = 40
@@ -124,7 +128,7 @@ class GoogleModel(Model):
                 else:
                     return None
 
-    def _submit_direct_batched(self, folder: Path, queries: list[Query]) -> bool:
+    def _submit_direct_queries_batched(self, folder: Path, queries: list[Query]) -> bool:
         poll_interval = 60 #seconds
         timeout = 86400  #seconds (24 hours)
         batch_id_path = folder / "batch_id.txt"
@@ -234,7 +238,7 @@ class GoogleModel(Model):
     def _finish_model(self) -> None:
         self.client.close()
 
-    def _submit_direct(self, queries: list[Query]):
+    def _submit_direct_queries(self, queries: list[DirectQuery]):
         if not self.supports_batched and self.params.batched:
             print(f"Model {self.name} does not support batched submissions. Submitting inline.")
             self.params.batched = False
@@ -245,12 +249,12 @@ class GoogleModel(Model):
             pbar = tqdm(batches, desc="Uploading batches", unit="batch")
             for i, b in enumerate(pbar):
                 pbar.set_postfix(queries=len(b))
-                completed = self._submit_direct_batched(self.run_folder / f"batch_{i + 1}", b)
+                completed = self._submit_direct_queries_batched(self.run_folder / f"batch_{i + 1}", b)
                 all_completed = all_completed and completed
             if not all_completed:
                 print("Not waiting for submission to complete...")
             return
         else:
             for q in queries:
-                q.response = self._submit_direct_inline(q.prompt)
+                self._submit_direct_query(q)
 

@@ -8,7 +8,7 @@ from queries.test import PromptLevel
 
 
 def generate_prompt(df, prompt_level, top_k, target, run_type: RunType):
-    job = f"You are given the following list of molecules represented by their SMILES strings:\n{self._df_to_string_for_prompt(df)}"
+    job = f"You are given the following list of molecules represented by their SMILES strings:\n{self.df_to_string_for_prompt(df, None)}"
     output = "Your output must contain only the final ranking."
 
     match prompt_level:

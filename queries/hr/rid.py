@@ -1,17 +1,17 @@
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 
-from experiments.run_type import RunType
-from queries.test import TestParameters, Test, data_folder, PromptLevel
+from queries.test import TestParameters, Test, data_folder, PromptLevel, PartitionedQueryParameters
 
+type GTT = int
 named_index_col = 'employee_id'
 
 class ClosestEmployee(BaseModel):
-    top_k: list[int] = Field(description=f"Ordered list of the k closest employees (by {named_index_col}) according to the specified metric.")
+    top_k: list[GTT] = Field(description=f"Ordered list of the k closest employees (by {named_index_col}) according to the specified metric.")
 
 def compute_rid(input_df: pd.DataFrame, target_id) -> pd.DataFrame:
     df = input_df.copy()
@@ -43,7 +43,7 @@ def compute_rid(input_df: pd.DataFrame, target_id) -> pd.DataFrame:
     return df
 
 @dataclass
-class rid(Test[TestParameters]):
+class rid(Test[GTT, TestParameters]):
     name: str = 'Role Interchangeability Distance'
     name_short: str = 'RID'
     json_schema = ClosestEmployee
@@ -56,41 +56,35 @@ class rid(Test[TestParameters]):
         columns_to_keep = ['Age','Gender','Department','EducationField','Education','TotalWorkingYears','MonthlyIncome','MonthlyRate']
         return df[columns_to_keep].rename_axis(self.named_index_col).reset_index()
 
-    def _sample_for_query(self, current_seed: int, df, elem_per_query: int) -> DataFrame:
-        return self.full_df.sample(n=elem_per_query, replace=False, random_state=current_seed if self.parameters.seed != 0 else None)
+    def _sample_for_query(self, current_seed: int, df: DataFrame, elem_per_query: int) -> DataFrame:
+        return df.sample(n=elem_per_query, replace=False, random_state=current_seed if self.parameters.seed != 0 else None)
 
-    def _select_query_target(self, current_seed, real_df: DataFrame, anon_df) -> tuple[str | int | None, str | int | None]:
+    def _select_query_target(self, current_seed, real_df: DataFrame, anon_df) -> tuple[GTT|None, GTT|None]:
         target_employee = random.choice(real_df[named_index_col].tolist())
         return target_employee, target_employee
 
-    def _build_ground_truth(self, df: DataFrame, target: str|int|None) -> tuple[list[str | int], list[float]]:
+    def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], list[float]]:
         gt_df = compute_rid(df, target)
         target_mask = gt_df[named_index_col] == target
         gt_df = gt_df[~target_mask].sort_values('RID_Score', ascending=False)
         return gt_df[named_index_col].tolist(), gt_df['RID_Score'].tolist()
 
-    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
-        if not self.parameters.enforce_json_schema:
-            raise NotImplementedError("il caso senza json_schema non è più supportato")
-        job = f"Your are given a dataset of employees:\n{self._df_to_string_for_prompt(df)}"
+    def _create_prompt_partitioned(self, df: DataFrame, target: GTT | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:
+        job = f"Your are given a dataset of employees:"
         output = f"Your output must contain only the required list of {named_index_col}."
-        match self.run_type:
-            case RunType.LOTUS:
-                raise NotImplementedError("LOTUS non è ancora implementato")
-            case RunType.DIRECT:
-                match prompt_level:
-                    case PromptLevel.generic:
-                        raise NotImplementedError("generic non ancora implementato")
-                    case PromptLevel.instruct:
-                        instruction = \
-                            f"""Return the {k} most interchangeable employees to the target employee '{target}' from the provided dataset, using the Role Interchangeability Distance (RID). Calculate the RID by summing four components:
+        match q_params.prompt_level:
+            case PromptLevel.generic:
+                raise NotImplementedError("generic non ancora implementato")
+            case PromptLevel.instruct:
+                instruction = \
+                    f"""Return the {q_params.k} most interchangeable employees to the target employee '{target}' from the provided dataset, using the Role Interchangeability Distance (RID). Calculate the RID by summing four components:
     1.	A 10-point penalty if their 'Department' values are different.
     2.	An education penalty: 0 if they share the same 'EducationField' OR if the target employee's 'Education' level (numeric) is strictly greater than the candidate's. Otherwise, add 10 points.
     3.	The absolute difference in their 'TotalWorkingYears'.
     4.	The absolute difference in their 'MonthlyIncome', divided by 1000."""
-                    case PromptLevel.formula:
-                        instruction = \
-                            f"""Return the {k} most interchangeable employees to the target employee '{target}', based on the Role Interchangeability Distance (RID). The RID between two employees can be computed as follows:
+            case PromptLevel.formula:
+                instruction = \
+                    f"""Return the {q_params.k} most interchangeable employees to the target employee '{target}', based on the Role Interchangeability Distance (RID). The RID between two employees can be computed as follows:
     1.	Initialize a variable 'total_rid' to 0.
     2.	If their 'Department' differs, add 10 to 'total_rid'.
     3.	If the 'EducationField' differs, compare their numeric 'Education' values. If target employee's 'Education' value is less than or equal to other employee's one, add 10 to 'total_rid'.
@@ -98,6 +92,4 @@ class rid(Test[TestParameters]):
     5.	Add the absolute difference between the two employees' 'MonthlyIncome', divided this by 1000, to 'total_rid'.
     6.	The final value of 'total_rid' is the RID score."""
 
-                prompt = f"{job}\n{instruction}\n{output}"
-
-        return prompt
+        return job, f"{instruction}\n{output}"

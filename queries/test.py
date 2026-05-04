@@ -14,11 +14,11 @@ import csv
 import json
 import re
 import shutil
-from abc import ABC
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict, field
 from enum import StrEnum
 from pathlib import Path
-from typing import get_type_hints, get_origin, TypeVar, Generic
+from typing import get_type_hints, get_origin, Literal
 
 import kagglehub
 import pandas as pd
@@ -31,6 +31,9 @@ from experiments.run_type import RunType
 from metrics import *
 
 data_folder: Path = Path(__file__).resolve().parent.parent / 'data' # path to the project's data folder
+type GroundTruthScoreElem = float
+type GroundTruthScoreList = list[float]
+type PrintingMode = Literal['plain', 'markdown']
 
 class PromptLevel(StrEnum):
     generic = 'generic'
@@ -54,8 +57,8 @@ class TestParameters(ABC):
     prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
     names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel)
     enforce_json_schema: bool = True
-
-T_TestParameters = TypeVar('T_TestParameters', bound=TestParameters)
+    setwise_partition_rate: list[int] = field(default_factory=lambda: [10])
+    prompt_printing_modes: list[PrintingMode] = field(default_factory=lambda: ['plain'])
 
 @dataclass
 class QueryParameters:
@@ -63,6 +66,11 @@ class QueryParameters:
     names_level: NamesLevel
     k: int
     n_elems: int
+    prompt_printing_mode: PrintingMode
+
+@dataclass
+class PartitionedQueryParameters(QueryParameters):
+    partition_rate: int
 
 @dataclass
 class Evaluations:
@@ -77,7 +85,7 @@ class Evaluations:
     hallucination_rate: float
     tokens: int
 
-def mark_duplicates(llm_response: list[Any]) -> list[Any]:
+def mark_duplicates[T: (str,int)](llm_response: list[T]) -> list[T]:
     """
     Mark duplicated values in llm_response that are not in the correct position according to ground_truth.
     Duplicated values are replaced with the string "<duplicated>".
@@ -92,7 +100,14 @@ def mark_duplicates(llm_response: list[Any]) -> list[Any]:
             seen.add(item)
         else:
             # È un duplicato
-            cleaned_ranking.append("<duplicated>")
+            match item:
+                case str():
+                    to_append = "<duplicated>"
+                case int():
+                    to_append = -1
+                case _:
+                    raise ValueError("type in llm_response not supported")
+            cleaned_ranking.append(to_append)
 
     return cleaned_ranking
 
@@ -278,32 +293,25 @@ def sample_ds_interesting(df: pd.DataFrame, length: int, min_unique: int, key: s
     return df_finale
 
 @dataclass
-class Query:
-    """
-    A single query consisting of a prompt, a response, and its evaluations.
-    Prompt can be of any type, including a DataFrame (useful for lotus).
-    """
+class Query[GTT: (str,int), QPT: QueryParameters](ABC):
     id: int # must be unique within a test
     ds_id: int
-    prompt: str
-    ground_truth: list[str]
-    ground_truth_scores: list[float]
-    parameters: QueryParameters
-    response_json_schema: dict | None
-    prompt_df: DataFrame | None = None
-    response: str | DataFrame | None = None
-    parsed_response: list[str] | None = None
-    evaluations: Evaluations | None = None
-    parsing_failed: bool | None = None
-    tokens: int | None = None
+    ground_truth: list[GTT]
+    ground_truth_scores: GroundTruthScoreList
+    parameters: QPT
+    parsed_response: list[GTT] | None
+    evaluations: Evaluations | None
+    parsing_failed: bool | None
+    tokens: int | None
+
+    # necessario per poter salvare l'oggetto con pickle, causa GTT
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.pop('__orig_class__', None)
+        return state
 
     def to_dict(self) -> dict:
         base: dict = asdict(self)
-        # Normalize the prompt
-        if self.prompt_df is not None:
-            base["prompt_df"] = self.prompt_df.to_string(index=False)
-            if isinstance(self.response, DataFrame):
-                base["response"] = self.response.to_string(index=False)
         # Extract and flatten parameters, if present
         try:
             parameters = base["parameters"]
@@ -331,8 +339,72 @@ class Query:
 
         return base | params | evals
 
+    @abstractmethod
+    def is_answered(self) -> bool:
+        pass
+
 @dataclass
-class Test(ABC, Generic[T_TestParameters]):
+class DirectQuery[GTT: (str,int)](Query[GTT, QueryParameters]):
+    prompt: str
+    prompt_df: DataFrame
+    response: str|None
+    response_json_schema: BaseModel|None
+
+    def is_answered(self) -> bool:
+        return self.response is not None
+
+    def to_dict(self) -> dict:
+        base = super().to_dict()
+        base["prompt"] = self.prompt
+        base["response"] = self.response
+        return base
+
+
+@dataclass
+class LotusQuery[GTT: (str,int)](Query[GTT, QueryParameters]):
+    prompt: str
+    prompt_df: DataFrame
+    response: DataFrame|None
+
+    def is_answered(self) -> bool:
+        return self.response is not None
+
+    def to_dict(self) -> dict:
+        base = super().to_dict()
+        base["prompt"] = self.prompt
+        base["response"] = self.response
+        return base
+
+
+@dataclass
+class PartitionedQuery[GTT: (str,int)](Query[GTT, PartitionedQueryParameters]):
+    prompt_beg: str
+    prompt_end: str
+    raw_df: DataFrame
+    sub_queries: list[DirectQuery]
+    remaining_keys: list[GTT]
+    response_json_schema: BaseModel|None
+
+    def is_answered(self) -> bool:
+        if self.sub_queries:
+            return all(sq.is_answered() for sq in self.sub_queries)
+        else:
+            return False
+
+    def to_dict(self) -> dict:
+        base = super().to_dict()
+        base["prompt"] = self.prompt_beg + "\n{DATAFRAME}\n" + self.prompt_end
+        base["raw_df"] = self.raw_df.to_string(index=False)
+        if self.remaining_keys:
+            base["remaining_keys"] = self.remaining_keys
+        else:
+            del base["remaining_keys"]
+        del base["sub_queries"]
+        base["sub_queries_parsed_response"] = [subq.parsed_response for subq in self.sub_queries]
+        return base
+
+@dataclass
+class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
     """
     Represents a single test, used to build queries.
     """
@@ -340,12 +412,19 @@ class Test(ABC, Generic[T_TestParameters]):
     name_path: str # the path-safe name of the test
     run_type: RunType
     run_folder: Path # /data/{direct | lotus}
-    #json_schema: BaseModel
-    queries: list[Query] = None # The list of queries generated for this test.
+    json_schema: BaseModel = None
+    named_index_col: str = None
+    queries: list[Query[GTT, QueryParameters]] = None # The list of queries generated for this test.
     prepared_queries_file_name: str = "prepared_queries.pkl" # Path to the file where prepared queries are stored.
     parameters: T_TestParameters = None
     evaluations: Evaluations = None # Aggregated evaluations across all queries for this test.
     params_file_name: str = 'test_params.json'
+
+    def __post_init__(self):
+        if self.json_schema is None:
+            self.json_schema = self.__class__.json_schema
+        if self.named_index_col is None:
+            self.named_index_col = self.__class__.named_index_col
 
     def save_params(self) -> None:
         """
@@ -371,6 +450,8 @@ class Test(ABC, Generic[T_TestParameters]):
         After this method is called, variable 'queries' should be populated.
         It automatically calls the appropriate 'prepare' method (based on the current run_type) as 'prepare_queries_for_<run_type>()'.
         """
+        self.prepare_queries_for_direct()
+        return
         method_name = 'prepare_queries_for_' + "direct"
         try:
             method = getattr(self, method_name)
@@ -380,57 +461,110 @@ class Test(ABC, Generic[T_TestParameters]):
                 f'Run mode {self.run_type} not implemented for this test (method {method_name} does not exists).')
 
     def _sample_for_query(self, current_seed: int, df: DataFrame, elem_per_query: int) -> DataFrame:
-        """first item is the query general DF, second is the current seed
-        """
         raise NotImplementedError()
 
     def _anonymize_query_df(self, df: DataFrame) -> DataFrame:
-        """returns the query DataFrame with real or fake names according to name_mode. If not overridden, returns the original DF."""
+        """returns the query DataFrame with fake names. If not overridden, returns the original DF."""
         return df
 
-    def _select_query_target(self, current_seed, real_df: DataFrame, anon_df) -> tuple[str | int | None, str | int | None]:
+    def _select_query_target(self, current_seed, real_df: DataFrame, anon_df) -> tuple[GTT | None, GTT | None]:
+        """return (real_target, anon_target)"""
         return None, None
 
-    def _build_ground_truth(self, df: DataFrame, target: str|int|None) -> tuple[list[str | int], list[float]]:
-        """returns a tuple with the list of ground truth ids and the list of their relevance scores
-        :param target:
+    def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], GroundTruthScoreList]:
+        """
+        returns a tuple with the list of ground truth ids and the list of their relevance scores
         """
         raise NotImplementedError()
 
-    def _build_prompt_df(self, df: DataFrame) -> DataFrame:
-        """Returns the cleaned version of the DF, ready for create_prompt. It's called right before creating the Query. By default, it returns the input."""
+    def build_prompt_df(self, df: DataFrame) -> DataFrame:
+        """
+        Returns the cleaned version of the DF, ready for create_prompt. It's called right before creating the Query.
+        By default, it returns the input.
+        """
         return df
 
-    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
-        """returns the prompt string built according to the given parameters"""
+    def _create_prompt_direct(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
+        """Should return the final prompt string. By default, it uses the strings produce by _create_prompt_partitioned, putting the dataframe in the middle.
+        """
+        if not self.parameters.enforce_json_schema:
+            raise NotImplementedError("il caso senza json_schema non è più supportato")
+
+        beginning, end = self._create_prompt_partitioned(df, target, q_params)
+        return f"{beginning}\n{self.df_to_string_for_prompt(df, q_params.prompt_printing_mode)}\n\n{end}"
+
+    def _create_prompt_lotus(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
+        raise NotImplementedError("Lotus not implemented for this test")
+
+    def _create_prompt_partitioned(self, df: DataFrame, target: GTT | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:
+        """
+        returns the beginning and the end of the prompt, with the dataframe ideally in the middle.
+        The DataFrame should NOT be included in these strings.
+        :param q_params:
+        """
         raise NotImplementedError()
 
-    def _df_to_string_for_prompt(self, df: DataFrame) -> str:
-        return df.to_markdown(index=False)
+    def df_to_string_for_prompt(self, df: DataFrame, printing_mode: PrintingMode) -> str:
+        match printing_mode:
+            case 'plain':
+                return df.to_string(index=False)
+            case 'markdown':
+                return df.to_markdown(index=False)
 
-    def _build_query(self, q_id: int, ds_id: int, df: DataFrame, target: str|int|None, k: int, gt_ids: list[str], gt_vals: list[float], prompt_level: PromptLevel, names_level: NamesLevel, n_elems: int) -> Query:
-        return Query(
-            id=q_id,
-            ds_id=ds_id,
-            prompt=self._create_prompt(df, target, k, prompt_level),
-            prompt_df=df if self.run_type==RunType.LOTUS else None,
-            ground_truth=gt_ids,
-            ground_truth_scores=gt_vals,
-            parameters=QueryParameters(k=k, prompt_level=prompt_level, names_level=names_level, n_elems=n_elems),
-            response_json_schema=self.json_schema.model_json_schema() if self.parameters.enforce_json_schema else None,
-        )
+    def _build_query(self, q_id: int, ds_id: int, prompt_df: DataFrame, full_df: DataFrame, target: GTT | None, k: int,
+                     gt_ids: list[GTT], gt_vals: GroundTruthScoreList, prompt_level: PromptLevel,
+                     names_level: NamesLevel, partition_rate: int, n_elems: int, printing_mode: PrintingMode) -> Query:
+        q_standard_params = QueryParameters(k=k, prompt_level=prompt_level, names_level=names_level, n_elems=n_elems, prompt_printing_mode=printing_mode)
+        base_args = {'id':q_id,'ds_id':ds_id,'ground_truth':gt_ids,'ground_truth_scores':gt_vals}
+        none_args = {'parsed_response': None,'evaluations': None,'parsing_failed': None,'tokens': None}
+        match self.run_type:
+            case RunType.DIRECT:
+                return DirectQuery[GTT](
+                    **base_args,
+                    parameters=q_standard_params,
+                    prompt=self._create_prompt_direct(prompt_df, target, q_standard_params),
+                    prompt_df=prompt_df,
+                    response_json_schema=self.json_schema if self.parameters.enforce_json_schema else None,
+                    **none_args,
+                    response=None,
+                )
+            case RunType.LOTUS:
+                return LotusQuery[GTT](
+                    **base_args,
+                    parameters=q_standard_params,
+                    prompt=self._create_prompt_lotus(prompt_df, target, q_standard_params),
+                    prompt_df=prompt_df,
+                    **none_args,
+                    response=None,
+                )
+            case RunType.PARTITIONED:
+                q_partitioned_params = PartitionedQueryParameters(k=k, prompt_level=prompt_level, names_level=names_level,
+                                                        n_elems=n_elems, partition_rate=partition_rate,
+                                                        prompt_printing_mode=printing_mode)
+                prompt_beg, prompt_end = self._create_prompt_partitioned(prompt_df, target, q_partitioned_params)
+                return PartitionedQuery[GTT](
+                    **base_args,
+                    parameters=q_partitioned_params,
+                    prompt_beg=prompt_beg,
+                    prompt_end=prompt_end,
+                    raw_df=full_df,
+                    sub_queries=[],
+                    remaining_keys=prompt_df[self.named_index_col].tolist(),
+                    response_json_schema=self.json_schema if self.parameters.enforce_json_schema else None,
+                    **none_args,
+                )
 
-    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, str | int | None, list[int | str], list[float]],tuple[DataFrame, str | int | None, list[int | str], list[float]]]:
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
         sampled_df = self._sample_for_query(seed, df, elem_per_query)
         anon_sampled_df = self._anonymize_query_df(sampled_df)
         target, anon_target = self._select_query_target(seed, sampled_df, anon_sampled_df)
-        gt_ids, gt_scores = self._build_ground_truth(sampled_df, target)
-        anon_gt_ids, anon_gt_scores = self._build_ground_truth(anon_sampled_df, anon_target)
-        prompt_df = self._build_prompt_df(sampled_df)
-        anon_prompt_df = self._build_prompt_df(anon_sampled_df)
-        return (prompt_df, target, gt_ids, gt_scores), (anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores)
+        gt_ids, gt_scores = self.build_ground_truth(sampled_df, target)
+        anon_gt_ids, anon_gt_scores = self.build_ground_truth(anon_sampled_df, anon_target)
+        prompt_df = self.build_prompt_df(sampled_df)
+        anon_prompt_df = self.build_prompt_df(anon_sampled_df)
+        return (sampled_df, prompt_df, target, gt_ids, gt_scores), (anon_sampled_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores)
 
-    def _prepare_queries(self, clean_df) -> list[Query]:
+    def _prepare_queries(self, clean_df) -> list[Query[GTT, QueryParameters]]:
         queries = []
         current_seed = self.parameters.seed
         counter = 0
@@ -440,7 +574,9 @@ class Test(ABC, Generic[T_TestParameters]):
                        * len(self.parameters.elems_per_query)
                        * len(self.parameters.kp)
                        * len(self.parameters.prompt_levels)
-                       * len(self.parameters.names_levels))
+                       * len(self.parameters.names_levels)
+                       * len(self.parameters.prompt_printing_modes)
+                       * (len(self.parameters.setwise_partition_rate) if self.run_type==RunType.PARTITIONED else 1))
         with tqdm(total=total_iters, desc="Generating queries", unit='query', colour='green') as pbar:
 
             for _ in range(self.parameters.n_queries):
@@ -448,30 +584,47 @@ class Test(ABC, Generic[T_TestParameters]):
                     if self.parameters.seed != 0:
                         random.seed(current_seed)
 
-                    (real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
+                    (real_full_df, real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_full_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
                         current_seed, clean_df, elem_per_query)
 
-                    for kp, name_mode, prompt_level in product(self.parameters.kp, self.parameters.names_levels, self.parameters.prompt_levels):
+                    for kp, name_mode, prompt_level, printing_mode in product(self.parameters.kp, self.parameters.names_levels, self.parameters.prompt_levels, self.parameters.prompt_printing_modes):
                         k = max(1, math.ceil(kp * elem_per_query))
                         match name_mode:
                             case NamesLevel.real:
+                                full_df = real_full_df
                                 prompt_df = real_prompt_df
                                 target = real_target
                                 gt_ids = real_gt_ids
                                 gt_scores = real_gt_scores
                             case NamesLevel.fake:
+                                full_df = anon_full_df
                                 prompt_df = anon_prompt_df
                                 target = anon_target
                                 gt_ids = anon_gt_ids
                                 gt_scores = anon_gt_scores
 
-                        query = self._build_query(q_id=counter, ds_id=ds_id, df=prompt_df, target=target, k=k,
-                                                  gt_ids=gt_ids, gt_vals=gt_scores, prompt_level=prompt_level,
-                                                  names_level=name_mode, n_elems=elem_per_query)
-                        queries.append(query)
-
-                        counter += 1
-                        pbar.update(1)
+                        match self.run_type:
+                            case RunType.PARTITIONED:
+                                if target is not None:
+                                    raise NotImplementedError("I test con un target non sono supportati in modalità partitioned")
+                                for pr in self.parameters.setwise_partition_rate:
+                                    query = self._build_query(q_id=counter, ds_id=ds_id, prompt_df=prompt_df,
+                                                              full_df=full_df, target=target, k=k, gt_ids=gt_ids,
+                                                              gt_vals=gt_scores, prompt_level=prompt_level,
+                                                              names_level=name_mode, partition_rate=pr,
+                                                              n_elems=elem_per_query, printing_mode=printing_mode)
+                                    queries.append(query)
+                                    counter += 1
+                                    pbar.update(1)
+                            case _:
+                                query = self._build_query(q_id=counter, ds_id=ds_id, prompt_df=prompt_df,
+                                                          full_df=full_df, target=target, k=k, gt_ids=gt_ids,
+                                                          gt_vals=gt_scores, prompt_level=prompt_level,
+                                                          names_level=name_mode, partition_rate=0,
+                                                          n_elems=elem_per_query, printing_mode=printing_mode)
+                                queries.append(query)
+                                counter += 1
+                                pbar.update(1)
 
                     current_seed += 1
                     ds_id += 1
@@ -503,36 +656,73 @@ class Test(ABC, Generic[T_TestParameters]):
                 f"Not enough unique combinations of elems to generate the requested number of queries.")
         self.queries = self._prepare_queries(clean_df)
 
-    def _parse_query_manual(self, query: Query) -> bool:
-        raise NotImplementedError("Parsing of not structured output is not implemented.")
-
-    def parse_query(self, query: Query) -> None:
-        match query.response:
-            case DataFrame():
-                try:
-                    # take the first column as the response list
-                    query.parsed_response = query.response[self.named_index_col].tolist()
-                    parsing_failed = False
-                except IndexError:
-                    parsing_failed = True
-            case str():
-                if query.response_json_schema is not None:
-                    try:
-                        parsed_response = self.json_schema.model_validate_json(query.response)
-                        query.parsed_response = getattr(parsed_response, list(self.json_schema.model_fields.keys())[0])
-                        parsing_failed = False
-                    except ValidationError:
-                        parsing_failed = True
-                else:
-                    parsing_failed = self._parse_query_manual(query)
-            case _:
-                parsing_failed = True
-
-        if parsing_failed:
-            print(f"Couldn't evaluate query {query.id}. Response was: {query.response}")
+    def _parse_direct_query_schema(self, query: DirectQuery[GTT]) -> None:
+        if query.response is None:
+            query.parsing_failed = True
+            return
+        if query.response_json_schema is None:
+            raise ValueError("Si è cercato di fare parsing con schema su una query senza schema.")
+        try:
+            parsed_response = query.response_json_schema.model_validate_json(query.response)
+            query.parsed_response = getattr(parsed_response, list(
+                query.response_json_schema.model_fields.keys())[0])
+            parsing_failed = False
+        except ValidationError:
+            parsing_failed = True
         query.parsing_failed = parsing_failed
 
-    def evaluate_query(self, query: Query) -> Evaluations:
+    def _parse_direct_query_manual(self, query: DirectQuery[GTT]) -> None:
+        raise NotImplementedError("Parsing of not structured output is not implemented.")
+
+    def _parse_direct_query(self, query: DirectQuery[GTT]) -> None:
+        if query.response is None:
+            query.parsing_failed = True
+            return
+        if query.response_json_schema is not None:
+            self._parse_direct_query_schema(query)
+        else:
+            self._parse_direct_query_manual(query)
+
+    def _parse_lotus_query(self, query: LotusQuery[GTT]) -> None:
+        if query.response is None:
+            query.parsing_failed = True
+            return
+        try:
+            # take the first column as the response list
+            query.parsed_response = query.response[self.named_index_col].tolist()
+            parsing_failed = False
+        except IndexError:
+            parsing_failed = True
+        query.parsing_failed = parsing_failed
+
+    def _parse_partitioned_query(self, query: PartitionedQuery[GTT]) -> None:
+        return
+
+    def parse_query(self, query: Query) -> None:
+        match query:
+            case DirectQuery():
+                self._parse_direct_query(query)
+            case LotusQuery():
+                self._parse_lotus_query(query)
+            case PartitionedQuery():
+                self._parse_partitioned_query(query)
+            case _:
+                raise ValueError("Query not recognized")
+
+    def select_next_partition(self, full_df: DataFrame, partition_rate: int, remaining_keys: list[GTT], current_top_keys: list[GTT]) -> tuple[DataFrame, list[GTT]]:
+        def keys_to_rows(df: DataFrame, keys: list[GTT]) -> DataFrame:
+            return df[df[self.named_index_col].isin(keys)]
+
+        free_slots: int = partition_rate - len(current_top_keys)
+        new_entries_keys: list[GTT] = remaining_keys[:free_slots]
+        remaining_keys = remaining_keys[free_slots:]
+        current_top_df = keys_to_rows(full_df, current_top_keys)
+        new_entries_df = keys_to_rows(full_df, new_entries_keys)
+        arena: DataFrame = pd.concat([current_top_df, new_entries_df], ignore_index=True)
+
+        return arena, remaining_keys
+
+    def evaluate_query(self, query: Query[GTT, QueryParameters]) -> Evaluations:
         """
         Evaluate a single query after submission.
         :param query: the query to evaluate
@@ -540,7 +730,7 @@ class Test(ABC, Generic[T_TestParameters]):
         """
         failing_scores = Evaluations(kendall=0.0, kendall_k=0.0, ndcg_scores=0.0, ndcg_k=0.0, mare=query.parameters.k, mare_k=query.parameters.k, spearman=-1.0, spearman_k=-1.0, hallucination_rate=1, tokens=query.tokens if query.tokens is not None else 0)
 
-        if query.parsing_failed or len(query.parsed_response) < query.parameters.k:
+        if query.parsing_failed or query.parsed_response is not None and len(query.parsed_response) < query.parameters.k:
             return failing_scores
         assert query.parsed_response is not None
 

@@ -7,10 +7,13 @@ from datetime import datetime
 from pathlib import Path
 
 import together
+from pydantic import BaseModel
+from together.types import ChatCompletionResponse
 from tqdm import tqdm
 
 from models.model import Model, write_jsonl, SubmissionError
-from queries.test import Query
+from queries.test import Query, DirectQuery
+
 
 @dataclass
 class TogetherModel(Model):
@@ -52,12 +55,12 @@ class TogetherModel(Model):
 
         return batches
 
-    def _submit_direct_inline(self, prompt: str) -> str:
+    def _submit_prompt(self, prompt: str, schema: BaseModel|None) -> str|None:
         from together import Together
 
         client = Together()
 
-        return client.chat.completions.create(
+        answer = client.chat.completions.create(
             model=self.name_api,
             messages=[
                 {
@@ -67,9 +70,20 @@ class TogetherModel(Model):
             ],
             stream=False,
             temperature=self.params.temperature if self.params.temperature != -1 else None,
-        ).choices[0].message.content
+            response_format=schema.model_json_schema() if schema is not None else None
+        )
+        if not isinstance(answer, ChatCompletionResponse):
+            raise NotImplementedError("Received a streaming response, which is not supported")
 
-    def _submit_direct_batched(self, folder: Path, queries: list[Query]) -> bool:
+        message = answer.choices[0].message
+        if message is None or isinstance(message.content, list):
+            return None
+        return message.content
+
+    def _submit_direct_query(self, query: DirectQuery) -> None:
+        query.response = self._submit_prompt(query.prompt, query.response_json_schema)
+
+    def _submit_direct_queries_batched(self, folder: Path, queries: list[DirectQuery]) -> bool:
         poll_interval = 60 #seconds
         timeout = 86400  #seconds (24 hours)
         batch_id_path = folder / "batch_id.txt"
@@ -78,7 +92,7 @@ class TogetherModel(Model):
         error_path = folder / "batch_error.jsonl"
         batch_token_usage_path = folder / "batch_token_usage.txt"
 
-        batch_queries: dict[str, Query] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
+        batch_queries: dict[str, DirectQuery] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
 
         if os.path.exists(output_path):
             print(f"Using existing batch output file...")
@@ -152,7 +166,7 @@ class TogetherModel(Model):
         with output_path.open("r", encoding="utf-8") as f:
             for line in f:
                 response = json.loads(line)
-                q: Query = batch_queries[response['custom_id']]
+                q: DirectQuery = batch_queries[response['custom_id']]
                 if response['response']['body']['choices'][0]['finish_reason'] == 'length':
                     q_id = getattr(q, 'id', response['id'])
                     print(f"Warning: Response for query {q_id} was cut off due to length.")
@@ -169,7 +183,7 @@ class TogetherModel(Model):
                 print(f"Warning: No response for query with prompt hash {hash(bq.prompt)}")
         return True
 
-    def _submit_direct(self, queries: list[Query]) -> None:
+    def _submit_direct_queries(self, queries: list[DirectQuery]) -> None:
         if any(q.response_json_schema is not None for q in queries) and not self.supports_structured_output:
             raise SubmissionError(f"Model {self.name} does not support structured output required by some queries.")
 
@@ -183,11 +197,11 @@ class TogetherModel(Model):
             pbar = tqdm(batches, desc="Uploading batches", unit="batch")
             for i, b in enumerate(pbar):
                 pbar.set_postfix(queries=len(b))
-                completed = self._submit_direct_batched(self.run_folder / f"batch_{i + 1}", b)
+                completed = self._submit_direct_queries_batched(self.run_folder / f"batch_{i + 1}", b)
                 all_completed = all_completed and completed
             if not all_completed:
                 print("Not waiting for submission to complete...")
             return
         else:
             for q in queries:
-                q.response = self._submit_direct_inline(q.prompt)
+                self._submit_direct_query(q)

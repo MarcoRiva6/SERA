@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from lmstudio import LMStudioError
 
 from models.model import Model
-from queries.test import Query
+from queries.test import Query, LotusQuery
 
 
 class LmstudioModel(Model):
@@ -56,10 +56,10 @@ class LmstudioModel(Model):
 
         return prompt(df)
 
-    def _submit_direct(self, queries: list[Query]) -> None:
+    def _submit_direct_queries(self, queries: list[Query]) -> None:
         for query in queries:
             query.response = self._submit_direct_inline(query.prompt, query.response_json_schema)
 
-    def _submit_lotus(self, queries: list[Query]) -> None:
+    def _submit_lotus_queries(self, queries: list[LotusQuery]) -> None:
         for query in queries:
             query.response = self._submit_lotus_inline(query.prompt, df)

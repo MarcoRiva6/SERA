@@ -5,9 +5,9 @@ import sys
 import time
 
 import requests
+from pydantic import BaseModel
 from tqdm import tqdm
 from dataclasses import dataclass, field
-from io import TextIOWrapper
 from pathlib import PurePosixPath, PureWindowsPath, Path
 from typing import Iterable
 
@@ -16,7 +16,8 @@ from ollama import Client
 
 from experiments.run_type import RunType
 from models.model import Model, SubmissionError
-from queries.test import Query
+from queries.test import Query, DirectQuery
+
 
 def monitor_remote_running(host, user, password, file_name: str = "run.log"):
     client = paramiko.SSHClient()
@@ -97,9 +98,8 @@ def spawn_client_ssh(hostname: str, user: str, password: str) -> paramiko.SSHCli
 @dataclass
 class OllamaModel(Model):
     client: Client = None
-    ollama_address: str = "localhost:11434"
+    ollama_address: str = "localhost:11434".replace("11434","8080")
     supports_thinking: bool = False
-    responses_file_name: str = 'responses.jsonl'
     questions_file_name: str = 'questions.jsonl'
     remote_run_file_name: str = 'remote_run.py'
     @dataclass
@@ -115,7 +115,7 @@ class OllamaModel(Model):
             raise SubmissionError("Remote job not supported for LOTUS run type.")
         self.client = Client(host="http://" + self.ollama_address)
 
-    def __write_questions_file(self, queries: list[Query]) -> None:
+    def __write_questions_file(self, queries: list[DirectQuery]) -> None:
         questions_file_path = self.run_folder / self.questions_file_name
 
         with open(questions_file_path, 'w', encoding='utf-8') as f:
@@ -171,19 +171,23 @@ if __name__ == "__main__":
         run_folder=Path({self.__remote_run_folder(os_type)!r}),
     )
     model._init_model()
-    model._submit_direct_remote()
+    model._submit_direct_queries_remote()
         """
 
         remote_code = f"{imports_code}\n\n{run_type_code}\n\n{model_code}\n\n{ollama_model_code}\n\n{run_code}"
         # per evitare problemi di import nei file remoti, visto che non servono per l'esecuzione
-        remote_code = (remote_code.replace("Query", "Any")
+        remote_code = (remote_code
+                       .replace("PartitionedQuery", "Any")
+                       .replace("LotusQuery", "Any")
+                       .replace("DirectQuery", "Any")
+                       .replace("Query", "Any")
                        .replace("DataFrame", "Any")
                        .replace("paramiko.SSHClient", "Any"))
         with open(remote_file_path, 'w', encoding='utf-8') as f:
             f.write(remote_code)
             f.flush()
 
-    def _prepare_remote_job(self, remote_os_type: str, ssh_client: paramiko.SSHClient, queries: list[Query]) -> None:
+    def _prepare_remote_job(self, remote_os_type: str, ssh_client: paramiko.SSHClient, queries: list[DirectQuery]) -> None:
         self.__write_questions_file(queries)
         self.__build_remote_python_file(remote_os_type)
         remote_question_path = build_remote_path(remote_os_type, "/home/***REMOVED***", self.__remote_run_folder(remote_os_type), self.questions_file_name)
@@ -193,51 +197,28 @@ if __name__ == "__main__":
             (self.run_folder / self.remote_run_file_name, remote_run_file_path)
         ])
 
-    def __submit_prompt(self, prompt: str, schema: dict) -> tuple[str,int]:
+    def __submit_prompt(self, prompt: str, schema: BaseModel|None) -> tuple[str|None,int]:
         response = self.client.generate(
             model=self.name_api,
             prompt=prompt,
             stream=False,
             think=self.supports_thinking,
-            format=schema,
+            format=schema.model_json_schema() if schema else None,
             options={'temperature': self.params.temperature} if self.params.temperature != -1 else None,
         )
 
         resp = response.response if response.response != '' else response.thinking
-        if resp is None:
-            resp = ''
-        return resp, response.prompt_eval_count + response.eval_count
+        token_count = (response.prompt_eval_count or 0) + (response.eval_count or 0)
 
-    def __store_response(self, f: TextIOWrapper, qid: str, response: str, tokens) -> None:
-        record = {
-            "id": qid,
-            "response": response,
-            "tokens": tokens
-        }
+        return resp, token_count
 
-        f.write(json.dumps(record, ensure_ascii=False) + '\n')
-        f.flush()
+    def _submit_direct_query(self, query: DirectQuery) -> None:
+        query.response, query.tokens = self.__submit_prompt(query.prompt, query.response_json_schema)
 
-    def __retrieve_responses(self) -> dict[int, dict[str, str|int]]:
-        response_file_path = self.run_folder / self.responses_file_name
-
-        processed_queries = {}
-        if response_file_path.exists():
-            with open(response_file_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    if line.strip():
-                        data = json.loads(line)
-                        processed_queries[data['id']] = {"response": data['response'], "tokens": data['tokens']}
-            if len(processed_queries) > 0:
-                print(f"Retrieved {len(processed_queries)} already processed answer{"s" if len(processed_queries) > 1 else ""}.")
-
-        return processed_queries
-
-    def _submit_direct_remote(self):
+    def _submit_direct_queries_remote(self):
         questions_file_path: Path = self.run_folder / self.questions_file_name
-        response_file_path: Path = self.run_folder / self.responses_file_name
 
-        processed_queries = self.__retrieve_responses()
+        processed_queries = self._retrieve_queries_inline()
 
         queries_to_process = []
         with open(questions_file_path, 'r', encoding='utf-8') as f:
@@ -256,15 +237,12 @@ if __name__ == "__main__":
             print("All queries already processed.")
             return
 
-        with open(response_file_path, 'a', encoding='utf-8') as f:
-            for qid, prompt, schema in tqdm(queries_to_process, desc=f"Submitting {self.name}", unit="query", colour='yellow'):
-                response, tokens = self.__submit_prompt(prompt, schema)
-                self.__store_response(f, qid, response, tokens)
+        for qid, prompt, schema in tqdm(queries_to_process, desc=f"Submitting {self.name}", unit="query", colour='yellow'):
+            response, tokens = self.__submit_prompt(prompt, schema)
+            self._store_query_inline(qid, response, tokens)
 
-    def _submit_direct_local(self, queries: list[Query]) -> None:
-        response_file_path = self.run_folder / self.responses_file_name
-
-        processed_queries = self.__retrieve_responses()
+    def _submit_direct_queries_local(self, queries: list[DirectQuery]) -> None:
+        processed_queries = self._retrieve_queries_inline()
 
         queries_to_process = []
         for query in queries:
@@ -277,17 +255,15 @@ if __name__ == "__main__":
         if not queries_to_process:
             return
 
-        with open(response_file_path, 'a', encoding='utf-8') as f:
-            for query in tqdm(queries_to_process, desc=f"Querying {self.name} via Ollama", unit="query", colour='yellow'):
-                query.response, query.tokens = self.__submit_prompt(query.prompt, query.response_json_schema)
-
-                self.__store_response(f, query.id, query.response, query.tokens)
+        for query in tqdm(queries_to_process, desc=f"Querying {self.name} via Ollama", unit="query", colour='yellow'):
+            self._submit_direct_query(query)
+            self._store_query_inline(query.id, query.response, query.tokens)
 
 
-    def _submit_direct(self, queries: list[Query]) -> None:
+    def _submit_direct_queries(self, queries: list[DirectQuery]) -> None:
         if self.params.remote_job:
             # check if already completed
-            processed_queries = self.__retrieve_responses()
+            processed_queries = self._retrieve_queries_inline()
             if len(processed_queries) == len(queries):
                 for q in queries:
                     if q.prompt != processed_queries[q.id]:
@@ -307,7 +283,7 @@ if __name__ == "__main__":
                 try:
                     remote_response_file_path = build_remote_path(os_type,self.__remote_run_folder(os_type), self.responses_file_name)
                     get_files_ssh(ssh_client, [(remote_response_file_path, self.run_folder / self.responses_file_name)])
-                    processed_queries = self.__retrieve_responses()
+                    processed_queries = self._retrieve_queries_inline()
                     if len(processed_queries) == len(queries):
                         needs_run = False
                         print("All queries completed.")
@@ -334,7 +310,7 @@ if __name__ == "__main__":
                         print("Remote job launched. Attaching to stdout...")
                         monitor_remote_running(hostname, user, password)
         else:
-            self._submit_direct_local(queries)
+            self._submit_direct_queries_local(queries)
 
     def _query_fits_limit(self, query: Query) -> bool:
         url = f"http://{self.ollama_address}/api/tokenize"

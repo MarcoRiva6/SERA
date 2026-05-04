@@ -5,15 +5,20 @@ import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 
-from experiments.run_type import RunType
-from queries.test import TestParameters, Test, data_folder, PromptLevel, sample_ds_interesting
+from queries.test import TestParameters, Test, data_folder, PromptLevel, sample_ds_interesting, \
+    PartitionedQueryParameters, NamesLevel
 
+type GTT = str
 
 class MostConsumingFamilies(BaseModel):
-    top_k: list[str] = Field(description="")
+    top_k: list[GTT] = Field(description="")
 
 @dataclass
-class spa(Test[TestParameters]):
+class SPATestParameters(TestParameters):
+    names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
+
+@dataclass
+class spa(Test[GTT, SPATestParameters]):
     name: str = "Sustained Peak Average"
     name_short: str = "SPA"
     json_schema = MostConsumingFamilies
@@ -39,7 +44,7 @@ class spa(Test[TestParameters]):
         k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
         return sample_ds_interesting(df, length=elem_per_query, min_unique=max(k_list)+3, key=self.named_index_col)
 
-    def _build_ground_truth(self, df: DataFrame, target: str|int|None) -> tuple[list[str | int], list[float]]:
+    def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], list[float]]:
         df_calc = df.copy()
         # Daily Peak Average
         # sorted(x, reverse=True)[:3] prende i 3 valori più alti dell'array.
@@ -58,31 +63,21 @@ class spa(Test[TestParameters]):
 
         return df_classifica[self.named_index_col].tolist(), df_classifica['SPA'].tolist()
 
-    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
-        if not self.parameters.enforce_json_schema:
-            raise NotImplementedError("il caso senza json_schema non è più supportato")
-
-        job = f"You are given a dataset of household electricity consumptions:\n{self._df_to_string_for_prompt(df)}"
+    def _create_prompt_partitioned(self, df: DataFrame, target: GTT | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:
+        job = f"You are given a dataset of household electricity consumptions:"
         output = f"Your output must contain only the required list of household ids ({self.named_index_col})."
 
-        match self.run_type:
-            case RunType.LOTUS:
-                match prompt_level:
-                    case _:
-                        raise NotImplementedError()
-            case RunType.DIRECT:
-                match prompt_level:
-                    case PromptLevel.generic:
-                        raise NotImplementedError()
-                    case PromptLevel.instruct:
-                        instruction = f"""Return the {k} {self.named_index_col} who have the highest Sustained Peak Average (SPA) from the provided dataset.
+        match q_params.prompt_level:
+            case PromptLevel.generic:
+                raise NotImplementedError()
+            case PromptLevel.instruct:
+                instruction = f"""Return the {q_params.k} {self.named_index_col} who have the highest Sustained Peak Average (SPA) from the provided dataset.
 To calculate the SPA for a user: first, evaluate the '3h_intervals' array for every row associated with them. For each array, identify the 3 highest numerical values and calculate their arithmetic mean (this is the Daily Peak Average). Then, group by '{self.named_index_col}' and finally calculate the overall mean of these Daily Peak Averages across all recorded days for each household."""
-                    case PromptLevel.formula:
-                        instruction = f"""Return the {k} {self.named_index_col} who have the highest Sustained Peak Average (SPA) from the provided dataset.
+            case PromptLevel.formula:
+                instruction = f"""Return the {q_params.k} {self.named_index_col} who have the highest Sustained Peak Average (SPA) from the provided dataset.
 The Sustained Peak Average (SPA) score for a household can be computed as follows:
-	1. Initialize an empty list called 'daily_averages'.
-	2. for each of the household's rows, append the arithmetic mean of the 3 highest values of the array contained in the '3h_intervals' column to the 'daily_averages' list.
-	3. Compute the arithmetic mean of all values within the 'daily_averages' list: this value is the final SPA score for the household."""
+    1. Initialize an empty list called 'daily_averages'.
+    2. for each of the household's rows, append the arithmetic mean of the 3 highest values of the array contained in the '3h_intervals' column to the 'daily_averages' list.
+    3. Compute the arithmetic mean of all values within the 'daily_averages' list: this value is the final SPA score for the household."""
 
-                prompt = f"{job}\n\n{instruction}\n\n{output}"
-        return prompt
+        return job, f"{instruction}\n\n{output}"

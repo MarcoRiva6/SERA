@@ -1,6 +1,8 @@
 import os
 import sys
 
+from queries.test import QueryParameters, PartitionedQueryParameters
+
 cartella_corrente = os.path.dirname(os.path.abspath(__file__))
 if cartella_corrente not in sys.path:
     sys.path.append(cartella_corrente)
@@ -117,20 +119,17 @@ class customer_CBS(customer_segmentation):
     name: str = "Customer CBS"
     name_short = "TVA"
 
-    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
-        if not self.parameters.enforce_json_schema:
-            raise NotImplementedError("Il caso senza json_schema non è supportato")
-
-        intro_and_dataset = f"""you are given the following dataset of customer purchase histories:\n{self._df_to_string_for_prompt(df)}"""
+    def _create_prompt_partitioned(self, df: DataFrame, target: GTT | None, q_params: PartitionedQueryParameters) -> tuple[str, str | None]:
+        job = "you are given the following dataset of customer purchase histories:"
         output = "Your output must contain only the required list of customers."
 
-        match prompt_level:
+        match q_params.prompt_level:
             case PromptLevel.generic:
                 raise NotImplementedError("generic prompt not implemented")
 
             case PromptLevel.formula:
                 instruction = \
-                    f"""Return the {k} customers who are most similar to the customer {target}. The similarity score must be computed strictly following these steps:
+                    f"""Return the {q_params.k} customers who are most similar to the customer {target}. The similarity score must be computed strictly following these steps:
     
     1. Price-Tier Affinity Representation
     1.1 Classify every purchased item into one of three tiers based on UnitPrice: "Budget" (< 2.00), "Standard" (>= 2.00 and <= 5.00), and "Premium" (> 5.00).
@@ -152,7 +151,7 @@ class customer_CBS(customer_segmentation):
 
             case PromptLevel.instruct:
                 instruction = \
-                    f"""Return the {k} customers who are most similar to customer {target} based on their 'Customer Buying Signature' (CBS).
+                    f"""Return the {q_params.k} customers who are most similar to customer {target} based on their 'Customer Buying Signature' (CBS).
     The CBS is a score based on two behavioral pillars. You must calculate the cosine similarity between customers for each pillar and then combine them with an {self.parameters.alpha*100:.0f}% weight for the first pillar (and {(1-self.parameters.alpha)*100:.0f}% to the second one):
     1. Price-Tier Affinity: Compare customers based on the total volume (quantity) of items they purchase across three price segments: Budget (under 2.00), Standard (2.00 to 5.00), and Premium (over 5.00).
     2. Behavioral Profile (TVA): Compare customers based on a normalized vector of three business metrics:
@@ -160,16 +159,9 @@ class customer_CBS(customer_segmentation):
         - Variety: The breadth of their product catalog interests.
         - Average Basket: The average monetary value of their shopping carts."""
 
-        match self.run_type:
-            case RunType.LOTUS:
-                raise Exception("LOTUS è incompatibile con il DS customers")
-                prompt = instruction.replace("customers who are most", "{CustomerID} who are most")
-            case RunType.DIRECT:
-                prompt = f"{intro_and_dataset}\n\n{instruction}\n\n{output}"
+        return job, f"{instruction}\n\n{output}"
 
-        return prompt
-
-    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, str | int | None, list[int | str], list[float]],tuple[DataFrame, str | int | None, list[int | str], list[float]]]:
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
         k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
         min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
 
@@ -198,7 +190,7 @@ class customer_CBS(customer_segmentation):
         sorted_cids = top_similar_df.index.tolist()
         ground_truth_vals = top_similar_df.values.tolist()
 
-        result = (df, selected_cid, sorted_cids, ground_truth_vals)
+        result = (df, df, selected_cid, sorted_cids, ground_truth_vals)
         return result, result
 
     # non è più utilizzato

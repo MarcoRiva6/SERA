@@ -5,13 +5,14 @@ import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 
-from experiments.run_type import RunType
-from queries.test import PromptLevel, NamesLevel, TestParameters, data_folder, Test
+from queries.test import PromptLevel, NamesLevel, TestParameters, data_folder, Test, GroundTruthScoreList, \
+    QueryParameters, PartitionedQueryParameters
 from queries.metrics import *
 
+type GTT = str
 
 class MostSimilarMolecules(BaseModel):
-    top_k: list[str]  = Field(description="Ordered list of the k most similar molecules to the target one.")
+    top_k: list[GTT]  = Field(description="Ordered list of the k most similar molecules to the target one.")
 
 def calcola_levenshtein(s1, s2):
     # Otteniamo le lunghezze delle stringhe
@@ -78,7 +79,7 @@ class MolecularTestParameters(TestParameters):
     names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
 
 @dataclass
-class levenshtein(Test[MolecularTestParameters]):
+class levenshtein(Test[GTT, MolecularTestParameters]):
     name: str = 'Molecular Levenshtein'
     name_short: str = 'LEV'
     json_schema = MostSimilarMolecules
@@ -98,15 +99,20 @@ class levenshtein(Test[MolecularTestParameters]):
                 return False
         return True
 
-    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel)  -> str:
-        job = f"You are given the following list of molecules represented by their SMILES strings:\n{self._df_to_string_for_prompt(df)}"
+    def _create_prompt_lotus(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
+        _, end = self._create_prompt_partitioned(df, target, q_params)
+        return end.replace("molecules", f"{{{df.columns[0]}}}")
+
+    def _create_prompt_partitioned(self, df: DataFrame, target: str | int | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:
+        job = f"You are given the following list of molecules represented by their SMILES strings:"
         output = "Your output must contain only the final ranking."
-        match prompt_level:
+
+        match q_params.prompt_level:
             case PromptLevel.instruct:
-                request = f"Return the {k} most similar molecules to the target molecule '{target}', based only on their normalized Levenshtein similarity."
+                request = f"Return the {q_params.k} most similar molecules to the target molecule '{target}', based only on their normalized Levenshtein similarity."
             case PromptLevel.formula:
                 request = \
-                    f"""Return the {k} most similar molecules to the molecule '{target}', based only on their normalized Levenshtein similarity.
+                    f"""Return the {q_params.k} most similar molecules to the molecule '{target}', based only on their normalized Levenshtein similarity.
 The Levenshtein distance as a similarity metric between two molecular SMILES strings (SMILES A of length M, and SMILES B of length N), can be computed with the following steps:
 
 1.  Initialize a matrix with dimensions of (M+1) rows and (N+1) columns.
@@ -126,15 +132,12 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
 12. Subtract the result of this division from 1 to obtain the normalized similarity score to obtain the final result.
     """
             case PromptLevel.generic:
-                request = f"Return the {k} most similar molecules to the molecule {target}, based only on their SMILES strings similarity."
-        match self.run_type:
-            case RunType.LOTUS:
-                prompt = request.replace("molecules", f"{{{df.columns[0]}}}")
-            case RunType.DIRECT:
-                prompt = f"{job}\n\n{request}\n\n{output}"
-        return prompt
+                request = f"Return the {q_params.k} most similar molecules to the molecule {target}, based only on their SMILES strings similarity."
 
-    def _init_query(self, seed: int, df, elem_per_query: int) -> tuple[tuple[DataFrame, str | int | None, list[int | str], list[float]],tuple[DataFrame, str | int | None, list[int | str], list[float]]]:
+        return job, f"{request}\n\n{output}"
+
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
+        prompt_df = DataFrame()
         while True:
             if self.parameters.seed != 0:
                 random.seed(seed)
@@ -150,5 +153,5 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
             prompt_df = mol_df[mol_df['SMILES'].isin(ground_truth)]
             break
 
-        result = (prompt_df, None, ground_truth, ground_truth_score)
+        result = (mol_df, prompt_df, target_mol, ground_truth, ground_truth_score)
         return result, result

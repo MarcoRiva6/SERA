@@ -5,23 +5,23 @@ import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 
-from experiments.run_type import RunType
-from queries.test import Test, data_folder, Query, download_csv, extract_pipe_sequence, TestParameters, PromptLevel
+from queries.test import Test, data_folder, download_csv, extract_pipe_sequence, TestParameters, PromptLevel, \
+    DirectQuery, GroundTruthScoreList, QueryParameters, PartitionedQueryParameters
 
+type GTT = str
 index_name = "Name"
 
 class MostSimilarPlanets(BaseModel):
-    top_k: list[str] = Field(description="The ordered list of the top k most similar planets.")
+    top_k: list[GTT] = Field(description="The ordered list of the top k most similar planets.")
 
 class PlanetTestParameters(TestParameters):
     elems_per_query: list[int] = field(default_factory=lambda: [30,69])
 
 @dataclass
-class esi(Test[PlanetTestParameters]):
+class esi(Test[GTT, PlanetTestParameters]):
     name: str = "ESI"
     name_short = "ESI"
     json_schema = MostSimilarPlanets
-    # DA USARE SOLO DA CREATE_PROMPT IN POI
     named_index_col = "Planet"
 
     def _load_ds(self) -> DataFrame:
@@ -34,7 +34,7 @@ class esi(Test[PlanetTestParameters]):
             download_csv("https://www.hpcf.upr.edu/~abel/phl/hwc/data/hwc.csv", full_ds_path) # full DS
         return pd.read_csv(simplified_ds_path)
 
-    def _parse_query_manual(self, query: Query) -> bool:
+    def _parse_query_manual(self, query: DirectQuery) -> bool:
         matched_lists = extract_pipe_sequence(query.response)
         if len(matched_lists) == 0:
             print(f"Cannot evaluate query {query.id}: no pipe-separated list found in the response.")
@@ -52,7 +52,7 @@ class esi(Test[PlanetTestParameters]):
         query.parsed_response = top_k_list
         return False
 
-    def _prepare_df(self, df  ) -> DataFrame:
+    def _prepare_df(self, df: DataFrame) -> DataFrame:
         def clean_html_tags(text: str) -> str:
             # Replace <i>...</i> with its content
             text = re.sub(r"<i>(.*?)</i>", lambda m: m.group(1), text)
@@ -64,6 +64,7 @@ class esi(Test[PlanetTestParameters]):
             return text
 
         df = df.rename(columns=clean_html_tags, copy=True)
+        df = df.rename(columns={index_name: self.named_index_col})
 
         def find_contained_strings(strings):
             contained_pairs = []
@@ -76,7 +77,7 @@ class esi(Test[PlanetTestParameters]):
                         contained_pairs.append((s1, s2))
 
             return contained_pairs
-        if len(find_contained_strings(df['Name'].tolist())) > 0:
+        if len(find_contained_strings(df[self.named_index_col].tolist())) > 0:
             print("Warning: some planet names contain other planet names. This can affect the output parsing.")
 
         return df
@@ -86,37 +87,29 @@ class esi(Test[PlanetTestParameters]):
 
     def _anonymize_query_df(self, df: DataFrame) -> DataFrame:
         fake_selected_planets = df.copy()
-        fake_selected_planets['Name'] = "Planet " + fake_selected_planets.index.astype(str)
+        fake_selected_planets[self.named_index_col] = "Planet " + fake_selected_planets.index.astype(str)
         return fake_selected_planets
 
-    def _build_prompt_df(self, df: DataFrame) -> DataFrame:
-        return df.drop(columns='ESI', inplace=False).rename(columns={index_name: 'Planet'})
+    def build_prompt_df(self, df: DataFrame) -> DataFrame:
+        return df.drop(columns='ESI', inplace=False)
 
-    def _build_ground_truth(self, df: DataFrame, target=None) -> tuple[list[str | int], list[float]]:
+    def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], GroundTruthScoreList]:
         ground_truth_df = df.sort_values(by=['ESI'], ascending=False, inplace=False)
-        return ground_truth_df['Name'].tolist(), ground_truth_df['ESI'].tolist()
+        return ground_truth_df[self.named_index_col].tolist(), ground_truth_df['ESI'].tolist()
 
-    def _create_prompt(self, df: DataFrame, target: str|int|None, k: int, prompt_level: PromptLevel) -> str:
+    def _create_prompt_lotus(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
         # shadowing voluto
         index_name = "Planet"
-        if not self.parameters.enforce_json_schema:
-            raise NotImplementedError("il caso senza json_schema non è più supportato.")
 
-        job = f"You are given a dataset of planets, with various attributes:\n{self._df_to_string_for_prompt(df)}"
-        output = "Your output must contain only the required list of planets."
         lotus_attributes_without_index = {", ".join([f"{{{c}}}" for c in df.columns if c != index_name])}
-
-
-        match self.run_type:
-            case RunType.LOTUS:
-                match prompt_level:
-                    case prompt_level.generic:
-                        prompt = f"""Return the {{{index_name}}} most similar to Earth, considering only the provided attributes ({lotus_attributes_without_index})."""
-                    case prompt_level.instruct:
-                        prompt = f"""Return the {{{index_name}}} that is most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity, considering only the provided attributes ({lotus_attributes_without_index})."""
-                    case prompt_level.formula:
-                        prompt = \
-                            f"""Provide the {{{index_name}}} that is most similar to Earth, using only the ESI (Earth Similarity Index) score, considering only the provided attributes ({lotus_attributes_without_index})
+        match q_params.prompt_level:
+            case PromptLevel.generic:
+                prompt = f"""Return the {{{index_name}}} most similar to Earth, considering only the provided attributes ({lotus_attributes_without_index})."""
+            case PromptLevel.instruct:
+                prompt = f"""Return the {{{index_name}}} that is most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity, considering only the provided attributes ({lotus_attributes_without_index})."""
+            case PromptLevel.formula:
+                prompt = \
+    f"""Provide the {{{index_name}}} that is most similar to Earth, using only the ESI (Earth Similarity Index) score, considering only the provided attributes ({lotus_attributes_without_index})
 The ESI formula is explained below:
 
 The formula takes as input a planet's radius (R) and solar flux (S).
@@ -124,24 +117,29 @@ it is computed as follows:
 1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
 2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
 3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )"""
-            case RunType.DIRECT:
-                match prompt_level:
-                    case PromptLevel.generic:
-                        instruction = \
-                            f"""Return the top {k} planets that are most similar to Earth."""
-                    case PromptLevel.instruct:
-                        instruction = \
-                            f"""Return the top {k} planets that are most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity."""
-                    case PromptLevel.formula:
-                        instruction = \
-                            f"""Provide a ranked list of the top {k} planets that are most similar to Earth, using only the ESI (Earth Similarity Index) score.
-The ESI formula is explained below:
-
-The formula takes as input a planet's radius (R) and solar flux (S).
-it is computed as follows:
-1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
-2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
-3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )"""
-                prompt = f"{job}\n\n{instruction}\n\n{output}"
 
         return prompt
+
+    def _create_prompt_partitioned(self, df: DataFrame, target: GTT | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:
+        job = f"You are given a dataset of planets, with various attributes:"
+        output = "Your output must contain only the required list of planets."
+
+        match q_params.prompt_level:
+            case PromptLevel.generic:
+                instruction = \
+                    f"""Return the top {q_params.k} planets that are most similar to Earth."""
+            case PromptLevel.instruct:
+                instruction = \
+                    f"""Return the top {q_params.k} planets that are most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity."""
+            case PromptLevel.formula:
+                instruction = \
+                    f"""Provide a ranked list of the top {q_params.k} planets that are most similar to Earth, using only the ESI (Earth Similarity Index) score.
+The ESI formula is explained below:
+
+The formula takes as input a planet's radius (R) and solar flux (S).
+it is computed as follows:
+1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
+2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
+3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )"""
+
+        return job, f"{instruction}\n\n{output}"

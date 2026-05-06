@@ -4,6 +4,7 @@ import os
 import sys
 import time
 
+import httpx
 import requests
 from pydantic import BaseModel
 from tqdm import tqdm
@@ -17,6 +18,79 @@ from ollama import Client
 from experiments.run_type import RunType
 from models.model import Model, SubmissionError
 from queries.test import Query, DirectQuery
+
+import subprocess
+import threading
+from ollama import RequestError as OllamaRequestError
+from tenacity import retry, wait_fixed, stop_after_attempt, retry_if_exception_type
+
+ERRORI_DI_RETE = (
+    ConnectionError,                  # Quello nativo di Python (non serve import)
+    httpx.ConnectError,               # Quello di 'httpx' (quando non trova il server)
+    httpx.RemoteProtocolError,        # Quando il tunnel cade a metà conversazione
+    httpx.ReadTimeout,                # Quando il server ci mette troppo a rispondere
+    httpx.ReadError,
+    OllamaRequestError                # Gli errori sollevati direttamente dal client Ollama
+)
+
+class OllamaTunnelManager:
+    def __init__(self, ssh_host: str, ssh_user: str, ssh_key_path: str, local_port: int = 11434, remote_port: int = 11434):
+        self.ssh_host = ssh_host
+        self.ssh_user = ssh_user
+        self.ssh_key_path = ssh_key_path
+        self.local_port = local_port
+        self.remote_port = remote_port
+
+        self.is_running = False
+        self.process: subprocess.Popen | None = None
+        self._thread: threading.Thread | None = None
+
+    def start(self):
+        """Avvia il demone che tiene in vita il tunnel."""
+        self.is_running = True
+        self._thread = threading.Thread(target=self._keep_tunnel_alive, daemon=True)
+        self._thread.start()
+
+        # Aspettiamo un paio di secondi per dare tempo al tunnel di stabilirsi la prima volta
+        time.sleep(2)
+        print("Tunnel manager avviato in background.")
+
+    def _keep_tunnel_alive(self):
+        """Il ciclo infinito che controlla e riavvia SSH."""
+        comando_ssh = [
+            "ssh",
+            "-N", # Non aprire una shell interattiva
+            "-i", self.ssh_key_path,
+            "-L", f"{self.local_port}:localhost:{self.remote_port}",
+            "-o", "ServerAliveInterval=10", # Ping ogni 30 secondi
+            "-o", "ServerAliveCountMax=3",  # Se fallisce 3 volte, chiudi la connessione
+            "-o", "ExitOnForwardFailure=yes", # Esci se la porta locale è già occupata
+            "-o", "StrictHostKeyChecking=no", # Evita blocchi se cambia qualcosa nell'host
+            f"{self.ssh_user}@{self.ssh_host}"
+        ]
+
+        while self.is_running:
+            print("[Tunnel] Avvio connessione SSH...")
+            # Popen lancia il processo in background senza bloccare il thread
+            self.process = subprocess.Popen(comando_ssh)
+
+            # wait() mette in pausa QUESTO thread finché il processo ssh non muore
+            self.process.wait()
+
+            if self.is_running:
+                print("[Tunnel] Tunnel caduto! Riconnessione tra 5 secondi...")
+                time.sleep(5)
+
+    def stop(self):
+        """Ferma il tunnel in modo pulito alla fine dei test."""
+        self.is_running = False
+        if self.process:
+            self.process.terminate()
+            try:
+                self.process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+        print("Tunnel manager fermato.")
 
 
 def monitor_remote_running(host, user, password, file_name: str = "run.log"):
@@ -98,7 +172,11 @@ def spawn_client_ssh(hostname: str, user: str, password: str) -> paramiko.SSHCli
 @dataclass
 class OllamaModel(Model):
     client: Client = None
+    tunnel: OllamaTunnelManager = None
     ollama_address: str = "localhost:11434".replace("11434","8080")
+    hostname = "***REMOVED***"
+    user = "***REMOVED***"
+    password = "***REMOVED***"
     supports_thinking: bool = False
     questions_file_name: str = 'questions.jsonl'
     remote_run_file_name: str = 'remote_run.py'
@@ -113,7 +191,18 @@ class OllamaModel(Model):
     def _init_model(self) -> None:
         if self.run_type == RunType.LOTUS and self.params.remote_job:
             raise SubmissionError("Remote job not supported for LOTUS run type.")
+        if not self.params.remote_job:
+            self.tunnel = OllamaTunnelManager(
+                ssh_host=self.hostname,
+                ssh_user=self.user,
+                ssh_key_path="***REMOVED***"
+            )
+            self.tunnel.start()
+
         self.client = Client(host="http://" + self.ollama_address)
+
+    def _finish_model(self) -> None:
+        self.tunnel.stop()
 
     def __write_questions_file(self, queries: list[DirectQuery]) -> None:
         questions_file_path = self.run_folder / self.questions_file_name
@@ -140,6 +229,9 @@ class OllamaModel(Model):
 
     def __build_remote_python_file(self, os_type: str = "posix") -> None:
         remote_file_path = self.run_folder / self.remote_run_file_name
+
+        curr_params = self.params.__dict__
+        curr_params.update({'remote_job': True})
 
         ollama_model_code = inspect.getsource(OllamaModel)
         model_code = inspect.getsource(Model)
@@ -169,6 +261,7 @@ if __name__ == "__main__":
         max_tokens={self.max_tokens},
         run_type="{self.run_type.value}",
         run_folder=Path({self.__remote_run_folder(os_type)!r}),
+        params={curr_params!r},
     )
     model._init_model()
     model._submit_direct_queries_remote()
@@ -197,6 +290,12 @@ if __name__ == "__main__":
             (self.run_folder / self.remote_run_file_name, remote_run_file_path)
         ])
 
+    @retry(
+        wait=wait_fixed(10),
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception_type(ERRORI_DI_RETE),
+        before_sleep=lambda retry_state: print(f"Errore di connessione a Ollama. Ritento tra 10s... (Tentativo {retry_state.attempt_number})")
+    )
     def __submit_prompt(self, prompt: str, schema: BaseModel|None) -> tuple[str|None,int]:
         response = self.client.generate(
             model=self.name_api,
@@ -274,10 +373,7 @@ if __name__ == "__main__":
             else:
                 print("Submitting remotely...")
                 os_type = 'posix'
-                hostname = "***REMOVED***"
-                user = "***REMOVED***"
-                password = "***REMOVED***"
-                ssh_client = spawn_client_ssh(hostname, user, password)
+                ssh_client = spawn_client_ssh(self.hostname, self.user, self.password)
                 needs_run = True
 
                 try:
@@ -308,7 +404,7 @@ if __name__ == "__main__":
                         return
                     else:
                         print("Remote job launched. Attaching to stdout...")
-                        monitor_remote_running(hostname, user, password)
+                        monitor_remote_running(self.hostname, self.user, self.password)
         else:
             self._submit_direct_queries_local(queries)
 

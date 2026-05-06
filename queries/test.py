@@ -564,30 +564,30 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
         anon_prompt_df = self.build_prompt_df(anon_sampled_df)
         return (sampled_df, prompt_df, target, gt_ids, gt_scores), (anon_sampled_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores)
 
-    def _prepare_queries(self, clean_df) -> list[Query[GTT, QueryParameters]]:
+    def _prepare_queries(self, clean_df, t_parameters: TestParameters) -> list[Query[GTT, QueryParameters]]:
         queries = []
-        current_seed = self.parameters.seed
+        current_seed = t_parameters.seed
         counter = 0
         ds_id = 0
 
-        total_iters = (self.parameters.n_queries
-                       * len(self.parameters.elems_per_query)
-                       * len(self.parameters.kp)
-                       * len(self.parameters.prompt_levels)
-                       * len(self.parameters.names_levels)
-                       * len(self.parameters.prompt_printing_modes)
-                       * (len(self.parameters.setwise_partition_rate) if self.run_type==RunType.PARTITIONED else 1))
+        total_iters = (t_parameters.n_queries
+                       * len(t_parameters.elems_per_query)
+                       * len(t_parameters.kp)
+                       * len(t_parameters.prompt_levels)
+                       * len(t_parameters.names_levels)
+                       * len(t_parameters.prompt_printing_modes)
+                       * (len(t_parameters.setwise_partition_rate) if self.run_type == RunType.PARTITIONED else 1))
         with tqdm(total=total_iters, desc="Generating queries", unit='query', colour='green') as pbar:
 
-            for _ in range(self.parameters.n_queries):
-                for elem_per_query in self.parameters.elems_per_query:
-                    if self.parameters.seed != 0:
+            for _ in range(t_parameters.n_queries):
+                for elem_per_query in t_parameters.elems_per_query:
+                    if t_parameters.seed != 0:
                         random.seed(current_seed)
 
                     (real_full_df, real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_full_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
                         current_seed, clean_df, elem_per_query)
 
-                    for kp, name_mode, prompt_level, printing_mode in product(self.parameters.kp, self.parameters.names_levels, self.parameters.prompt_levels, self.parameters.prompt_printing_modes):
+                    for kp, name_mode, prompt_level, printing_mode in product(t_parameters.kp, t_parameters.names_levels, t_parameters.prompt_levels, t_parameters.prompt_printing_modes):
                         k = max(1, math.ceil(kp * elem_per_query))
                         match name_mode:
                             case NamesLevel.real:
@@ -607,7 +607,7 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                             case RunType.PARTITIONED:
                                 if target is not None:
                                     raise NotImplementedError("I test con un target non sono supportati in modalità partitioned")
-                                for pr in self.parameters.setwise_partition_rate:
+                                for pr in t_parameters.setwise_partition_rate:
                                     query = self._build_query(q_id=counter, ds_id=ds_id, prompt_df=prompt_df,
                                                               full_df=full_df, target=target, k=k, gt_ids=gt_ids,
                                                               gt_vals=gt_scores, prompt_level=prompt_level,
@@ -654,7 +654,7 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
         if not self._ensure_enough_combinations(clean_df):
             raise ValueError(
                 f"Not enough unique combinations of elems to generate the requested number of queries.")
-        self.queries = self._prepare_queries(clean_df)
+        self.queries = self._prepare_queries(clean_df, self.parameters)
 
     def _parse_direct_query_schema(self, query: DirectQuery[GTT]) -> None:
         if query.response is None:
@@ -736,12 +736,13 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
 
         llm_answer_with_duplicates = query.parsed_response[:query.parameters.k]
         llm_answer = mark_duplicates(llm_answer_with_duplicates)
-        llm_scores: list[float] = [query.ground_truth_scores[query.ground_truth.index(elem)]
+        gt_scores_normalized = normalize(query.ground_truth_scores)
+        llm_scores_normalized: list[float] = [ gt_scores_normalized[query.ground_truth.index(elem)]
                                    if elem in query.ground_truth
                                    else 0.0
                                    for elem in llm_answer]
 
-        return Evaluations(ndcg_scores=ndcg_k(llm_scores, query.ground_truth_scores, query.parameters.k),
+        return Evaluations(ndcg_scores=ndcg_k(llm_scores_normalized, gt_scores_normalized, query.parameters.k),
                            ndcg_k=ndcg_k(
                                relevance_scores=standard_ndcg_scoring(llm_answer, query.ground_truth,
                                                                       query.parameters.k),
@@ -753,7 +754,7 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                            spearman=spearman_rho_k(llm_answer, query.ground_truth),
                            spearman_k=spearman_rho_k(llm_answer, query.ground_truth, query.parameters.k),
                            hallucination_rate=hallucination_rate(llm_answer_with_duplicates, query.ground_truth),
-                           tokens=query.tokens if query.tokens is not None else 0)
+                           tokens=query.tokens or 0)
 
     def evaluate(self) -> dict:
         """

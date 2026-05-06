@@ -6,6 +6,17 @@ import numpy as np
 from scipy.stats import spearmanr
 
 
+def normalize(numbers: list[float]) -> list[float]:
+    min_val = min(numbers)
+    max_val = max(numbers)
+
+    if min_val == max_val:
+        normalized = [0.0 for _ in numbers]
+    else:
+        normalized = [(x - min_val) / (max_val - min_val) for x in numbers]
+
+    return normalized
+
 def _dcg(scores):
     return sum([
         score / math.log2(i + 1)

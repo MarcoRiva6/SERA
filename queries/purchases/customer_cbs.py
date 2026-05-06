@@ -162,8 +162,15 @@ class customer_CBS(customer_segmentation):
         return job, f"{instruction}\n\n{output}"
 
     def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
-        k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
+        k_list = []
+        for kp in self.parameters.kp:
+            if kp >= 1:
+                k_list.append(int(kp))
+            else:
+                k_list.append(max(1, math.ceil(kp * elem_per_query)))
+
         min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
+        min_customers_requested = min_customers_needed + 3
 
         temp_df = pd.DataFrame()
         while True:
@@ -173,7 +180,7 @@ class customer_CBS(customer_segmentation):
                     selected_cids = random.sample(cids_unique_full, elem_per_query)
                     temp_df = df[df[self.named_index_col].isin(selected_cids)]
                 case NElemsType.rows:
-                    temp_df = sample_ds_interesting(df, length=elem_per_query, min_unique=min_customers_needed+3, key=self.named_index_col)
+                    temp_df = sample_ds_interesting(df, length=elem_per_query, min_unique=min_customers_requested, key=self.named_index_col)
                     #temp_df = self.generate_prompt_dataset(df=df, target_rows=elem_per_query,
                     #                                       min_customers=min_customers_needed, seed=seed)
 

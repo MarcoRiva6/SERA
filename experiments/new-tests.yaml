@@ -45,9 +45,6 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
-    kp:
-      - 0.05
-      - 0.10
   - name: 'hr/rid'
     n_queries: 8
     elems_per_query:
@@ -67,9 +64,6 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
-    kp:
-      - 0.05
-      - 0.10
 #  - name: 'cities/cit7_free_score'
 #    cities_per_query:
 #      - 30

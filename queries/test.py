@@ -588,7 +588,11 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                         current_seed, clean_df, elem_per_query)
 
                     for kp, name_mode, prompt_level, printing_mode in product(t_parameters.kp, t_parameters.names_levels, t_parameters.prompt_levels, t_parameters.prompt_printing_modes):
-                        k = max(1, math.ceil(kp * elem_per_query))
+                        if kp >= 1:
+                            k = int(kp)
+                        else:
+                            k = max(1, math.ceil(kp * elem_per_query))
+
                         match name_mode:
                             case NamesLevel.real:
                                 full_df = real_full_df

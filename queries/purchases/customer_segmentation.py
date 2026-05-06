@@ -236,7 +236,12 @@ class customer_segmentation(Test[GTT, CustomerSegmentationTestParameters]):
 
     def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
         cids_unique_full = df[self.named_index_col].unique().tolist()
-        k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
+        k_list = []
+        for kp in self.parameters.kp:
+            if kp >= 1:
+                k_list.append(int(kp))
+            else:
+                k_list.append(max(1, math.ceil(kp * elem_per_query)))
         min_customers_needed = max(k_list) + 1 #+1: perché se ne chiediamo K simili ad 1 significa che ce ne devono essere K+1
         min_customers_requested = min_customers_needed + 3
         while True:

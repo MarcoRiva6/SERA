@@ -41,7 +41,12 @@ class spa(Test[GTT, SPATestParameters]):
         return df[['LCLid', 'day', '3h_intervals']]
 
     def _sample_for_query(self, current_seed: int, df: DataFrame, elem_per_query: int) -> DataFrame:
-        k_list = [max(1, math.ceil(kp * elem_per_query)) for kp in self.parameters.kp]
+        k_list = []
+        for kp in self.parameters.kp:
+            if kp >= 1:
+                k_list.append(int(kp))
+            else:
+                k_list.append(max(1, math.ceil(kp * elem_per_query)))
         return sample_ds_interesting(df, length=elem_per_query, min_unique=max(k_list)+3, key=self.named_index_col)
 
     def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], list[float]]:

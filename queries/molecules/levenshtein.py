@@ -62,18 +62,6 @@ def build_molecules_df(target_molecule: str, molecule_list: list[str]) -> pd.Dat
     molecule_list.remove(target_molecule)
     return pd.DataFrame(molecule_list, columns=['SMILES'])
 
-def build_ground_truth(seed, target_molecule: str, molecular_df: DataFrame) -> tuple[list[str], list[float]]:
-    sim_col = 'levenshtein_sim'
-    gt_df = molecular_df.copy()
-    gt_df[sim_col] = gt_df.apply(lambda row: levenshtein_similarity(target_molecule, row['SMILES']), axis=1)
-    # mescola df
-    gt_df = gt_df.sample(frac=1, random_state=seed)
-    # rimuovi duplicati
-    clean_gt_df = gt_df.drop_duplicates(subset=sim_col, keep='first').reset_index(drop=True)
-    sorted_df = clean_gt_df.sort_values(by=sim_col, ascending=False)
-    return sorted_df['SMILES'].tolist(), sorted_df[sim_col].tolist()
-
-
 @dataclass
 class MolecularTestParameters(TestParameters):
     names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
@@ -103,7 +91,7 @@ class levenshtein(Test[GTT, MolecularTestParameters]):
         _, end = self._create_prompt_partitioned(df, target, q_params)
         return end.replace("molecules", f"{{{df.columns[0]}}}")
 
-    def _create_prompt_partitioned(self, df: DataFrame, target: str | int | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:
+    def _create_prompt_partitioned(self, df: DataFrame, target: GTT | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:
         job = f"You are given the following list of molecules represented by their SMILES strings:"
         output = "Your output must contain only the final ranking."
 
@@ -129,12 +117,21 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
 9.  Repeat steps 5 through 8 until every cell in the matrix is filled.
 10. Extract the Levenshtein distance: it corresponds to the value contained in the bottom-rightmost cell of the matrix (row M, column N).
 11. Divide the calculated Levenshtein distance by the maximum between M and N.
-12. Subtract the result of this division from 1 to obtain the normalized similarity score to obtain the final result.
+12. Subtract the result of this division from 1 to obtain the normalized similarity score, obtaining the final result.
     """
             case PromptLevel.generic:
                 request = f"Return the {q_params.k} most similar molecules to the molecule {target}, based only on their SMILES strings similarity."
 
         return job, f"{request}\n\n{output}"
+
+    def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], GroundTruthScoreList]:
+        sim_col = 'levenshtein_sim'
+        gt_df = df.copy()
+        gt_df[sim_col] = gt_df.apply(lambda row: levenshtein_similarity(target, row['SMILES']), axis=1)
+        # rimuovi duplicati
+        clean_gt_df = gt_df.drop_duplicates(subset=sim_col, keep='first').reset_index(drop=True)
+        sorted_df = clean_gt_df.sort_values(by=sim_col, ascending=False)
+        return sorted_df['SMILES'].tolist(), sorted_df[sim_col].tolist()
 
     def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
         prompt_df = DataFrame()
@@ -144,7 +141,8 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
 
             target_mol = random.choice(self.molecules_list)
             mol_df = build_molecules_df(target_mol, self.molecules_list)
-            ground_truth, ground_truth_score = build_ground_truth(seed, target_molecule=target_mol, molecular_df=mol_df)
+            mol_df = mol_df.sample(frac=1, random_state=seed)
+            ground_truth, ground_truth_score = self.build_ground_truth(mol_df, target_mol)
             if len(ground_truth) < elem_per_query:
                 seed += 1
                 continue

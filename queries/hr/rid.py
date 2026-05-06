@@ -5,7 +5,7 @@ import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 
-from queries.test import TestParameters, Test, data_folder, PromptLevel, PartitionedQueryParameters
+from queries.test import TestParameters, Test, data_folder, PromptLevel, PartitionedQueryParameters, NamesLevel
 
 type GTT = int
 named_index_col = 'employee_id'
@@ -33,17 +33,21 @@ def compute_rid(input_df: pd.DataFrame, target_id) -> pd.DataFrame:
     # 5. Distanza Salariale Normalizzata
     distanza_salariale = (df['MonthlyIncome'] - target_A['MonthlyIncome']).abs() / 1000
     # 6. Somma finale (Punteggio RID)
-    df['RID_Score'] = (1 - 1/( 1 +
+    df['RID_Score'] = (
             penalita_dipartimento +
             penalita_formazione +
             distanza_esperienza +
-            distanza_salariale)
+            distanza_salariale
     )
 
     return df
 
 @dataclass
-class rid(Test[GTT, TestParameters]):
+class RIDTestParameters(TestParameters):
+    names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
+
+@dataclass
+class rid(Test[GTT, RIDTestParameters]):
     name: str = 'Role Interchangeability Distance'
     name_short: str = 'RID'
     json_schema = ClosestEmployee

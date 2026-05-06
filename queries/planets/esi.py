@@ -17,6 +17,18 @@ class MostSimilarPlanets(BaseModel):
 class PlanetTestParameters(TestParameters):
     elems_per_query: list[int] = field(default_factory=lambda: [30,69])
 
+def add_line(df: DataFrame) -> DataFrame:
+    medie = df.mean(numeric_only=True)
+
+    nuova_riga = medie.to_dict()
+    nuova_riga['Type'] = 'M Warm Superterran'
+    nuova_riga['Detection Method'] = 'Transit'
+
+    nuova_riga[index_name] = 'VL 120 e'
+
+    df.loc[len(df)] = nuova_riga
+    return df
+
 @dataclass
 class esi(Test[GTT, PlanetTestParameters]):
     name: str = "ESI"
@@ -62,6 +74,8 @@ class esi(Test[GTT, PlanetTestParameters]):
             text = re.sub(r"<br\s*/?>", " ", text)
 
             return text
+
+        df = add_line(df)
 
         df = df.rename(columns=clean_html_tags, copy=True)
         df = df.rename(columns={index_name: self.named_index_col})
@@ -133,13 +147,12 @@ it is computed as follows:
                     f"""Return the top {q_params.k} planets that are most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity."""
             case PromptLevel.formula:
                 instruction = \
-                    f"""Provide a ranked list of the top {q_params.k} planets that are most similar to Earth, using only the ESI (Earth Similarity Index) score.
-The ESI formula is explained below:
+                    f"""Provide the top {q_params.k} planets that are most similar to Earth, using only the ESI (Earth Similarity Index) score.
+The ESI score formula is explained below:
 
-The formula takes as input a planet's radius (R) and solar flux (S).
-it is computed as follows:
-1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
-2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
-3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )"""
+The formula takes as input a planet's radius (R) and solar flux (S). It is computed as follows:
+    1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
+    2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
+    3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )"""
 
         return job, f"{instruction}\n\n{output}"

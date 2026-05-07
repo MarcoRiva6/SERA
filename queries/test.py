@@ -584,8 +584,25 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                     if t_parameters.seed != 0:
                         random.seed(current_seed)
 
-                    (real_full_df, real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_full_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
-                        current_seed, clean_df, elem_per_query)
+                    retry = True
+                    while retry:
+                        (real_full_df, real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_full_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
+                            current_seed, clean_df, elem_per_query)
+                        collision = False
+                        for q in queries:
+                            match q:
+                                case PartitionedQuery():
+                                    collision = q.raw_df.to_string() == real_full_df.to_string()
+                                case LotusQuery() | DirectQuery():
+                                    collision = q.prompt_df.to_string() == real_prompt_df.to_string() or q.prompt_df.to_string() == anon_prompt_df.to_string()
+                            if collision:
+                                break
+                        if collision:
+                            current_seed += 1
+                            retry = True
+                            print("Generati due prompt uguali")
+                        else:
+                            retry = False
 
                     for kp, name_mode, prompt_level, printing_mode in product(t_parameters.kp, t_parameters.names_levels, t_parameters.prompt_levels, t_parameters.prompt_printing_modes):
                         if kp >= 1:

@@ -6,7 +6,7 @@ from pandas import DataFrame
 from pydantic import BaseModel, Field
 
 from experiments.run_type import RunType
-from queries.test import TestParameters, Test, data_folder, PromptLevel, PartitionedQueryParameters
+from queries.test import TestParameters, Test, data_folder, PromptLevel, PartitionedQueryParameters, NamesLevel
 
 type GTT = int
 named_index_col = 'smart_id'
@@ -17,7 +17,7 @@ class BestSmartphones(BaseModel):
 
 @dataclass
 class SmartphoneTestParameters(TestParameters):
-    elems_per_query: list[int] = field(default_factory=lambda: [50])
+    names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
 
 @dataclass
 class hw_eff_score(Test[GTT, SmartphoneTestParameters]):

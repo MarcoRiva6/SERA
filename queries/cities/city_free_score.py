@@ -21,11 +21,12 @@ class city_free_score(global_liveability):
     name: str = "City Free Score"
     name_short = "Average"
 
-    def _load_ds(self) -> DataFrame:
-        df = super()._load_ds()
-        return redefine_ranking(df)
+    def _prepare_df(self, df: DataFrame) -> DataFrame:
+        df = redefine_ranking(df)
+        return super()._prepare_df(df)
 
     def _create_prompt_lotus(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
+        raise NotImplementedError("il prompt di lotus non è stato aggiornato dopo la modifica del test")
         SC = scoring_cols.copy()
         SC.remove(ignoring_column)
         formula_string = f"city_score = ({" + ".join([f"'{c}'" for c in SC])})/{len(SC)}"
@@ -50,9 +51,9 @@ class city_free_score(global_liveability):
 
         match q_params.prompt_level:
             case PromptLevel.instruct:
-                instruct = f"Return the {q_params.k} most similar cities to '{target}', based on the average of all the attributes except '{ignoring_column}'."
+                instruct = f"Return the {q_params.k} cities with the highest average of all the attributes except '{ignoring_column}'."
             case PromptLevel.formula:
-                instruct = f"Using the following formula:\n\n{formula_string}\n\nreturn the {q_params.k} most similar cities to '{target}', based ONLY on the computed city_score(s)."
+                instruct = f"Using the following formula:\n\n{formula_string}\n\nreturn the {q_params.k} cities with the highest computed city_score(s)."
             case PromptLevel.generic:
                 raise NotImplementedError("Generic prompt level is not implemented for city_free_score.")
 

@@ -19,8 +19,8 @@ wights = {
 }
 scoring_cols: list[str] = list(wights.keys())
 
-class MostSimilarCities(BaseModel):
-    most_similar_cities: list[GTT]  = Field(description="Ordered list of the k most similar cities to the target city.")
+class BestCities(BaseModel):
+    most_similar_cities: list[GTT]  = Field(description="Ordered list of the k cities, as required.")
 
 def closest_cities(df: DataFrame, target_city: GTT) -> DataFrame:
     mask = df[named_index_col] == target_city
@@ -42,7 +42,7 @@ def closest_cities(df: DataFrame, target_city: GTT) -> DataFrame:
 class global_liveability(Test[GTT, TestParameters]):
     name: str = "Global Liveability Index"
     name_short: str = "GLI"
-    json_schema = MostSimilarCities
+    json_schema = BestCities
     named_index_col = named_index_col
 
     def _load_ds(self) -> DataFrame:
@@ -50,10 +50,11 @@ class global_liveability(Test[GTT, TestParameters]):
 
     def _prepare_df(self, df: DataFrame) -> DataFrame:
         df = df.drop(columns='Rank')
-        df[score_col] = df[score_col] / df[score_col].max()
+        df = df.drop_duplicates(subset=score_col, keep='first')
         return df
 
     def _create_prompt_lotus(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
+        raise NotImplementedError("il prompt di lotus non è stato aggiornato dopo la modifica del test")
         formula_string = f"GLI = ({" + ".join([f"'{c}' * {str(w)}" for c, w in wights.items()])})"
         # questa stringa fornisce i nomi delle colonne con il formato che LOTUS si aspetta
         target_attributes_string = ", ".join([f"{{{col}}}: {val}" for col, val in df[df[named_index_col] == target].iloc[0].items()])
@@ -75,17 +76,17 @@ class global_liveability(Test[GTT, TestParameters]):
 
         match q_params.prompt_level:
             case PromptLevel.instruct:
-                instruct = f"Return the {q_params.k} most similar cities to '{target}', based only on the Global Liveability Index (GLI) using only the provided data."
+                instruct = f"Return the {q_params.k} cities with the highest Global Liveability Index (GLI), using only the provided data."
             case PromptLevel.formula:
-                instruct = f"Using only the Global Liveability Index (GLI), which can be computed with the formula {formula_string}, return the {q_params.k} most similar cities to '{target}'."
+                instruct = f"Return the {q_params.k} cities with the highest Global Liveability Index (GLI). This index can be computed with the formula {formula_string}."
             case PromptLevel.generic:
-                instruct = f"Return the {q_params.k} most similar cities to '{target}', based only on the provided data."
+                instruct = f"Return the {q_params.k} best cities, based only on the provided data."
 
         return job, f"{instruct}\n\n{output}"
 
     def _sample_for_query(self, current_seed: int, df: DataFrame, elem_per_query: int) -> DataFrame:
         sampled_cities: list[str] = random.sample(k=elem_per_query, population=df[named_index_col].tolist())
-        return df[df[named_index_col].isin(sampled_cities)]
+        return df[df[named_index_col].isin(sampled_cities)].sample(frac=1, random_state=current_seed)
 
     def _anonymize_query_df(self, df: DataFrame) -> DataFrame:
         df = df.drop(columns='Country')
@@ -93,14 +94,10 @@ class global_liveability(Test[GTT, TestParameters]):
         df[named_index_col] = df[named_index_col].map(fake_name_mapping)
         return df
 
-    def _select_query_target(self, current_seed, real_df: DataFrame, anon_df: DataFrame):
-        chosen = random.choice(range(real_df.shape[0]))
-        return real_df.iloc[chosen][named_index_col], anon_df.iloc[chosen][named_index_col]
-
     def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], list[float]]:
-        assert isinstance(target, str)
-        gt_df: DataFrame = closest_cities(df, target)
-        return gt_df[named_index_col].tolist(), (1-gt_df['diff']).tolist()
+        gt_df = df.copy()
+        gt_df = gt_df.sort_values(by=score_col, ascending=False)
+        return gt_df[named_index_col].tolist(), gt_df[score_col].tolist()
 
     def build_prompt_df(self, df: DataFrame) -> DataFrame:
         return df.drop(columns=score_col)

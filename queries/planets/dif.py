@@ -1,4 +1,3 @@
-import random
 import sys
 import os
 
@@ -9,31 +8,23 @@ if cartella_corrente not in sys.path:
     sys.path.append(cartella_corrente)
 from esi import *
 
+class TopDIFPlanets(BaseModel):
+    top_k: list[GTT] = Field(description="The ordered list of the planets with the highest DIF score.")
+
 @dataclass
 class dif(esi):
     name: str = "DIF"
     name_short: str = "DIF"
-
-    def _select_query_target(self, current_seed, real_df: DataFrame, anon_df: DataFrame):
-        chosen = random.choice(range(real_df.shape[0]))
-        return real_df.iloc[chosen][self.named_index_col], anon_df.iloc[chosen][self.named_index_col]
+    json_schema = TopDIFPlanets
 
     def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], GroundTruthScoreList]:
-        assert target is not None
         result_df = df.copy()
         result_df['DIF'] = (result_df['Mass (Me)'] / (result_df['Radius (Re)'] ** 3)) * np.sqrt(result_df['Flux (Se)'])
-        mask = result_df[self.named_index_col] == target
-        target_dif = result_df.loc[result_df[self.named_index_col] == target, 'DIF'].values[0]
-        out = (
-            result_df.assign(diff_invers=1 / (1 + (result_df['DIF'] - target_dif).abs()))
-            .loc[~mask]
-            .sort_values("diff_invers", ascending=False)
-            .loc[:, [self.named_index_col, 'DIF', "diff_invers"]]
-        )
-        ground_truth_df = out
-        return ground_truth_df[self.named_index_col].tolist(), ground_truth_df['diff_invers'].tolist()
+        ground_truth_df = result_df.sort_values(by=['DIF'], ascending=False)
+        return ground_truth_df[self.named_index_col].tolist(), ground_truth_df['DIF'].tolist()
 
     def _create_prompt_lotus(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
+        raise NotImplementedError("il prompt di lotus non è stato aggiornato dopo la modifica del test")
         # shadowing voluto
         index_name = "Planet"
         attributes_without_index = ", ".join([f"{{{col}}}: {val}" for col, val in df[df[index_name] == target].iloc[0].items() if col != index_name])
@@ -64,10 +55,10 @@ Where:
             case PromptLevel.generic:
                 raise NotImplementedError("PromptLevel.generic is not implemented for esi_free_score.")
             case PromptLevel.instruct:
-                instruction = f"Return the sorted list of top {q_params.k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). This factor is computed as the planet's average density (expressed in Earth units, assuming a spherical shape) and multiplying it by the square root of the incident stellar flux."
+                instruction = f"Return the sorted list of the top {q_params.k} planets having the highest 'Density-Irradiance Factor' (DIF). This factor is computed as the planet's average density (expressed in Earth units, assuming a spherical shape) and multiplying it by the square root of the incident stellar flux."
             case PromptLevel.formula:
                 instruction = \
-                    f"""Return the sorted list of top {q_params.k} most similar planets to planet '{target}' using only the 'Density-Irradiance Factor' (DIF). The DIF can be computed as follows:
+                    f"""Return the sorted list of top {q_params.k} planets having the highest 'Density-Irradiance Factor' (DIF). The DIF can be computed as follows:
 
 DIF = (M / R^3) * sqrt(S)
 

@@ -11,8 +11,8 @@ from queries.test import Test, data_folder, download_csv, extract_pipe_sequence,
 type GTT = str
 index_name = "Name"
 
-class MostSimilarPlanets(BaseModel):
-    top_k: list[GTT] = Field(description="The ordered list of the top k most similar planets.")
+class TopESIPlanets(BaseModel):
+    top_k: list[GTT] = Field(description="The ordered list of the planets, as required.")
 
 class PlanetTestParameters(TestParameters):
     elems_per_query: list[int] = field(default_factory=lambda: [30,69])
@@ -33,7 +33,7 @@ def add_line(df: DataFrame) -> DataFrame:
 class esi(Test[GTT, PlanetTestParameters]):
     name: str = "ESI"
     name_short = "ESI"
-    json_schema = MostSimilarPlanets
+    json_schema = TopESIPlanets
     named_index_col = "Planet"
 
     def _load_ds(self) -> DataFrame:

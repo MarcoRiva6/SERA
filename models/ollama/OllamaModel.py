@@ -371,25 +371,6 @@ if __name__ == "__main__":
             response, tokens = self.__submit_prompt(prompt, schema)
             self._store_query_inline(qid, response, tokens)
 
-    def _submit_direct_queries_local(self, queries: list[DirectQuery]) -> None:
-        processed_queries = self._retrieve_queries_inline()
-
-        queries_to_process = []
-        for query in queries:
-            if query.id in processed_queries:
-                query.response = processed_queries[query.id]["response"]
-                query.tokens = processed_queries[query.id]["tokens"]
-            else:
-                queries_to_process.append(query)
-
-        if not queries_to_process:
-            return
-
-        for query in tqdm(queries_to_process, desc=f"Querying {self.name} via Ollama", unit="query", colour='yellow'):
-            self._submit_direct_query_inline(query)
-            self._store_query_inline(query.id, query.response, query.tokens)
-
-
     def _submit_direct_queries(self, queries: list[DirectQuery]) -> None:
         if self.params.remote_job:
             # check if already completed
@@ -437,7 +418,7 @@ if __name__ == "__main__":
                         print("Remote job launched. Attaching to stdout...")
                         monitor_remote_running(self.hostname, self.user, self.password)
         else:
-            self._submit_direct_queries_local(queries)
+            self._submit_direct_queries_inline(queries)
 
     def _query_fits_limit(self, query: Query) -> bool:
         url = f"http://{self.ollama_address}/api/tokenize"

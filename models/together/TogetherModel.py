@@ -104,7 +104,7 @@ class TogetherModel(Model):
             else:
                 requests = []
                 for q_key, q in batch_queries.items():
-                    r = {
+                    r: dict = {
                         "custom_id": q_key,
                         "body": {
                             "model": self.name_api,
@@ -112,8 +112,8 @@ class TogetherModel(Model):
                         },
                         "max_tokens": self.max_tokens
                     }
-                    if q.response_json_schema is not None and q.response_json_schema != '':
-                        r['body']['response_format'] = {"type": "json_schema", "schema": q.response_json_schema}
+                    if q.response_json_schema is not None:
+                        r['body']['response_format'] = {"type": "json_schema", "schema": q.response_json_schema.model_json_schema()}
                     if self.params.temperature != -1:
                         r['temperature'] = self.params.temperature
                     requests.append(r)
@@ -203,5 +203,4 @@ class TogetherModel(Model):
                 print("Not waiting for submission to complete...")
             return
         else:
-            for q in queries:
-                self._submit_direct_query_inline(q)
+            self._submit_direct_queries_inline(queries)

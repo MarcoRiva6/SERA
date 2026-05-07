@@ -254,21 +254,3 @@ class GoogleModel(Model):
         else:
             self._submit_direct_queries_inline(queries)
 
-    def _submit_direct_queries_inline(self, queries: list[DirectQuery]):
-        processed_queries = self._retrieve_queries_inline()
-
-        queries_to_process = []
-        for query in queries:
-            if query.id in processed_queries:
-                query.response = processed_queries[query.id]["response"]
-                query.tokens = processed_queries[query.id]["tokens"]
-            else:
-                queries_to_process.append(query)
-
-        if not queries_to_process:
-            return
-
-        for q in tqdm(queries_to_process, desc="Quering Gemini", unit="query"):
-            self._submit_direct_query_inline(q)
-            self._store_query_inline(q.id, q.response, q.tokens)
-

@@ -80,7 +80,7 @@ class TogetherModel(Model):
             return None
         return message.content
 
-    def _submit_direct_query(self, query: DirectQuery) -> None:
+    def _submit_direct_query_inline(self, query: DirectQuery) -> None:
         query.response = self._submit_prompt(query.prompt, query.response_json_schema)
 
     def _submit_direct_queries_batched(self, folder: Path, queries: list[DirectQuery]) -> bool:
@@ -204,4 +204,4 @@ class TogetherModel(Model):
             return
         else:
             for q in queries:
-                self._submit_direct_query(q)
+                self._submit_direct_query_inline(q)

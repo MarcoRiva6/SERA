@@ -130,7 +130,7 @@ class Model(ABC):
 
         return processed_queries
 
-    def _submit_direct_query(self, query: DirectQuery) -> None:
+    def _submit_direct_query_inline(self, query: DirectQuery) -> None:
         """
         Submit a single direct query to the model using direct submission method.
         The method should populate the 'response' attribute of the Query object.
@@ -139,7 +139,7 @@ class Model(ABC):
 
     def _submit_direct_queries(self, queries: list[DirectQuery]) -> None:
         for query in queries:
-            self._submit_direct_query(query)
+            self._submit_direct_query_inline(query)
 
     def _get_lotus_params(self) -> tuple[str,str|None]:
         raise NotImplementedError(f"Lotus submission not implemented for model {self.name}.")
@@ -217,7 +217,7 @@ class Model(ABC):
             )
             query.sub_queries.append(subquery)
             # execute
-            self._submit_direct_query(subquery)
+            self._submit_direct_query_inline(subquery)
             # process response
             test.parse_query(subquery)
             if subquery.parsed_response:

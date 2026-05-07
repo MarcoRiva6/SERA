@@ -6,34 +6,16 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-import google.genai
-from google.genai.types import BatchJob, ThinkingConfig, GenerationConfig, Content, Part
+from google.genai import Client
+from google.genai.types import BatchJob, ThinkingConfig, GenerationConfig, Content, Part, GenerateContentConfig
 from tqdm import tqdm
 
-from models.model import Model, write_jsonl, _split_queries
+from models.model import Model, write_jsonl, _split_queries, SubmissionError
 from queries.test import Query, DirectQuery
-
-
-def convert_schema_to_gemini(schema):
-    #TODO: rimuovere warning di pydantic
-    if isinstance(schema, dict):
-        new_schema = {}
-        for key, value in schema.items():
-            if key == "type" and isinstance(value, str):
-                new_schema[key] = value.upper()
-            else:
-                new_schema[key] = convert_schema_to_gemini(value)
-        return new_schema
-
-    elif isinstance(schema, list):
-        return [convert_schema_to_gemini(item) for item in schema]
-
-    else:
-        return schema
 
 @dataclass
 class GoogleModel(Model):
-    client: google.genai.Client = None
+    client: Client = None
     batch_max_tokens: int = 0
     supports_batched: bool = False
     supports_reasoning: bool = False
@@ -59,15 +41,13 @@ class GoogleModel(Model):
         response = self.client.models.count_tokens(contents=prompt, model=self.name_api)
         return response.total_tokens
 
-    def _submit_direct_query(self, query: DirectQuery) -> None:
-        query.response = self._submit_direct_query_inline(query.prompt)
+    def _submit_direct_query_inline(self, query: DirectQuery) -> None:
+        query.response, query.tokens = self._submit_prompt(query.prompt, query.response_json_schema.model_json_schema() if query.response_json_schema else None)
 
-    def _submit_direct_query_inline(self, prompt: str) -> str | None:
-        MAX_RETRIES = 3
-        TIMEOUT = 600
+    def _submit_prompt(self, prompt: str, schema: dict | None) -> tuple[str | None, int]:
+        MAX_RETRIES = 5
         RETRY_DELAY = 40
         QUOTA_WAIT_HOURS=8
-        REASONING=False
 
         def handle_api_error(error_msg: str, retry_count: int) -> bool:
             """
@@ -82,7 +62,8 @@ class GoogleModel(Model):
             if "429" in error_msg and "quota" in error_msg_lower and 'perday' in error_msg_lower:
                 print(f"Limite quota raggiunto. Attendo {QUOTA_WAIT_HOURS} ore...")
                 time.sleep(QUOTA_WAIT_HOURS * 60 * 60)
-                return True  # Non fare retry automatico, attendi
+                raise SubmissionError("Superata la quota di Gemini")
+                # return True # Non fare retry automatico, attendi
 
             # Gestione altri errori temporanei
             temporary_errors = [
@@ -94,18 +75,25 @@ class GoogleModel(Model):
             is_temporary = any(temp_error in error_msg_lower for temp_error in temporary_errors)
 
             if is_temporary and retry_count < MAX_RETRIES:
-                print(f"Errore temporaneo rilevato (retry {retry_count + 1}/{MAX_RETRIES}): {error_msg}")
+                print(f"Errore temporaneo rilevato (retry {retry_count + 1}/{MAX_RETRIES})")
                 print(f"Attendo {RETRY_DELAY} secondi prima del retry...")
                 time.sleep(RETRY_DELAY)
                 return True
 
             return False
 
-        from google.genai import Client
-        from google.genai import types
         if self.client is None:
             self.client = self.__init_google_client()
         client: Client = self.client
+
+        thinking_config = ThinkingConfig(include_thoughts=False)
+        if self.params.reasoning and self.supports_reasoning:
+            thinking_config.thinking_budget = -1 # auto hybrid thinking
+        else:
+            thinking_config.thinking_budget = 0
+        gen_config = GenerateContentConfig(max_output_tokens=self.max_tokens, thinking_config=thinking_config,
+                                      temperature=self.params.temperature if self.params.temperature != -1 else None,
+                                      response_mime_type='application/json', response_json_schema=schema)
 
         retry_count = 0
         while retry_count <= MAX_RETRIES:
@@ -113,10 +101,16 @@ class GoogleModel(Model):
                 response = client.models.generate_content(
                     model=self.name_api,
                     contents=prompt,
-                    config=types.GenerateContentConfig(
-                        thinking_config=types.ThinkingConfig(thinking_budget=0)) if REASONING else None,
-                )
-                return response.text.strip()
+                    config=gen_config)
+                answer: str|None = response.text.strip() if response.text is not None else None
+                if response.usage_metadata is not None:
+                    if response.usage_metadata.total_token_count is not None:
+                        tokens: int = response.usage_metadata.total_token_count
+                    else:
+                        tokens: int = 0
+                else:
+                    tokens: int = 0
+                return answer, tokens
             except Exception as e:
                 error_msg = str(e)
                 print(f"errore nella query a Gemini: {error_msg}")
@@ -126,9 +120,9 @@ class GoogleModel(Model):
                     retry_count += 1
                     continue
                 else:
-                    return None
+                    raise SubmissionError("Gemini non risponde")
 
-    def _submit_direct_queries_batched(self, folder: Path, queries: list[Query]) -> bool:
+    def _submit_direct_queries_batched(self, folder: Path, queries: list[DirectQuery]) -> bool:
         poll_interval = 60 #seconds
         timeout = 86400  #seconds (24 hours)
         batch_id_path = folder / "batch_id.txt"
@@ -137,7 +131,9 @@ class GoogleModel(Model):
         error_path = folder / "batch_error.jsonl"
         batch_token_usage_path = folder / "batch_token_usage.txt"
 
-        batch_queries: dict[str, Query] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
+        batch_queries: dict[str, DirectQuery] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
+        if len(batch_queries) < len(queries):
+            raise SubmissionError("Collisione nell'hashing delle query")
 
         if os.path.exists(output_path):
             print(f"Using existing batch output file...")
@@ -158,9 +154,9 @@ class GoogleModel(Model):
                 for q_key, q in batch_queries.items():
                     content = Content(parts=[Part(text=q.prompt)], role="user")
                     req_gen_config = gen_config.model_copy()
-                    if q.response_json_schema is not None and q.response_json_schema != '':
+                    if q.response_json_schema is not None:
                         req_gen_config.response_mime_type = "application/json"
-                        req_gen_config.response_schema = convert_schema_to_gemini(q.response_json_schema)
+                        req_gen_config.response_json_schema = q.response_json_schema.model_json_schema()
                     r = {
                         "key": q_key,
                         "request": {
@@ -213,15 +209,16 @@ class GoogleModel(Model):
             for line in f:
                 response = json.loads(line)
                 q: Query = batch_queries[response['key']]
-                if response['response']['candidates'][0]['finishReason'] != 'STOP':
-                    q_id = getattr(q, 'id', response['key'])
-                    print(f"Warning: Response for query {q_id} didn't finish.")
-                tokens_consumed = response['response']['usageMetadata']['totalTokenCount']
+                q_id = getattr(q, 'id', response['key'])
                 try:
+                    if response['response']['candidates'][0]['finishReason'] != 'STOP':
+                        print(f"Warning: Response for query {q_id} didn't finish.")
+                    tokens_consumed = response['response']['usageMetadata']['totalTokenCount']
                     q.response = response['response']['candidates'][0]['content']['parts'][0]['text']
                     q.tokens = tokens_consumed
                 except KeyError:
-                    q.response = None
+                    q.response = ''
+                    print(f"Warning: Coudn't get response for query {q_id}.")
                 total_token_consumed += tokens_consumed
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")
@@ -255,6 +252,23 @@ class GoogleModel(Model):
                 print("Not waiting for submission to complete...")
             return
         else:
-            for q in queries:
-                self._submit_direct_query(q)
+            self._submit_direct_queries_inline(queries)
+
+    def _submit_direct_queries_inline(self, queries: list[DirectQuery]):
+        processed_queries = self._retrieve_queries_inline()
+
+        queries_to_process = []
+        for query in queries:
+            if query.id in processed_queries:
+                query.response = processed_queries[query.id]["response"]
+                query.tokens = processed_queries[query.id]["tokens"]
+            else:
+                queries_to_process.append(query)
+
+        if not queries_to_process:
+            return
+
+        for q in tqdm(queries_to_process, desc="Quering Gemini", unit="query"):
+            self._submit_direct_query_inline(q)
+            self._store_query_inline(q.id, q.response, q.tokens)
 

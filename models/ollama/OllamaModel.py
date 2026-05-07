@@ -5,6 +5,7 @@ import sys
 import time
 
 import httpx
+import psutil
 import requests
 from pydantic import BaseModel
 from tqdm import tqdm
@@ -47,6 +48,8 @@ class OllamaTunnelManager:
 
     def start(self):
         """Avvia il demone che tiene in vita il tunnel."""
+        self._uccidi_processi_orfani()
+
         self.is_running = True
         self._thread = threading.Thread(target=self._keep_tunnel_alive, daemon=True)
         self._thread.start()
@@ -91,6 +94,27 @@ class OllamaTunnelManager:
             except subprocess.TimeoutExpired:
                 self.process.kill()
         print("Tunnel manager fermato.")
+
+    def _uccidi_processi_orfani(self):
+        """Cerca e distrugge qualsiasi processo che sta occupando la nostra porta locale."""
+
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                # Controlla tutte le connessioni di rete di questo processo
+                for conn in proc.connections(kind='tcp'):
+                    # Se il processo sta ascoltando o usando la nostra porta locale
+                    if conn.laddr.port == self.local_port:
+                        print(f"[Tunnel] ⚠️ Trovato processo zombie ({proc.info['name']}, PID: {proc.info['pid']}) sulla porta {self.local_port}. Terminazione in corso...")
+
+                        proc.kill()   # Uccide il processo
+                        proc.wait()   # Aspetta che sia effettivamente morto
+                        time.sleep(1) # Pausa di sicurezza per far rilasciare la porta al sistema operativo
+                        print("[Tunnel] Porta liberata con successo!")
+                        return # Esci, lavoro finito
+
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                # Ignora i processi di sistema a cui non abbiamo accesso o che stanno già morendo
+                pass
 
 
 def monitor_remote_running(host, user, password, file_name: str = "run.log"):
@@ -199,7 +223,14 @@ class OllamaModel(Model):
             )
             self.tunnel.start()
 
-        self.client = Client(host="http://" + self.ollama_address)
+        timeout_personalizzato = httpx.Timeout(
+            connect=5.0,  # Se non riesce a connettersi al tunnel entro 5 secondi, esplode
+            read=60.0,   # Dà a Ollama fino a x minuti per generare e inviare la risposta
+            write=10.0,   # Tempo massimo per inviare il tuo prompt al server
+            pool=10.0
+        )
+
+        self.client = Client(host="http://" + self.ollama_address, timeout=timeout_personalizzato)
 
     def _finish_model(self) -> None:
         self.tunnel.stop()
@@ -311,7 +342,7 @@ if __name__ == "__main__":
 
         return resp, token_count
 
-    def _submit_direct_query(self, query: DirectQuery) -> None:
+    def _submit_direct_query_inline(self, query: DirectQuery) -> None:
         query.response, query.tokens = self.__submit_prompt(query.prompt, query.response_json_schema)
 
     def _submit_direct_queries_remote(self):
@@ -355,7 +386,7 @@ if __name__ == "__main__":
             return
 
         for query in tqdm(queries_to_process, desc=f"Querying {self.name} via Ollama", unit="query", colour='yellow'):
-            self._submit_direct_query(query)
+            self._submit_direct_query_inline(query)
             self._store_query_inline(query.id, query.response, query.tokens)
 
 

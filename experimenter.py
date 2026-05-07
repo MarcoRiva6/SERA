@@ -206,7 +206,10 @@ def parse_expr_file(expr_file_path: Path) -> Run:
             r_run_type_experiments = Run.Query.RunTypeExperiments(run_type=rt, experiments=[])
             r_test.run_type_experiments.append(r_run_type_experiments)
             for m in models:
-                rt_model_filter = getattr(m, 'run_type_filter', '*')
+                try:
+                    rt_model_filter = m['run_type_filter']
+                except KeyError:
+                    rt_model_filter = '*'
                 match rt_model_filter:
                     case '*':
                         rt_model_filter = run_types
@@ -218,6 +221,10 @@ def parse_expr_file(expr_file_path: Path) -> Run:
                         raise ValueError("Invalid run_type_filter in experiment file:", expr_file_path)
                 if rt not in rt_model_filter:
                     continue
+                try:
+                    del m['run_type_filter']
+                except KeyError:
+                    pass
                 # instantiate test object
                 q_name_split = q['name'].split('/')
                 test_family, test_name_path = q_name_split[0], q_name_split[1]

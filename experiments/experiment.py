@@ -75,9 +75,8 @@ class Experiment:
         at_least_one_completed = any(q.is_answered() for q in self.test.queries)
         if at_least_one_completed:
             for q in tqdm(self.test.queries, desc='Parsing and evaluating queries', unit='query', colour='blue'):
-                if q.is_answered():
-                    self.test.parse_query(q)
-                    q.evaluations = self.test.evaluate_query(q)
+                self.test.parse_query(q)
+                q.evaluations = self.test.evaluate_query(q)
 
             print('Storing answered queries...')
             self.test.queries_to_csv('evaluated_queries.csv', self.inner_folder)

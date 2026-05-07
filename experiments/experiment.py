@@ -63,6 +63,9 @@ class Experiment:
                 return
             except SubmissionError as e:
                 print('Submission error:', e)
+            except KeyboardInterrupt:
+                print('Experiment interrupted.')
+                self.model._finish_model()
             except Exception as e:
                 print('An unknown error occurred during submission:', e)
                 return

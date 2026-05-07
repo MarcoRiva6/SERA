@@ -1,3 +1,4 @@
+import argparse
 import importlib
 import importlib.util
 import inspect
@@ -20,6 +21,7 @@ parent = Path(__file__).resolve().parent
 models_folder: Path = parent / 'models'
 query_folder: Path = parent / 'queries'
 runs_folder: Path = parent / 'runs'
+expr_folder: Path = parent / 'experiments'
 
 @dataclass
 class Run:
@@ -73,133 +75,158 @@ def class_from_path(class_path: str):
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
 
-def load_experiments() -> list[Run]:
+def get_expr_filename_from_args() -> str:
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+        "exp_file",
+        type=str,
+        help="Il nome del experiment file, senza estensione"
+    )
+
+    return parser.parse_args().exp_file + '.yaml'
+
+def load_experiments_from_folder() -> list[Run]:
     results: list[Run] = []
 
-    for test_file in Path('experiments').glob('*'):
-        if test_file.is_dir() or test_file.name == 'experiment.py' or '__pycache__' in test_file.parts or '.DS_Store' in test_file.parts or 'run_type.py' in test_file.parts:
+    for expr_file_path in expr_folder.glob('*'):
+        if expr_file_path.is_dir() or expr_file_path.name == 'experiment.py' or '__pycache__' in expr_file_path.parts or '.DS_Store' in expr_file_path.parts or 'run_type.py' in expr_file_path.parts:
             continue
 
-        with open(test_file) as f:
-            try:
-                data = yaml.safe_load(f)
-            except yaml.YAMLError as exc:
-                print("Error YAML parsing experiment file:", test_file, exc)
-                continue
-        if data.get('disabled', False):
-            print("Skipping disabled experiment file:", test_file)
-            continue
+        expr = parse_expr_file(expr_file_path)
+        if expr is not None:
+            results.append(expr)
 
-        test_file_name_path = test_file.stem
-        this_run_folder = runs_folder / test_file_name_path
-        r = Run(name_path=test_file_name_path, run_folder=this_run_folder, queries=[])
-        results.append(r)
-
-        try:
-            r.seed = data['seed']
-        except KeyError:
-            pass
-        try:
-            r.create_aggregated_csv = data['create_aggregated_csv']
-        except KeyError:
-            pass
-        try:
-            r.skip_model = data['skip_model']
-        except KeyError:
-            pass
-
-
-        models: list[dict] = []
-        queries: list[dict] = []
-
-        for attr in [{'folder': models_folder, 'lst': models, 'attr_name': 'models', 'extension': '.yaml', 'exclude': ['model.py', 'global.yaml']},
-                     {'folder': query_folder, 'lst': queries, 'attr_name': 'queries', 'extension': '.py', 'exclude': ['test.py','metrics.py']}]:
-            pattern  = data.get(attr['attr_name'], '*')
-            if pattern is None: # attr:
-                print("Warning: No queries defined in experiment file:", test_file)
-                continue
-            elif pattern == '*': # attr: '*'
-                for a_path in attr['folder'].glob('**/*' + attr['extension']):
-                    if a_path.is_dir() or a_path.name in attr['exclude'] or '__init__.py' in a_path.parts:
-                        continue
-                    attr['lst'].append({'name': a_path.parts[-2] + '/' + a_path.stem})
-            elif isinstance(pattern, list): # attr: [ ... ]
-                for a in pattern:
-                    if isinstance(a, dict): # attr: - name: 'some_val', ...
-                        try:
-                            a_name_path = a['name']
-                        except KeyError:
-                            print(f"Warning: dictionary {a} in {attr['attr_name']} missing 'name' key in experiment file:", test_file)
-                            continue
-                        a_path = attr['folder'] / (a_name_path + attr['extension'])
-                        if not a_path.exists():
-                            print(f"Warning: {attr['attr_name']} path does not exist:", a_path, "in experiment file:", test_file)
-                            continue
-                        attr['lst'].append(a)
-                    elif isinstance(a, str): # attr: - 'some_val', ...
-                        a_path = attr['folder'] / (a + attr['extension'])
-                        if not a_path.exists():
-                            print(f"Warning: {attr['attr_name']} path does not exist:", a_path, "in experiment file:", test_file)
-                            continue
-                        attr['lst'].append({'name': a})
-                    else: # invalid format
-                        print(f"Warning: Invalid format for {attr['attr_name']} in experiment file:", test_file)
-                        continue
-            elif isinstance(pattern, str): # attr: 'some_val'
-                a_path = attr['folder'] / (pattern + attr['extension'])
-                if not a_path.exists():
-                    print(f"Warning: {attr['attr_name']} path does not exist:", a_path, "in experiment file:", test_file)
-                    continue
-                attr['lst'].append({'name': pattern})
-            else: # invalid format
-                print(f"Warning: Invalid format for {attr['attr_name']} in experiment file:", test_file)
-                continue
-
-            if len(attr['lst']) == 0:
-                print(f"Warning: No matched {attr['attr_name']} for experiment file:", test_file)
-                continue
-
-        run_types: list[RunType] = []
-        raw_run_types = data.get('run_types', '*')
-        if raw_run_types is None:
-            print("Warning: No run types defined in experiment file:", test_file)
-            continue
-        elif raw_run_types == '*':
-            for run_type in RunType:
-                run_types.append(run_type)
-        else:
-            for rt in raw_run_types:
-                run_types.append(RunType(rt))
-        if not run_types:
-            print("Warning: No run types matched for experiment file:", test_file)
-            continue
-
-        for q in queries:
-            r_test = Run.Query(name=q['name'], run_type_experiments=[])
-            r.queries.append(r_test)
-            for rt in run_types:
-                r_run_type_experiments = Run.Query.RunTypeExperiments(run_type=rt, experiments=[])
-                r_test.run_type_experiments.append(r_run_type_experiments)
-                for m in models:
-                    # instantiate test object
-                    q_name_split = q['name'].split('/')
-                    test_family, test_name_path = q_name_split[0], q_name_split[1]
-                    inner_run_folder = this_run_folder / test_family / test_name_path
-                    test = instantiate_test(r.seed, inner_run_folder, q, rt, test_family, test_name_path)
-                    test_dict = asdict(test)
-
-                    model = instantiate_model(r.seed, inner_run_folder, m, rt)
-                    # instantiate experiment object
-                    experiment = Experiment(
-                        name=f"{test_dict.get('name', test_dict.get('name_path'))}: {model.name} - {rt}",
-                        run_folder=this_run_folder,
-                        model=model,
-                        run_type=rt,
-                        test=test,
-                        skip_model=r.skip_model
-                    )
-                    r_run_type_experiments.experiments.append(experiment)
     return results
+
+def parse_expr_file(expr_file_path: Path) -> Run:
+    with open(expr_file_path) as f:
+        try:
+            data = yaml.safe_load(f)
+        except yaml.YAMLError as exc:
+            raise ValueError("Error YAML parsing experiment file:", expr_file_path, exc)
+    # if data.get('disabled', False):
+    #     print("Skipping disabled experiment file:", expr_file)
+    #     return None
+
+    test_file_name_path = expr_file_path.stem
+    this_run_folder = runs_folder / test_file_name_path
+    r = Run(name_path=test_file_name_path, run_folder=this_run_folder, queries=[])
+
+    try:
+        r.seed = data['seed']
+    except KeyError:
+        pass
+    try:
+        r.create_aggregated_csv = data['create_aggregated_csv']
+    except KeyError:
+        pass
+    try:
+        r.skip_model = data['skip_model']
+    except KeyError:
+        pass
+
+    models: list[dict] = []
+    queries: list[dict] = []
+
+    for attr in [{'folder': models_folder, 'lst': models, 'attr_name': 'models', 'extension': '.yaml',
+                  'exclude': ['model.py', 'global.yaml']},
+                 {'folder': query_folder, 'lst': queries, 'attr_name': 'queries', 'extension': '.py',
+                  'exclude': ['test.py', 'metrics.py']}]:
+        pattern = data.get(attr['attr_name'], '*')
+        if pattern is None:  # attr:
+            print("Warning: No queries defined in experiment file:", expr_file_path)
+            continue
+        elif pattern == '*':  # attr: '*'
+            for a_path in attr['folder'].glob('**/*' + attr['extension']):
+                if a_path.is_dir() or a_path.name in attr['exclude'] or '__init__.py' in a_path.parts:
+                    continue
+                attr['lst'].append({'name': a_path.parts[-2] + '/' + a_path.stem})
+        elif isinstance(pattern, list):  # attr: [ ... ]
+            for a in pattern:
+                if isinstance(a, dict):  # attr: - name: 'some_val', ...
+                    try:
+                        a_name_path = a['name']
+                    except KeyError:
+                        print(f"Warning: dictionary {a} in {attr['attr_name']} missing 'name' key in experiment file:",
+                              expr_file_path)
+                        continue
+                    a_path = attr['folder'] / (a_name_path + attr['extension'])
+                    if not a_path.exists():
+                        print(f"Warning: {attr['attr_name']} path does not exist:", a_path, "in experiment file:",
+                              expr_file_path)
+                        continue
+                    attr['lst'].append(a)
+                elif isinstance(a, str):  # attr: - 'some_val', ...
+                    a_path = attr['folder'] / (a + attr['extension'])
+                    if not a_path.exists():
+                        print(f"Warning: {attr['attr_name']} path does not exist:", a_path, "in experiment file:",
+                              expr_file_path)
+                        continue
+                    attr['lst'].append({'name': a})
+                else:  # invalid format
+                    print(f"Warning: Invalid format for {attr['attr_name']} in experiment file:", expr_file_path)
+                    continue
+        elif isinstance(pattern, str):  # attr: 'some_val'
+            a_path = attr['folder'] / (pattern + attr['extension'])
+            if not a_path.exists():
+                print(f"Warning: {attr['attr_name']} path does not exist:", a_path, "in experiment file:", expr_file_path)
+                continue
+            attr['lst'].append({'name': pattern})
+        else:  # invalid format
+            print(f"Warning: Invalid format for {attr['attr_name']} in experiment file:", expr_file_path)
+            continue
+
+        if len(attr['lst']) == 0:
+            print(f"Warning: No matched {attr['attr_name']} for experiment file:", expr_file_path)
+            continue
+
+    run_types: list[RunType] = []
+    raw_run_types = data.get('run_types', '*')
+    if raw_run_types is None:
+        print("Warning: No run types defined in experiment file:", expr_file_path)
+        pass
+    else:
+        match raw_run_types:
+            case '*':
+                for run_type in RunType:
+                    run_types.append(run_type)
+            case list():
+                for rt in raw_run_types:
+                    run_types.append(RunType(rt))
+            case str():
+                run_types.append(RunType(raw_run_types))
+    if not run_types:
+        raise ValueError("Warning: No run types matched for experiment file:", expr_file_path)
+
+    for q in queries:
+        r_test = Run.Query(name=q['name'], run_type_experiments=[])
+        r.queries.append(r_test)
+        for rt in run_types:
+            r_run_type_experiments = Run.Query.RunTypeExperiments(run_type=rt, experiments=[])
+            r_test.run_type_experiments.append(r_run_type_experiments)
+            for m in models:
+                # instantiate test object
+                q_name_split = q['name'].split('/')
+                test_family, test_name_path = q_name_split[0], q_name_split[1]
+                inner_run_folder = this_run_folder / test_family / test_name_path
+                test = instantiate_test(r.seed, inner_run_folder, q, rt, test_family, test_name_path)
+                test_dict = asdict(test)
+
+                model = instantiate_model(r.seed, inner_run_folder, m, rt)
+                # instantiate experiment object
+                experiment = Experiment(
+                    name=f"{test_dict.get('name', test_dict.get('name_path'))}: {model.name} - {rt}",
+                    run_folder=this_run_folder,
+                    model=model,
+                    run_type=rt,
+                    test=test,
+                    skip_model=r.skip_model
+                )
+                r_run_type_experiments.experiments.append(experiment)
+
+    return r
+
 
 def instantiate_test(exp_seed: int, inner_run_folder: Path, query_dictionary: dict, rt: RunType, test_family: str,
                      test_name_path: str) -> Test:
@@ -346,59 +373,54 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
     return for_charts
 
 def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
-    runs = load_experiments()
+    run: Run = parse_expr_file(expr_folder / get_expr_filename_from_args())
     tot_tests = 0
     executed_tests = 0
     result = {}
-    for run in runs:
-        for_dashboard: dict[str, dict[str, dict[str, list[Query]]]] = {}
-        for query in run.queries:
-            for_dashboard[query.name] = {}
-            for run_type_experiment in query.run_type_experiments:
-                for_dashboard[query.name][run_type_experiment.run_type.name] = {}
-                for e in run_type_experiment.experiments:
-                    tot_tests += 1
-                    path = e.inner_folder / 'evaluated_queries.pkl'
-                    if path.exists():
-                        executed_tests += 1
-                        e.test.pickle_to_queries(path)
-                        for_dashboard[query.name][run_type_experiment.run_type.name][e.model.name_path] = e.test.queries
+    for_dashboard: dict[str, dict[str, dict[str, list[Query]]]] = {}
+    for query in run.queries:
+        for_dashboard[query.name] = {}
+        for run_type_experiment in query.run_type_experiments:
+            for_dashboard[query.name][run_type_experiment.run_type.name] = {}
+            for e in run_type_experiment.experiments:
+                tot_tests += 1
+                path = e.inner_folder / 'evaluated_queries.pkl'
+                if path.exists():
+                    executed_tests += 1
+                    e.test.pickle_to_queries(path)
+                    for_dashboard[query.name][run_type_experiment.run_type.name][e.model.name_path] = e.test.queries
 
-        result[run.name_path] = prepare_for_charts(for_dashboard)
+    result[run.name_path] = prepare_for_charts(for_dashboard)
 
     print(f"showing {executed_tests}/{tot_tests} tests")
     return result
 
 
 if __name__ == "__main__":
-    runs: list[Run] = load_experiments()
-    if len(runs) == 0:
-        print("No (valid) experiments found.")
-        exit(1)
+    run: Run = parse_expr_file(expr_folder / get_expr_filename_from_args())
 
-    for run in runs: # per ogni run folder
-        print(f"*** Running experiments for run: {run.name_path} ***\n")
-        for query in run.queries:
-            print(f"=== Test: {query.name} ===\n")
-            for run_type_experiment in query.run_type_experiments:
-                print(f"--- Run type: {run_type_experiment.run_type} ---\n")
-                experiments = run_type_experiment.experiments
-                for experiment in experiments:
-                    print(f"Running experiment: {experiment.name}\n")
-                    experiment.execute()
-                    print('\n')
-
-                if run.create_aggregated_csv:
-                    run_type_experiment.all_evaluated = all(e.test.queries and all(q.evaluations is not None
-                                                                                    for q in e.test.queries)
-                                                            for e in experiments)
-                    if run_type_experiment.all_evaluated:
-                        if len(experiments) <= 1 or len(set([e.test.run_type for e in experiments])) != 1:
-                            print("Not enough evaluated experiments with the same run type to aggregate results, skipping aggregation.")
-                        else:
-                            print(f"aggregating results for test: {query.name} - {run_type_experiment.run_type}")
-                            merged_df = merge_queries([e.test.queries for e in experiments], [e.model.name_path for e in experiments])
-                            merged_df.to_csv(experiments[0].test.run_folder.parent / 'results' / 'aggregated_queries.csv', index=False, decimal=',', sep=';')
-                    else:
-                        print(f"Some experiments for test {query.name} were not evaluated, skipping aggregation")
+    print(f"*** Running experiment: {run.name_path} ***\n")
+    for query in run.queries:
+        print(f"=== Test: {query.name} ===\n")
+        for run_type_experiment in query.run_type_experiments:
+            print(f"--- Run type: {run_type_experiment.run_type} ---\n")
+            experiments = run_type_experiment.experiments
+            for experiment in experiments:
+                print(f"Running experiment: {experiment.name}\n")
+                experiment.execute()
                 print('\n')
+
+            if run.create_aggregated_csv:
+                run_type_experiment.all_evaluated = all(e.test.queries and all(q.evaluations is not None
+                                                                                for q in e.test.queries)
+                                                        for e in experiments)
+                if run_type_experiment.all_evaluated:
+                    if len(experiments) <= 1 or len(set([e.test.run_type for e in experiments])) != 1:
+                        print("Not enough evaluated experiments with the same run type to aggregate results, skipping aggregation.")
+                    else:
+                        print(f"aggregating results for test: {query.name} - {run_type_experiment.run_type}")
+                        merged_df = merge_queries([e.test.queries for e in experiments], [e.model.name_path for e in experiments])
+                        merged_df.to_csv(experiments[0].test.run_folder.parent / 'results' / 'aggregated_queries.csv', index=False, decimal=',', sep=';')
+                else:
+                    print(f"Some experiments for test {query.name} were not evaluated, skipping aggregation")
+            print('\n')

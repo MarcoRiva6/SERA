@@ -81,14 +81,14 @@ class rid(Test[GTT, RIDTestParameters]):
                 raise NotImplementedError("generic non ancora implementato")
             case PromptLevel.instruct:
                 instruction = \
-                    f"""Return the {q_params.k} most interchangeable employees to the target employee '{target}' from the provided dataset, using the Role Interchangeability Distance (RID). Calculate the RID by summing four components:
+                    f"""Return the {q_params.k} least interchangeable employees to the target employee '{target}' from the provided dataset, using the Role Interchangeability Distance (RID). Calculate the RID by summing four components:
     1.	A 10-point penalty if their 'Department' values are different.
     2.	An education penalty: 0 if they share the same 'EducationField' OR if the target employee's 'Education' level (numeric) is strictly greater than the candidate's. Otherwise, add 10 points.
     3.	The absolute difference in their 'TotalWorkingYears'.
     4.	The absolute difference in their 'MonthlyIncome', divided by 1000."""
             case PromptLevel.formula:
                 instruction = \
-                    f"""Return the {q_params.k} most interchangeable employees to the target employee '{target}', based on the Role Interchangeability Distance (RID). The RID between two employees can be computed as follows:
+                    f"""Return the {q_params.k} least interchangeable employees to the target employee '{target}', based on the Role Interchangeability Distance (RID). The RID between two employees can be computed as follows:
     1.	Initialize a variable 'total_rid' to 0.
     2.	If their 'Department' differs, add 10 to 'total_rid'.
     3.	If the 'EducationField' differs, compare their numeric 'Education' values. If target employee's 'Education' value is less than or equal to other employee's one, add 10 to 'total_rid'.

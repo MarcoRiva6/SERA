@@ -51,8 +51,8 @@ class TestParameters(ABC):
     All configuration parameters that could be changed via the yaml file should be declared here.
     """
     seed: int = 0 # if set to 0, a random seed is used
-    n_queries: int = 10
-    kp: list[float] = field(default_factory=lambda: [0.05, 0.15, 0.25])
+    n_queries: int = 15
+    kp: list[float] = field(default_factory=lambda: [5, 10])
     elems_per_query: list[int] = field(default_factory=lambda: [30, 70])
     prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
     names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel)
@@ -785,14 +785,16 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
         """
         # accumulator for sums
         totals = {}
+        n = 0
 
         # sum all metrics across queries
         for q in self.queries:
-            for metric, value in asdict(q.evaluations).items():
-                totals.update({metric: totals.get(metric, 0) + value})
+            if q.evaluations is not None:
+                n += 1
+                for metric, value in asdict(q.evaluations).items():
+                    totals.update({metric: totals.get(metric, 0) + value})
 
         # compute mean values
-        n = len(self.queries)
         aggregated = {metric: totals[metric] / n for metric in totals}
 
         self.evaluations = self.queries[0].evaluations.__class__(**aggregated)

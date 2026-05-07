@@ -331,6 +331,9 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
     # stampa i failing rates
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
+            for q in queries:
+                if q.parsing_failed is None:
+                    q.parsing_failed = True
             print(f"Parsing failed rate for {test_name} - {model_name}: {sum(q.parsing_failed for q in queries)/len(queries) * 100:.2f}%")
     # raggruppiamo per dataset
     for test_name, model_dict in for_charts.items():
@@ -355,12 +358,12 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
         if ds_name in model_dict:
             model_dict['deepseek-V3'] = model_dict.pop(ds_name)
     # trasforma k in percentuale
-    for test_name, model_dict in for_charts.items():
-        for model_name, queries in model_dict.items():
-            for q in queries:
-                if q.parameters.k is not None and q.parameters.n_elems is not None:
-                    pre_round = q.parameters.k / q.parameters.n_elems
-                    q.parameters.k = _round_scalar(pre_round)
+    # for test_name, model_dict in for_charts.items():
+    #     for model_name, queries in model_dict.items():
+    #         for q in queries:
+    #             if q.parameters.k is not None and q.parameters.n_elems is not None:
+    #                 pre_round = q.parameters.k / q.parameters.n_elems
+    #                 q.parameters.k = _round_scalar(pre_round)
     #transforma mare in percentuale inversa
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
@@ -373,6 +376,22 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
     return for_charts
 
 def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
+    def rimuovi_dizionari_vuoti(dati):
+        if not isinstance(dati, dict):
+            return dati
+
+        dizionario_pulito = {}
+        for chiave, valore in dati.items():
+            if isinstance(valore, dict):
+                valore_pulito = rimuovi_dizionari_vuoti(valore)
+
+                if valore_pulito != {}:
+                    dizionario_pulito[chiave] = valore_pulito
+            else:
+                dizionario_pulito[chiave] = valore
+
+        return dizionario_pulito
+
     run: Run = parse_expr_file(expr_folder / get_expr_filename_from_args())
     tot_tests = 0
     executed_tests = 0
@@ -389,6 +408,8 @@ def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
                     executed_tests += 1
                     e.test.pickle_to_queries(path)
                     for_dashboard[query.name][run_type_experiment.run_type.name][e.model.name_path] = e.test.queries
+
+    for_dashboard = rimuovi_dizionari_vuoti(for_dashboard)
 
     result[run.name_path] = prepare_for_charts(for_dashboard)
 

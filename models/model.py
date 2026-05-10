@@ -151,7 +151,7 @@ class Model(ABC):
         if not queries_to_process:
             return
 
-        for q in tqdm(queries_to_process, desc="Quering Gemini", unit="query"):
+        for q in tqdm(queries_to_process, desc=f"Quering {self.name}", unit="query"):
             self._submit_direct_query_inline(q)
             self._store_query_inline(q.id, q.response, q.tokens)
 

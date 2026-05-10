@@ -132,7 +132,7 @@ def compute_set_schema(datasets: Dict[str, List[Any]]):
 # ----------------------------
 
 def run_dashboard(
-        experiment_suites: Dict[str, Dict[str, Dict[str, List[Query]]]], # <-- Nuova struttura a 3 livelli!
+        experiment_suites: Dict[str, Dict[str, Dict[str, List[Query]]]],
         *,
         host: str = "127.0.0.1",
         port: int = 8050,
@@ -172,7 +172,7 @@ def run_dashboard(
 
     # Trova tutte le metriche globalmente
     preferred_order = ["ndcg_scores", "ndcg_k", "mare", "mare_k", "kendall", "kendall_k", "spearman", "spearman_k"]
-    available_metrics = {m for suite in schemas.values() for (ds_names, pf, ef, vbp) in suite.values() for m in ef}#if m != "hallucination_rate"}
+    available_metrics = {m for suite in schemas.values() for (ds_names, pf, ef, vbp) in suite.values() for m in ef}
 
     all_eval_fields = []
     for metric in preferred_order:
@@ -187,7 +187,7 @@ def run_dashboard(
     app = Dash(__name__, suppress_callback_exceptions=True)
 
     app.layout = html.Div(
-        style={"fontFamily": "Arial, sans-serif", "padding": "12px"},
+        style={"fontFamily": "Arial, sans-serif", "padding": "12px", "backgroundColor": "#f4f6f9", "minHeight": "100vh"},
         children=[
             html.H2("Queries Dashboard", style={"margin": "0 0 10px 0"}),
 
@@ -199,7 +199,7 @@ def run_dashboard(
                 style={"marginBottom": "10px", "fontWeight": "bold"}
             ),
 
-            # LIVELLO 2: I TAB DEGLI ESPERIMENTI (Cambiano in base alla suite scelta)
+            # LIVELLO 2: I TAB DEGLI ESPERIMENTI
             dcc.Tabs(
                 id="set-tabs",
                 value=default_set,
@@ -211,10 +211,11 @@ def run_dashboard(
                 style={
                     "display": "flex", "flexWrap": "wrap", "gap": "14px", "alignItems": "flex-end",
                     "border": "1px solid #ddd", "borderRadius": "10px", "padding": "12px", "marginTop": "10px",
+                    "backgroundColor": "white"
                 },
                 children=[
                     html.Div(style={"minWidth": "320px"}, children=[
-                        html.Div("Datasets (lines)", style={"fontWeight": 700, "marginBottom": "6px"}),
+                        html.Div("Datasets (lines/cards)", style={"fontWeight": 700, "marginBottom": "6px"}),
                         dcc.Dropdown(id="datasets-select", multi=True, clearable=False),
                     ]),
                     html.Div(style={"minWidth": "420px"}, children=[
@@ -225,11 +226,12 @@ def run_dashboard(
                 ],
             ),
 
-            # LIVELLO 3: I TAB DEI GRAFICI
+            # LIVELLO 3: I TAB DEI GRAFICI / RIEPILOGO
             dcc.Tabs(
                 id="chart-type-tabs",
-                value="line",
+                value="summary", # <-- Impostato "summary" come default iniziale
                 children=[
+                    dcc.Tab(label="Riepilogo (Statistiche)", value="summary"), # <-- NUOVO TAB
                     dcc.Tab(label="Line Plots (Medie)", value="line"),
                     dcc.Tab(label="Box Plots (Distribuzioni)", value="box"),
                     dcc.Tab(label="Heatmap (Correlazioni)", value="heatmap"),
@@ -237,9 +239,16 @@ def run_dashboard(
                 style={"marginTop": "20px", "marginBottom": "5px"}
             ),
 
+            # --- NUOVO CONTENITORE: RIEPILOGO STATISTICHE ---
+            html.Div(
+                id="summary-container",
+                style={"display": "block", "marginTop": "14px"}
+            ),
+
+            # --- VECCHIO CONTENITORE: GRIGLIA GRAFICI ---
             html.Div(
                 id="charts-grid",
-                style={"display": "grid", "gridTemplateColumns": "repeat(2, minmax(0, 1fr))", "gap": "14px", "marginTop": "14px"},
+                style={"display": "none", "gridTemplateColumns": "repeat(2, minmax(0, 1fr))", "gap": "14px", "marginTop": "14px"},
                 children=[
                     dcc.Graph(id={"type": "metric-graph", "metric": m}, config={"displayModeBar": True}, style={"height": "420px"})
                     for m in all_eval_fields
@@ -247,6 +256,17 @@ def run_dashboard(
             ),
         ],
     )
+
+    # --- CALLBACK 0: Mostra/Nascondi vista Riepilogo o Grafici ---
+    @app.callback(
+        Output("summary-container", "style"),
+        Output("charts-grid", "style"),
+        Input("chart-type-tabs", "value")
+    )
+    def toggle_views(chart_type):
+        if chart_type == "summary":
+            return {"display": "block", "marginTop": "14px"}, {"display": "none"}
+        return {"display": "none"}, {"display": "grid", "gridTemplateColumns": "repeat(2, minmax(0, 1fr))", "gap": "14px", "marginTop": "14px"}
 
     # --- CALLBACK 1: Aggiorna i tab degli esperimenti quando cambi la Suite ---
     @app.callback(
@@ -270,11 +290,9 @@ def run_dashboard(
         Input("suite-tabs", "value"),
     )
     def update_controls(active_set: str, active_suite: str):
-        # Protezione per stati transitori durante il caricamento
         if not active_set or active_set not in processed_suites.get(active_suite, {}):
             return dash.no_update, dash.no_update, dash.no_update, dash.no_update, dash.no_update
 
-        datasets = processed_suites[active_suite][active_set]
         dataset_names, param_fields, eval_fields, values_by_param = schemas[active_suite][active_set]
 
         ds_options = [{"label": d, "value": d} for d in dataset_names]
@@ -305,7 +323,95 @@ def run_dashboard(
 
         return ds_options, ds_value, x_options, x_value, filters_ui
 
-    # --- CALLBACK 3: Aggiorna i grafici ---
+    # --- CALLBACK 3: Popola il pannello di Riepilogo (Summary) ---
+    @app.callback(
+        Output("summary-container", "children"),
+        Input("set-tabs", "value"),
+        Input("datasets-select", "value"),
+        Input({"type": "filter", "field": ALL}, "value"),
+        Input("suite-tabs", "value"),
+        State({"type": "filter", "field": ALL}, "id"),
+    )
+    def update_summary(active_set, selected_datasets, filter_values, active_suite, filter_ids):
+        if not active_set or active_set not in processed_suites.get(active_suite, {}):
+            return dash.no_update
+
+        datasets = processed_suites[active_suite][active_set]
+        dataset_names, param_fields, eval_fields, values_by_param = schemas[active_suite][active_set]
+        selected_datasets = selected_datasets or dataset_names
+
+        filters: Dict[str, List[Any]] = {}
+        for fid, vals in zip(filter_ids, filter_values):
+            filters[fid["field"]] = vals or []
+
+        def matches_filters(q: Any) -> bool:
+            for f, allowed in filters.items():
+                if not allowed:
+                    continue
+                val = getattr(q, "parsing_failed", None) if f == "parsing_failed" else get_param_value(q, f)
+                if val not in allowed:
+                    return False
+            return True
+
+        cards = []
+        for ds in selected_datasets:
+            qs = [q for q in datasets[ds] if matches_filters(q)]
+            total = len(qs)
+            failed = sum(1 for q in qs if getattr(q, "parsing_failed", False) is True)
+            completed = sum(1 for q in qs if getattr(q, "response", None) is not None)
+            success_rate = ((completed-failed) / total * 100) if total > 0 else 0
+
+            # Cerca la metrica principale per dare una rapida preview dei risultati
+            avg_metrics_html = []
+            main_metric = next((m for m in all_eval_fields if m in eval_fields), None)
+            if total > 0 and main_metric:
+                m_vals = [get_eval_value(q, main_metric) for q in qs]
+                m_mean = mean([v for v in m_vals if isinstance(v, (int, float))])
+                if m_mean is not None:
+                    avg_metrics_html = [
+                        html.Hr(style={"margin": "12px 0", "borderColor": "#e9ecef"}),
+                        html.P([html.Strong(f"Avg {main_metric}:"), f" {m_mean:.4f}"], style={"margin": "0", "fontSize": "0.95em", "color": "#495057"})
+                    ]
+
+            # Crea la grafica della carta riepilogativa
+            card = html.Div(
+                style={
+                    "border": "1px solid #dee2e6", "borderRadius": "8px", "padding": "18px",
+                    "backgroundColor": "white", "minWidth": "240px", "flex": "1 1 240px",
+                    "boxShadow": "0 4px 6px rgba(0,0,0,0.05)"
+                },
+                children=[
+                             html.H4(ds, style={"marginTop": "0", "color": "#212529", "borderBottom": "2px solid #007bff", "paddingBottom": "8px", "marginBottom": "12px"}),
+                             html.Div([
+                                 html.Span("Totale Query:", style={"fontWeight": "600", "color": "#6c757d"}),
+                                 html.Span(f" {total}", style={"float": "right", "fontWeight": "bold", "color": "#343a40"})
+                             ], style={"marginBottom": "6px"}),
+                             html.Div([
+                                 html.Span("Completate (escluse partitioned?):", style={"fontWeight": "600", "color": "#6c757d"}),
+                                 html.Span(f" {completed}", style={"float": "right", "fontWeight": "bold", "color": "#28a745"})
+                             ], style={"marginBottom": "6px"}),
+                             html.Div([
+                                 html.Span("Fallite:", style={"fontWeight": "600", "color": "#6c757d"}),
+                                 html.Span(f" {failed}", style={"float": "right", "fontWeight": "bold", "color": "#dc3545"})
+                             ], style={"marginBottom": "6px"}),
+                             html.Div([
+                                 html.Span("Success Rate:", style={"fontWeight": "600", "color": "#6c757d"}),
+                                 html.Span(f" {success_rate:.1f}%", style={"float": "right", "fontWeight": "bold", "color": "#17a2b8"})
+                             ], style={"marginBottom": "8px"}),
+                         ] + avg_metrics_html
+            )
+            cards.append(card)
+
+        if not cards:
+            return html.Div("Nessun dato disponibile per i filtri correnti.", style={"color": "#777", "fontStyle": "italic", "padding": "20px"})
+
+        return html.Div(
+            style={"display": "flex", "flexWrap": "wrap", "gap": "18px"},
+            children=cards
+        )
+
+
+    # --- CALLBACK 4: Aggiorna i grafici Plotly ---
     @app.callback(
         Output({"type": "metric-graph", "metric": all_eval_fields[0]}, "figure"),
         *[Output({"type": "metric-graph", "metric": m}, "figure") for m in all_eval_fields[1:]],
@@ -314,11 +420,14 @@ def run_dashboard(
         Input("datasets-select", "value"),
         Input("x-fields-select", "value"),
         Input({"type": "filter", "field": ALL}, "value"),
-        Input("suite-tabs", "value"), # <- Nuovo Input per la suite
+        Input("suite-tabs", "value"),
         State({"type": "filter", "field": ALL}, "id"),
     )
     def update_figures(active_set, chart_type, selected_datasets, x_fields, filter_values, active_suite, filter_ids):
-        # Protezione per stati transitori
+        # Se siamo nel tab di riepilogo, non sprechiamo risorse calcolando i grafici
+        if chart_type == "summary":
+            return tuple([dash.no_update] * len(all_eval_fields))
+
         if not active_set or active_set not in processed_suites.get(active_suite, {}):
             return tuple([dash.no_update] * len(all_eval_fields))
 

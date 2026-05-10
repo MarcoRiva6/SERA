@@ -344,12 +344,12 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
                     setattr(q.parameters, 'run_type', run_type)
                 for_charts[test_name][model_name].extend(queries)
     # stampa i failing rates
-    for test_name, model_dict in for_charts.items():
-        for model_name, queries in model_dict.items():
-            for q in queries:
-                if q.parsing_failed is None:
-                    q.parsing_failed = True
-            print(f"Parsing failed rate for {test_name} - {model_name}: {sum(q.parsing_failed for q in queries)/len(queries) * 100:.2f}%")
+    # for test_name, model_dict in for_charts.items():
+    #     for model_name, queries in model_dict.items():
+    #         for q in queries:
+    #             if q.parsing_failed is None:
+    #                 q.parsing_failed = True
+    #         print(f"Parsing failed rate for {test_name} - {model_name}: {sum(q.parsing_failed for q in queries)/len(queries) * 100:.2f}%")
     # raggruppiamo per dataset
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
@@ -370,10 +370,10 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
         if test_name in rinomine:
             for_charts[rinomine[test_name]] = for_charts.pop(test_name)
     #trasforma deepseek-V3-togheter -> deepseek-V3
-    ds_name = 'deepseek-V3-together'
-    for test_name, model_dict in for_charts.items():
-        if ds_name in model_dict:
-            model_dict['deepseek-V3'] = model_dict.pop(ds_name)
+    # ds_name = 'deepseek-V3-together'
+    # for test_name, model_dict in for_charts.items():
+    #     if ds_name in model_dict:
+    #         model_dict['deepseek-V3'] = model_dict.pop(ds_name)
     # trasforma k in percentuale
     # for test_name, model_dict in for_charts.items():
     #     for model_name, queries in model_dict.items():

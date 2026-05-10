@@ -1,4 +1,24 @@
 models:
+  - name: 'together/qwen-3.5-397b'
+    no_waiting: true
+    batched: false
+    temperature: 0
+  - name: 'together/qwen-3.5-397b-thinking'
+    no_waiting: true
+    batched: false
+    temperature: 0
+  - name: 'together/deepseek-V3-reasoning'
+    batched: true
+    no_waiting: true
+    temperature: 0
+  - name: 'google/gemini-2.5-flash'
+    no_waiting: true
+    batched: true
+    temperature: 0
+#  - name: 'google/gemini-2.5-pro'
+#    no_waiting: true
+#    batched: true
+#    temperature: 0
 #  - name: 'ollama/gemma3-27b'
 #    no_waiting: false
 #    remote_job: false
@@ -7,17 +27,6 @@ models:
 #    no_waiting: false
 #    remote_job: false
 #    temperature: 0
-#  - name: 'together/deepseek-V3-together'
-#    no_waiting: true
-#    temperature: 0
-  - name: 'google/gemini-2.5-pro'
-    no_waiting: false
-    batched: true
-    temperature: 0
-  - name: 'google/gemini-2.5-flash'
-    no_waiting: false
-    batched: true
-    temperature: 0
 run_types:
   - 'direct'
 #  - 'partitioned'
@@ -53,16 +62,16 @@ queries:
 #    prompt_printing_modes:
 #      - 'plain'
 #      - 'markdown'
-  - name: 'purchases/customer_segmentation'
-    n_queries: 5
-    elems_per_query:
-      - 30
-      - 70
-    prompt_levels:
-      - 'instruct'
-      - 'formula'
-    kp:
-      - 5
+#  - name: 'purchases/customer_segmentation'
+#    n_queries: 5
+#    elems_per_query:
+#      - 30
+#      - 70
+#    prompt_levels:
+#      - 'instruct'
+#      - 'formula'
+#    kp:
+#      - 5
 #  - name: 'smartphones/hw_eff_score'
 #    n_queries: 8
 #    elems_per_query:
@@ -74,8 +83,9 @@ queries:
 #    kp:
 #      - 0.05
 #      - 0.10
-#  - name: 'cities/cit7_free_score'
-#    cities_per_query:
+#  - name: 'cities/city_free_score'
+#    n_queries: 2
+#    elems_per_query:
 #      - 30
 #      - 70
 #    names_levels:
@@ -84,22 +94,21 @@ queries:
 #    prompt_levels:
 #      - 'instruct'
 #      - 'formula'
+#    kp:
+#      - 5
 #  - name: 'cities/global_liveability'
 #    n_queries: 10
 #    elems_per_query:
 #      - 30
 #      - 70
+#    names_levels:
+#      - 'fake'
+#      - 'real'
 #    prompt_levels:
 #      - 'instruct'
 #      - 'formula'
 #    kp:
 #      - 0.05
-#      - 0.10
-#    names_levels:
-#      - 'real'
-#    prompt_printing_modes:
-#      - 'plain'
-#      - 'markdown'
 #  - name: 'molecules/RWED'
 #    n_queries: 3
 #    elems_per_query:
@@ -112,39 +121,43 @@ queries:
 #      - 'formula'
 #    kp:
 #      - 0.10
-  - name: 'molecules/levenshtein'
-    n_queries: 5
+#  - name: 'molecules/levenshtein'
+#    n_queries: 5
+#    elems_per_query:
+#      - 30
+#      - 70
+#    names_levels:
+#      - 'fake'
+#    prompt_levels:
+#      - 'instruct'
+#      - 'formula'
+#    kp:
+#      - 5
+  - name: 'planets/dif'
+    n_queries: 2
     elems_per_query:
       - 30
       - 70
     names_levels:
-      - 'fake'
+      - 'real'
     prompt_levels:
       - 'instruct'
       - 'formula'
     kp:
       - 5
-#  - name: 'planets/dif'
-#    planets_per_query:
-#      - 30
-#      - 69
-#    names_levels:
-#      - 'fake'
-#      - 'real'
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
 #  - name: 'planets/esi'
-#    planets_per_query:
+#    n_queries: 10
+#    elems_per_query:
 #      - 30
-#      - 69
+#      - 70
 #    names_levels:
 #      - 'fake'
 #      - 'real'
 #    prompt_levels:
-#      - 'generic'
 #      - 'instruct'
 #      - 'formula'
+#    kp:
+#      - 0.05
 #  - name: 'purchases/customer_cbs'
 #    elems_per_query:
 #      - 30
@@ -154,7 +167,7 @@ queries:
 #    prompt_levels:
 #      - 'instruct'
 #      - 'formula'
-#  - name: 'purchases/customer_cbs'
+#  - name: 'purchases/customer_segmentation'
 #    elems_per_query:
 #      - 30
 #      - 70

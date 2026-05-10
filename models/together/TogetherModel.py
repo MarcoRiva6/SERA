@@ -75,13 +75,18 @@ class TogetherModel(Model):
             temperature=self.params.temperature if self.params.temperature != -1 else None,
             response_format={"type": "json_schema", "json_schema": {"name": schema.__class__.__name__, "schema": schema.model_json_schema()}} if schema is not None else None
         )
-        if not isinstance(answer, ChatCompletionResponse):
-            raise NotImplementedError("Received a streaming response, which is not supported")
+        assert isinstance(answer, ChatCompletionResponse), "Received a streaming response, which is was never meant to"
+        used_tokens = answer.usage.total_tokens if answer.usage is not None else 0
 
+        if answer.choices is None or len(answer.choices) == 0:
+            return None, used_tokens
         message = answer.choices[0].message
+        finish_reason = answer.choices[0].finish_reason
+        if finish_reason != 'stop':
+            print("Warning: Response may have been cut off due to length. finish_reason:", finish_reason)
         if message is None or isinstance(message.content, list):
-            return None, 0
-        return message.content, (answer.usage.total_tokens if answer.usage is not None else 0)
+            return None, used_tokens
+        return message.content, used_tokens
 
     def _submit_direct_query_inline(self, query: DirectQuery) -> None:
         query.response, query.tokens = self._submit_prompt(query.prompt, query.response_json_schema)

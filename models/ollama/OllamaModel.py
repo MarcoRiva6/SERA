@@ -225,7 +225,7 @@ class OllamaModel(Model):
 
         timeout_personalizzato = httpx.Timeout(
             connect=5.0,  # Se non riesce a connettersi al tunnel entro 5 secondi, esplode
-            read=60.0,   # Dà a Ollama fino a x minuti per generare e inviare la risposta
+            read=180.0,   # Dà a Ollama fino a x minuti per generare e inviare la risposta
             write=10.0,   # Tempo massimo per inviare il tuo prompt al server
             pool=10.0
         )
@@ -328,6 +328,7 @@ if __name__ == "__main__":
         before_sleep=lambda retry_state: print(f"Errore di connessione a Ollama. Ritento tra 10s... (Tentativo {retry_state.attempt_number})")
     )
     def __submit_prompt(self, prompt: str, schema: BaseModel|None) -> tuple[str|None,int]:
+        #! con format settato, thinking è sempre False. Per solvere bisogna usare "self.client.chat", oppure "chat" (ma sembra che in quel caso non sia comunque affidabile il parametro think)
         response = self.client.generate(
             model=self.name_api,
             prompt=prompt,

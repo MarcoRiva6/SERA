@@ -1,0 +1,6 @@
+name: 'Qwen 3.5 397B'
+name_api: 'Qwen/Qwen3.5-397B-A17B'
+max_tokens: 8000
+supports_batched: false
+supports_structured_output: true
+reasoning: false

@@ -20,6 +20,7 @@ class TogetherModel(Model):
     client: together.Client = None
     supports_batched: bool = True
     supports_structured_output: bool = False
+    reasoning: bool = False
     @dataclass
     class Params(Model.Params):
         batched: bool = True
@@ -55,7 +56,7 @@ class TogetherModel(Model):
 
         return batches
 
-    def _submit_prompt(self, prompt: str, schema: BaseModel|None) -> str|None:
+    def _submit_prompt(self, prompt: str, schema: BaseModel|None) -> tuple[str|None, int]:
         from together import Together
 
         client = Together()
@@ -69,19 +70,21 @@ class TogetherModel(Model):
                 }
             ],
             stream=False,
+            reasoning={"enabled": self.reasoning},
+            max_tokens=self.max_tokens,
             temperature=self.params.temperature if self.params.temperature != -1 else None,
-            response_format=schema.model_json_schema() if schema is not None else None
+            response_format={"type": "json_schema", "json_schema": {"name": schema.__class__.__name__, "schema": schema.model_json_schema()}} if schema is not None else None
         )
         if not isinstance(answer, ChatCompletionResponse):
             raise NotImplementedError("Received a streaming response, which is not supported")
 
         message = answer.choices[0].message
         if message is None or isinstance(message.content, list):
-            return None
-        return message.content
+            return None, 0
+        return message.content, (answer.usage.total_tokens if answer.usage is not None else 0)
 
     def _submit_direct_query_inline(self, query: DirectQuery) -> None:
-        query.response = self._submit_prompt(query.prompt, query.response_json_schema)
+        query.response, query.tokens = self._submit_prompt(query.prompt, query.response_json_schema)
 
     def _submit_direct_queries_batched(self, folder: Path, queries: list[DirectQuery]) -> bool:
         poll_interval = 60 #seconds
@@ -108,14 +111,17 @@ class TogetherModel(Model):
                         "custom_id": q_key,
                         "body": {
                             "model": self.name_api,
-                            "messages": [{"role": "user", "content": q.prompt}],
-                        },
-                        "max_tokens": self.max_tokens
+                            "messages": [{"role": "user", "content": q.prompt}]
+                        }
                     }
+                    if self.max_tokens is not None:
+                        r["body"]["max_tokens"] = self.max_tokens
                     if q.response_json_schema is not None:
                         r['body']['response_format'] = {"type": "json_schema", "schema": q.response_json_schema.model_json_schema()}
                     if self.params.temperature != -1:
-                        r['temperature'] = self.params.temperature
+                        r['body']['temperature'] = self.params.temperature
+                    if self.reasoning:
+                        r['body']['reasoning'] = {"enabled": True}
                     requests.append(r)
 
                 # 1. Write requests to a .jsonl file
@@ -137,9 +143,9 @@ class TogetherModel(Model):
                 status = b.status
                 print(f"[{datetime.now().strftime('%y-%m-%d %H:%M:%S')}] Batch {batch_id} status: {status}")
 
-                # if status == 'VALIDATING':
-                #     time.sleep(5)
-                #     continue
+                if status == 'VALIDATING':
+                    time.sleep(5)
+                    continue
                 if status == "COMPLETED":
                     if b.error_file_id is not None:
                         print(f"Warning: Batch {batch_id} completed with errors. error file ID {b.error_file_id}")

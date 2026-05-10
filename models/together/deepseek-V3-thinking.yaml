@@ -1,0 +1,7 @@
+name: 'DeepSeek V3 reasoning'
+name_api: 'deepseek-ai/DeepSeek-V3'
+supports_batched: true
+supports_structured_output: true
+reasoning: true
+max_tokens: 50000
+# sul sito sembra essere chiamato anche DeepSeek-V3-0324, il quale avrebbe 671B params

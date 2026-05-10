@@ -18,11 +18,10 @@ class GoogleModel(Model):
     client: Client = None
     batch_max_tokens: int = 0
     supports_batched: bool = False
-    supports_reasoning: bool = False
+    reasoning: bool = False
     @dataclass
     class Params(Model.Params):
         batched: bool = True
-        reasoning: bool = True
     params: Params = field(default_factory=Params)
 
     def __init_google_client(self):
@@ -85,9 +84,9 @@ class GoogleModel(Model):
         if self.client is None:
             self.client = self.__init_google_client()
         client: Client = self.client
-
+        # con i modelli V3 si setta in un altro modo
         thinking_config = ThinkingConfig(include_thoughts=False)
-        if self.params.reasoning and self.supports_reasoning:
+        if self.reasoning:
             thinking_config.thinking_budget = -1 # auto hybrid thinking
         else:
             thinking_config.thinking_budget = 0
@@ -144,9 +143,9 @@ class GoogleModel(Model):
                 print(f"Trying to recover already submitted batch {batch_id}...")
             else:
                 requests: list[dict] = []
-
+                # con i modelli V3 si setta in un altro modo
                 thinking_config = ThinkingConfig(include_thoughts=False)
-                if self.params.reasoning and self.supports_reasoning:
+                if self.reasoning:
                     thinking_config.thinking_budget = -1 # auto hybrid thinking
                 else:
                     thinking_config.thinking_budget = 0

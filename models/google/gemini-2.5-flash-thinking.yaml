@@ -1,6 +1,6 @@
-name: 'Gemini 2.5 Flash'
+name: 'Gemini 2.5 Flash thinking'
 name_api: 'gemini-2.5-flash'
 supports_batched: true
-reasoning: false
+reasoning: true
 max_tokens: 100000
 batch_max_tokens: 3000000 # 3 million tokens per batch

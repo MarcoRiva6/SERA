@@ -1,0 +1,4 @@
+name: 'Deepseek R1 32B thinking'
+name_api: 'deepseek-r1:32b'
+max_tokens: 128000
+supports_thinking: true

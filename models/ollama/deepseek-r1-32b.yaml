@@ -1,4 +1,4 @@
 name: 'Deepseek R1 32B'
 name_api: 'deepseek-r1:32b'
 max_tokens: 128000
-supports_thinking: true
+supports_thinking: false

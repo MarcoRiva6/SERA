@@ -1,5 +1,0 @@
-name: 'DeepSeek V3'
-name_api: 'deepseek-ai/DeepSeek-V3'
-max_tokens: 8000
-supports_batched: true
-supports_structured_output: true

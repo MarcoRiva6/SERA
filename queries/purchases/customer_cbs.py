@@ -180,7 +180,7 @@ class customer_CBS(customer_segmentation):
                     selected_cids = random.sample(cids_unique_full, elem_per_query)
                     temp_df = df[df[self.named_index_col].isin(selected_cids)]
                 case NElemsType.rows:
-                    temp_df = sample_ds_interesting(df, length=elem_per_query, min_unique=min_customers_requested, key=self.named_index_col)
+                    temp_df = sample_ds_interesting(df, length=elem_per_query, min_unique=min_customers_requested, key=self.named_index_col).sample(frac=1, random_state=seed)
                     #temp_df = self.generate_prompt_dataset(df=df, target_rows=elem_per_query,
                     #                                       min_customers=min_customers_needed, seed=seed)
 

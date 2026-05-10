@@ -260,7 +260,7 @@ class customer_segmentation(Test[GTT, CustomerSegmentationTestParameters]):
                         length=elem_per_query,
                         min_unique=min_customers_requested,
                         key=self.named_index_col
-                    )
+                    ).sample(frac=1, random_state=seed)
             # --- 2. CONTROLLO BASKET ---
             basket = build_basket_matrix(final_df, self.parameters.top_n_items_min_purchases)
             threshold = 1 if self.parameters.n_elems_type == NElemsType.rows else 2

@@ -288,7 +288,7 @@ def sample_ds_interesting(df: pd.DataFrame, length: int, min_unique: int, key: s
         indici_scelti = random.sample(list(indici_per_id[uid]), num_righe)
         indici_finali.extend(indici_scelti)
 
-    df_finale = df.loc[indici_finali].sample(frac=1).reset_index(drop=True)
+    df_finale = df.loc[indici_finali].reset_index(drop=True)
 
     return df_finale
 

@@ -47,7 +47,7 @@ class spa(Test[GTT, SPATestParameters]):
                 k_list.append(int(kp))
             else:
                 k_list.append(max(1, math.ceil(kp * elem_per_query)))
-        return sample_ds_interesting(df, length=elem_per_query, min_unique=max(k_list)+3, key=self.named_index_col)
+        return sample_ds_interesting(df, length=elem_per_query, min_unique=max(k_list)+3, key=self.named_index_col).sample(frac=1, random_state=current_seed)
 
     def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], list[float]]:
         df_calc = df.copy()

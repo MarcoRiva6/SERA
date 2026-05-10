@@ -47,7 +47,11 @@ class Experiment:
             self.test.restore_queries()
         else:
             print('Generating queries...')
-            self.test.generate_queries()
+            try:
+                self.test.generate_queries()
+            except NotImplementedError as e:
+                print(e)
+                return
             print('Storing queries...')
             self.test.store_queries()
             self.test.queries_to_csv('prepared_queries.csv')

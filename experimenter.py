@@ -221,10 +221,6 @@ def parse_expr_file(expr_file_path: Path) -> Run:
                         raise ValueError("Invalid run_type_filter in experiment file:", expr_file_path)
                 if rt not in rt_model_filter:
                     continue
-                try:
-                    del m['run_type_filter']
-                except KeyError:
-                    pass
                 # instantiate test object
                 q_name_split = q['name'].split('/')
                 test_family, test_name_path = q_name_split[0], q_name_split[1]
@@ -232,7 +228,7 @@ def parse_expr_file(expr_file_path: Path) -> Run:
                 test = instantiate_test(r.seed, inner_run_folder, q, rt, test_family, test_name_path)
                 test_dict = asdict(test)
 
-                model = instantiate_model(r.seed, inner_run_folder, m, rt)
+                model = instantiate_model(r.seed, inner_run_folder, {k: v for k, v in m.items() if k != 'run_type_filter'}, rt)
                 # instantiate experiment object
                 experiment = Experiment(
                     name=f"{test_dict.get('name', test_dict.get('name_path'))}: {model.name} - {rt}",
@@ -366,7 +362,9 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
             for q in queries:
                 setattr(q.parameters, 'gruppo', 'noto' if test_name in noti else 'ignoto')
     #rinominiamo i test con nomi brevi
-    rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'Average', 'planets/dif':'DIF', 'planets/esi':'ESI', 'purchases/customer_segmentation':'RFM', 'purchases/customer_cbs':'TVA', 'molecules/levenshtein':'LEV','molecules/RWED':'RWED'}
+    rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'Average', 'planets/dif':'DIF', 'planets/esi':'ESI',
+                'purchases/customer_segmentation':'RFM', 'purchases/customer_cbs':'TVA', 'molecules/levenshtein':'LEV','molecules/RWED':'RWED',
+                'hr/rid': 'RID', 'meters/spa': 'SPA', 'smartphones/hw_eff_score': 'HES'}
     keys = tuple(for_charts.keys())
     for test_name in keys:
         if test_name in rinomine:

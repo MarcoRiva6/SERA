@@ -264,7 +264,7 @@ class customer_segmentation(Test[GTT, CustomerSegmentationTestParameters]):
             # --- 2. CONTROLLO BASKET ---
             basket = build_basket_matrix(final_df, self.parameters.top_n_items_min_purchases)
             threshold = 1 if self.parameters.n_elems_type == NElemsType.rows else 2
-            if count_row_sums(basket, threshold) < min_customers_requested:
+            if count_row_sums(basket, threshold) < max(k_list):
                 continue
             # --- 3. CALCOLO SIMILARITÀ ---
             basket_sim = compute_basket_similarity(basket)

@@ -10,8 +10,8 @@ from queries.test import TestParameters, Test, data_folder, PromptLevel, Partiti
 type GTT = int
 named_index_col = 'employee_id'
 
-class ClosestEmployee(BaseModel):
-    top_k: list[GTT] = Field(description=f"Ordered list of the k closest employees (by {named_index_col}) according to the specified metric.")
+class FarthestEmployees(BaseModel):
+    top_k: list[GTT] = Field(description=f"Ordered list of the k farthest employees (by {named_index_col}) according to the specified metric.")
 
 def compute_rid(input_df: pd.DataFrame, target_id) -> pd.DataFrame:
     df = input_df.copy()
@@ -50,7 +50,7 @@ class RIDTestParameters(TestParameters):
 class rid(Test[GTT, RIDTestParameters]):
     name: str = 'Role Interchangeability Distance'
     name_short: str = 'RID'
-    json_schema = ClosestEmployee
+    json_schema = FarthestEmployees
     full_df: DataFrame = None
     named_index_col = named_index_col
 

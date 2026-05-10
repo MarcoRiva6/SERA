@@ -137,9 +137,9 @@ class TogetherModel(Model):
                 status = b.status
                 print(f"[{datetime.now().strftime('%y-%m-%d %H:%M:%S')}] Batch {batch_id} status: {status}")
 
-                if status == 'VALIDATING':
-                    time.sleep(5)
-                    continue
+                # if status == 'VALIDATING':
+                #     time.sleep(5)
+                #     continue
                 if status == "COMPLETED":
                     if b.error_file_id is not None:
                         print(f"Warning: Batch {batch_id} completed with errors. error file ID {b.error_file_id}")

@@ -344,23 +344,41 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
                     setattr(q.parameters, 'run_type', run_type)
                 for_charts[test_name][model_name].extend(queries)
     # stampa i failing rates
-    # for test_name, model_dict in for_charts.items():
-    #     for model_name, queries in model_dict.items():
-    #         for q in queries:
-    #             if q.parsing_failed is None:
-    #                 q.parsing_failed = True
-    #         print(f"Parsing failed rate for {test_name} - {model_name}: {sum(q.parsing_failed for q in queries)/len(queries) * 100:.2f}%")
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            for q in queries:
+                if q.parsing_failed is None:
+                    q.parsing_failed = True
+            print(f"Parsing failed rate for {test_name} - {model_name}: {sum(q.parsing_failed for q in queries)/len(queries) * 100:.2f}%")
     # raggruppiamo per dataset
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
             for q in queries:
                 setattr(q.parameters, 'dataset', test_name.split('/')[0])
     # raggruppamento noti - ignoti
-    noti = ('cities/global_liveability', 'planets/esi', 'purchases/customer_segmentation','molecules/levenshtein')
+    noti = ('cities/global_liveability', 'planets/esi','molecules/levenshtein')
+    hard_tests = ('purchases/customer_segmentation', 'purchases/customer_cbs', 'molecules/levenshtein', 'molecules/RWED')
+    easy_tests = ('cities/global_liveability', 'cities/city_free_score', 'meters/spa')
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
             for q in queries:
                 setattr(q.parameters, 'gruppo', 'noto' if test_name in noti else 'ignoto')
+                if test_name in hard_tests:
+                    level = 'hard'
+                elif test_name in easy_tests:
+                    level = 'easy'
+                else:
+                    level = 'medium'
+                setattr(q.parameters, 'difficulty', level)
+    # capabilities
+    partizionabili = ('cities', 'planets', 'meters', 'smartphones')
+    anonimizzabili = ('cities', 'planets', 'smartphones')
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            for q in queries:
+                setattr(q.parameters, 'partizionabile', test_name.split('/')[0] in partizionabili)
+                setattr(q.parameters, 'anonimizzabile', test_name.split('/')[0] in anonimizzabili)
+
     #rinominiamo i test con nomi brevi
     rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'Average', 'planets/dif':'DIF', 'planets/esi':'ESI',
                 'purchases/customer_segmentation':'RFM', 'purchases/customer_cbs':'TVA', 'molecules/levenshtein':'LEV','molecules/RWED':'RWED',

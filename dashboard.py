@@ -51,6 +51,15 @@ def get_param_fields_from_queries(queries: List[Any]) -> List[str]:
     # supporto per run_type
     if hasattr(params, "run_type") and "run_type" not in fields_list:
         fields_list.append("run_type")
+    # supporto per raggruppamento difficoltà
+    if hasattr(params, "difficulty") and "difficulty" not in fields_list:
+        fields_list.append("difficulty")
+    # supporto a partizionabile
+    if hasattr(params, "partizionabile") and "partizionabile" not in fields_list:
+        fields_list.append("partizionabile")
+    # supporto ad anonimizzabile
+    if hasattr(params, "anonimizzabile") and "anonimizzabile" not in fields_list:
+        fields_list.append("anonimizzabile")
 
     return fields_list
 
@@ -141,12 +150,24 @@ def run_dashboard(
     if not experiment_suites:
         raise ValueError("experiment_suites is empty")
 
-    # --- PRE-PROCESSING DELLE SUITE ---
+        # --- CONFIGURAZIONE EXPORT GLOBALE ---
+        # Definiamo qui i parametri per l'alta qualità SVG
+    def get_global_config(metric_name):
+        return {
+            'displayModeBar': True,
+            'displaylogo': False,
+            'toImageButtonOptions': {
+                'format': 'svg', # Formato vettoriale nitido
+                'filename': f'export_{metric_name}',
+                'scale': 1 # Per l'SVG non serve aumentare lo scale, è già infinito
+            }
+        }
+
+        # --- PRE-PROCESSING DELLE SUITE (Invariato) ---
     processed_suites = {}
     schemas = {}
 
     for suite_name, dataset_sets in experiment_suites.items():
-        # Creiamo il tab "All Experiments" per CIASCUNA suite
         global_datasets = {}
         for set_name, datasets in dataset_sets.items():
             for ds_name, queries in datasets.items():
@@ -231,7 +252,7 @@ def run_dashboard(
                 id="chart-type-tabs",
                 value="summary", # <-- Impostato "summary" come default iniziale
                 children=[
-                    dcc.Tab(label="Riepilogo (Statistiche)", value="summary"), # <-- NUOVO TAB
+                    dcc.Tab(label="Riepilogo (Statistiche)", value="summary"),
                     dcc.Tab(label="Line Plots (Medie)", value="line"),
                     dcc.Tab(label="Box Plots (Distribuzioni)", value="box"),
                     dcc.Tab(label="Heatmap (Correlazioni)", value="heatmap"),
@@ -239,18 +260,18 @@ def run_dashboard(
                 style={"marginTop": "20px", "marginBottom": "5px"}
             ),
 
-            # --- NUOVO CONTENITORE: RIEPILOGO STATISTICHE ---
-            html.Div(
-                id="summary-container",
-                style={"display": "block", "marginTop": "14px"}
-            ),
+            html.Div(id="summary-container", style={"display": "block", "marginTop": "14px"}),
 
-            # --- VECCHIO CONTENITORE: GRIGLIA GRAFICI ---
+            # --- APPLICAZIONE DELLA CONFIGURAZIONE AI GRAFICI ---
             html.Div(
                 id="charts-grid",
                 style={"display": "none", "gridTemplateColumns": "repeat(2, minmax(0, 1fr))", "gap": "14px", "marginTop": "14px"},
                 children=[
-                    dcc.Graph(id={"type": "metric-graph", "metric": m}, config={"displayModeBar": True}, style={"height": "420px"})
+                    dcc.Graph(
+                        id={"type": "metric-graph", "metric": m},
+                        config=get_global_config(m), # <--- APPLICATO QUI
+                        style={"height": "420px"}
+                    )
                     for m in all_eval_fields
                 ],
             ),

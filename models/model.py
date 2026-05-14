@@ -217,14 +217,15 @@ class Model(ABC):
             subquery_raw_df, updated_remaining_keys = test.select_next_partition(query.raw_df, query.parameters.partition_rate, query.remaining_keys, current_top_keys)
             query.remaining_keys = updated_remaining_keys
             gt, gt_scores = test.build_ground_truth(subquery_raw_df, None)
-            subquery_prompt_df = test.build_prompt_df(subquery_raw_df)
+            subquery_prompt_df = test.build_prompt_df(subquery_raw_df, completeness_level)
             subquery = DirectQuery(
                 id=subq_id,
                 ds_id=query.ds_id,
                 ground_truth=gt,
                 ground_truth_scores=gt_scores,
                 prompt_df=subquery_prompt_df,
-                parameters=QueryParameters(k=query.parameters.k,prompt_level=query.parameters.prompt_level,names_level=query.parameters.names_level, n_elems=len(subquery_raw_df), prompt_printing_mode=query.parameters.prompt_printing_mode),
+                parameters=QueryParameters(k=query.parameters.k,prompt_level=query.parameters.prompt_level,names_level=query.parameters.names_level,
+                                           n_elems=len(subquery_raw_df), prompt_printing_mode=query.parameters.prompt_printing_mode, completeness_level=query.parameters.completeness_level),
                 prompt=write_prompt(query.prompt_beg, subquery_prompt_df, query.prompt_end),
                 response_json_schema=query.response_json_schema,
                 response=None,
@@ -268,6 +269,7 @@ class Model(ABC):
         for query in queries:
             if query.id in processed_queries:
                 query.parsed_response = processed_queries[query.id]["response"]
+                query.parsing_failed = query.parsed_response is None
                 query.tokens = processed_queries[query.id]["tokens"]
             else:
                 queries_to_process.append(query)

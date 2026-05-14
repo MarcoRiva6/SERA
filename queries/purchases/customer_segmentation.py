@@ -234,7 +234,8 @@ class customer_segmentation(Test[GTT, CustomerSegmentationTestParameters]):
 
         return result
 
-    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int,
+                    completeness_level) -> tuple[tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList]]:
         cids_unique_full = df[self.named_index_col].unique().tolist()
         k_list = []
         for kp in self.parameters.kp:
@@ -296,7 +297,7 @@ class customer_segmentation(Test[GTT, CustomerSegmentationTestParameters]):
             sorted_cids = top_similar_df.index.tolist()
             ground_truth_vals = top_similar_df.values.tolist()
 
-            result = (final_df, final_df, selected_cid, sorted_cids, ground_truth_vals)
+            result = (final_df, self.build_prompt_df(final_df, completeness_level), selected_cid, sorted_cids, ground_truth_vals)
             return result, result
 
     def _create_prompt_lotus(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:

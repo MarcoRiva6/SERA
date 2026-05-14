@@ -16,9 +16,9 @@ import re
 import shutil
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict, field
-from enum import StrEnum
+from enum import StrEnum, auto
 from pathlib import Path
-from typing import get_type_hints, get_origin, Literal
+from typing import get_type_hints, get_origin
 
 import kagglehub
 import pandas as pd
@@ -33,7 +33,6 @@ from metrics import *
 data_folder: Path = Path(__file__).resolve().parent.parent / 'data' # path to the project's data folder
 type GroundTruthScoreElem = float
 type GroundTruthScoreList = list[float]
-type PrintingMode = Literal['plain', 'markdown']
 
 class PromptLevel(StrEnum):
     generic = 'generic'
@@ -43,6 +42,14 @@ class PromptLevel(StrEnum):
 class NamesLevel(StrEnum):
     fake = 'fake'
     real = 'real'
+
+class PrintingMode(StrEnum):
+    plain = 'plain'
+    markdown = 'markdown'
+
+class CompletenessLevel(StrEnum):
+    total = auto()
+    remove_column = auto()
 
 @dataclass
 class TestParameters(ABC):
@@ -57,8 +64,10 @@ class TestParameters(ABC):
     prompt_levels: tuple[PromptLevel, ...] = tuple(PromptLevel)
     names_levels: tuple[NamesLevel, ...] = tuple(NamesLevel)
     enforce_json_schema: bool = True
-    setwise_partition_rate: list[int] = field(default_factory=lambda: [10])
-    prompt_printing_modes: list[PrintingMode] = field(default_factory=lambda: ['plain'])
+    setwise_partition_rates: list[int] = field(default_factory=lambda: [10])
+    setwise_partition_ks: list[int] = field(default_factory=lambda: [5])
+    prompt_printing_modes: list[PrintingMode] = field(default_factory=lambda: [PrintingMode.plain])
+    completeness_levels: list[CompletenessLevel] = field(default_factory=lambda: [CompletenessLevel.total])
 
 @dataclass
 class QueryParameters:
@@ -67,10 +76,12 @@ class QueryParameters:
     k: int
     n_elems: int
     prompt_printing_mode: PrintingMode
+    completeness_level: CompletenessLevel
 
 @dataclass
 class PartitionedQueryParameters(QueryParameters):
     partition_rate: int
+    partition_k: int
 
 @dataclass
 class Evaluations:
@@ -386,10 +397,7 @@ class PartitionedQuery[GTT: (str,int)](Query[GTT, PartitionedQueryParameters]):
     response_json_schema: BaseModel|None
 
     def is_answered(self) -> bool:
-        if self.sub_queries:
-            return all(sq.is_answered() for sq in self.sub_queries)
-        else:
-            return False
+        return self.parsing_failed is not None # perché la risposta è nulla nel caso il parsing sia fallito, mentre parsing_failed invece è sempre settato
 
     def to_dict(self) -> dict:
         base = super().to_dict()
@@ -477,12 +485,21 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
         """
         raise NotImplementedError()
 
-    def build_prompt_df(self, df: DataFrame) -> DataFrame:
+    def build_prompt_df(self, df: DataFrame, completeness_level) -> DataFrame:
         """
-        Returns the cleaned version of the DF, ready for create_prompt. It's called right before creating the Query.
-        By default, it returns the input.
+        Returns the cleaned version of the raw query DF, ready for create_prompt and compliant to the specified completeness_level.
+        It's called right before creating the Query.
+        By default, it returns the input for total completeness
         """
-        return df
+        match completeness_level:
+            case CompletenessLevel.total:
+                return df
+            case CompletenessLevel.remove_column:
+                if self.named_index_col is None:
+                    raise ValueError("named_index_col must be defined to use remove_column completeness level")
+                return df.drop(columns=[self.named_index_col])
+            case _:
+                raise ValueError("completeness level not recognized")
 
     def _create_prompt_direct(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
         """Should return the final prompt string. By default, it uses the strings produce by _create_prompt_partitioned, putting the dataframe in the middle.
@@ -510,19 +527,23 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                 return df.to_string(index=False)
             case 'markdown':
                 return df.to_markdown(index=False)
+            case _:
+                raise NotImplementedError(f"printing mode {printing_mode} not implemented")
 
     def _build_query(self, q_id: int, ds_id: int, prompt_df: DataFrame, full_df: DataFrame, target: GTT | None, k: int,
                      gt_ids: list[GTT], gt_vals: GroundTruthScoreList, prompt_level: PromptLevel,
-                     names_level: NamesLevel, partition_rate: int, n_elems: int, printing_mode: PrintingMode) -> Query:
-        q_standard_params = QueryParameters(k=k, prompt_level=prompt_level, names_level=names_level, n_elems=n_elems, prompt_printing_mode=printing_mode)
+                     names_level: NamesLevel, partition_rate: int, partition_k: int, n_elems: int, printing_mode: PrintingMode,
+                     completeness_level: CompletenessLevel) -> Query:
+        q_base_params = QueryParameters(k=k, prompt_level=prompt_level, names_level=names_level, n_elems=n_elems,
+                                            prompt_printing_mode=printing_mode, completeness_level=completeness_level)
         base_args = {'id':q_id,'ds_id':ds_id,'ground_truth':gt_ids,'ground_truth_scores':gt_vals}
         none_args = {'parsed_response': None,'evaluations': None,'parsing_failed': None,'tokens': None}
         match self.run_type:
             case RunType.DIRECT:
                 return DirectQuery[GTT](
                     **base_args,
-                    parameters=q_standard_params,
-                    prompt=self._create_prompt_direct(prompt_df, target, q_standard_params),
+                    parameters=q_base_params,
+                    prompt=self._create_prompt_direct(prompt_df, target, q_base_params),
                     prompt_df=prompt_df,
                     response_json_schema=self.json_schema if self.parameters.enforce_json_schema else None,
                     **none_args,
@@ -531,16 +552,16 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
             case RunType.LOTUS:
                 return LotusQuery[GTT](
                     **base_args,
-                    parameters=q_standard_params,
-                    prompt=self._create_prompt_lotus(prompt_df, target, q_standard_params),
+                    parameters=q_base_params,
+                    prompt=self._create_prompt_lotus(prompt_df, target, q_base_params),
                     prompt_df=prompt_df,
                     **none_args,
                     response=None,
                 )
             case RunType.PARTITIONED:
                 q_partitioned_params = PartitionedQueryParameters(k=k, prompt_level=prompt_level, names_level=names_level,
-                                                        n_elems=n_elems, partition_rate=partition_rate,
-                                                        prompt_printing_mode=printing_mode)
+                                                        n_elems=n_elems, partition_rate=partition_rate, partition_k=partition_k,
+                                                        prompt_printing_mode=printing_mode, completeness_level=completeness_level)
                 prompt_beg, prompt_end = self._create_prompt_partitioned(prompt_df, target, q_partitioned_params)
                 return PartitionedQuery[GTT](
                     **base_args,
@@ -554,14 +575,15 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                     **none_args,
                 )
 
-    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int,
+                    completeness_level) -> tuple[tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList]]:
         sampled_df = self._sample_for_query(seed, df, elem_per_query)
         anon_sampled_df = self._anonymize_query_df(sampled_df)
         target, anon_target = self._select_query_target(seed, sampled_df, anon_sampled_df)
         gt_ids, gt_scores = self.build_ground_truth(sampled_df, target)
         anon_gt_ids, anon_gt_scores = self.build_ground_truth(anon_sampled_df, anon_target)
-        prompt_df = self.build_prompt_df(sampled_df)
-        anon_prompt_df = self.build_prompt_df(anon_sampled_df)
+        prompt_df = self.build_prompt_df(sampled_df, completeness_level)
+        anon_prompt_df = self.build_prompt_df(anon_sampled_df, completeness_level)
         return (sampled_df, prompt_df, target, gt_ids, gt_scores), (anon_sampled_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores)
 
     def _prepare_queries(self, clean_df, t_parameters: TestParameters) -> list[Query[GTT, QueryParameters]]:
@@ -576,18 +598,19 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                        * len(t_parameters.prompt_levels)
                        * len(t_parameters.names_levels)
                        * len(t_parameters.prompt_printing_modes)
-                       * (len(t_parameters.setwise_partition_rate) if self.run_type == RunType.PARTITIONED else 1))
+                       * len(t_parameters.completeness_levels)
+                       * (len(t_parameters.setwise_partition_rates) if self.run_type == RunType.PARTITIONED else 1))
         with tqdm(total=total_iters, desc="Generating queries", unit='query', colour='green') as pbar:
 
             for _ in range(t_parameters.n_queries):
-                for elem_per_query in t_parameters.elems_per_query:
+                for elem_per_query, completeness_level in product(t_parameters.elems_per_query, t_parameters.completeness_levels):
                     if t_parameters.seed != 0:
                         random.seed(current_seed)
 
                     retry = True
                     while retry:
                         (real_full_df, real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_full_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
-                            current_seed, clean_df, elem_per_query)
+                            current_seed, clean_df, elem_per_query, completeness_level)
                         collision = False
                         for q in queries:
                             match q:
@@ -628,12 +651,15 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                             case RunType.PARTITIONED:
                                 if target is not None:
                                     raise NotImplementedError("I test con un target non sono supportati in modalità partitioned")
-                                for pr in t_parameters.setwise_partition_rate:
+                                if len(t_parameters.setwise_partition_rates) != len(t_parameters.setwise_partition_ks):
+                                    raise ValueError("I partition_ks devono essere mappati 1:1 con i partition_rates")
+                                for pr_index, pr in enumerate(t_parameters.setwise_partition_rates):
                                     query = self._build_query(q_id=counter, ds_id=ds_id, prompt_df=prompt_df,
                                                               full_df=full_df, target=target, k=k, gt_ids=gt_ids,
                                                               gt_vals=gt_scores, prompt_level=prompt_level,
-                                                              names_level=name_mode, partition_rate=pr,
-                                                              n_elems=elem_per_query, printing_mode=printing_mode)
+                                                              names_level=name_mode, partition_rate=pr, partition_k=t_parameters.setwise_partition_ks[pr_index],
+                                                              n_elems=elem_per_query, printing_mode=printing_mode,
+                                                              completeness_level=completeness_level)
                                     queries.append(query)
                                     counter += 1
                                     pbar.update(1)
@@ -641,8 +667,9 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                                 query = self._build_query(q_id=counter, ds_id=ds_id, prompt_df=prompt_df,
                                                           full_df=full_df, target=target, k=k, gt_ids=gt_ids,
                                                           gt_vals=gt_scores, prompt_level=prompt_level,
-                                                          names_level=name_mode, partition_rate=0,
-                                                          n_elems=elem_per_query, printing_mode=printing_mode)
+                                                          names_level=name_mode, partition_rate=0, partition_k=0,
+                                                          n_elems=elem_per_query, printing_mode=printing_mode,
+                                                          completeness_level=completeness_level)
                                 queries.append(query)
                                 counter += 1
                                 pbar.update(1)
@@ -731,14 +758,14 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                 raise ValueError("Query not recognized")
 
     def select_next_partition(self, full_df: DataFrame, partition_rate: int, remaining_keys: list[GTT], current_top_keys: list[GTT]) -> tuple[DataFrame, list[GTT]]:
-        def keys_to_rows(df: DataFrame, keys: list[GTT]) -> DataFrame:
-            return df[df[self.named_index_col].isin(keys)]
+        def keys_to_rows(keys: list[GTT]) -> DataFrame:
+            return full_df[full_df[self.named_index_col].isin(keys)]
 
         free_slots: int = partition_rate - len(current_top_keys)
         new_entries_keys: list[GTT] = remaining_keys[:free_slots]
         remaining_keys = remaining_keys[free_slots:]
-        current_top_df = keys_to_rows(full_df, current_top_keys)
-        new_entries_df = keys_to_rows(full_df, new_entries_keys)
+        current_top_df = keys_to_rows(current_top_keys)
+        new_entries_df = keys_to_rows(new_entries_keys)
         arena: DataFrame = pd.concat([current_top_df, new_entries_df], ignore_index=True)
 
         return arena, remaining_keys

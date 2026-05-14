@@ -5,7 +5,8 @@ from pandas import DataFrame
 import pandas as pd
 from pydantic import BaseModel, Field
 
-from queries.test import Test, data_folder, TestParameters, PromptLevel, QueryParameters, PartitionedQueryParameters
+from queries.test import Test, data_folder, TestParameters, PromptLevel, QueryParameters, PartitionedQueryParameters, \
+    CompletenessLevel
 
 type GTT = str
 named_index_col = 'City'
@@ -99,5 +100,11 @@ class global_liveability(Test[GTT, TestParameters]):
         gt_df = gt_df.sort_values(by=score_col, ascending=False)
         return gt_df[named_index_col].tolist(), gt_df[score_col].tolist()
 
-    def build_prompt_df(self, df: DataFrame) -> DataFrame:
-        return df.drop(columns=score_col)
+    def build_prompt_df(self, df: DataFrame, completeness_level) -> DataFrame:
+        match completeness_level:
+            case CompletenessLevel.total:
+                return df.drop(columns=score_col)
+            case CompletenessLevel.remove_column:
+                raise NotImplementedError("ti sei dimenticato di implementare questa funzionalità")
+            case _:
+                raise NotImplementedError(f"Completeness level {completeness_level} non implementato per questo test")

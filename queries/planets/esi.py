@@ -6,7 +6,7 @@ from pandas import DataFrame
 from pydantic import BaseModel, Field
 
 from queries.test import Test, data_folder, download_csv, extract_pipe_sequence, TestParameters, PromptLevel, \
-    DirectQuery, GroundTruthScoreList, QueryParameters, PartitionedQueryParameters
+    DirectQuery, GroundTruthScoreList, QueryParameters, PartitionedQueryParameters, CompletenessLevel
 
 type GTT = str
 index_name = "Name"
@@ -104,8 +104,14 @@ class esi(Test[GTT, PlanetTestParameters]):
         fake_selected_planets[self.named_index_col] = "Planet " + fake_selected_planets.index.astype(str)
         return fake_selected_planets
 
-    def build_prompt_df(self, df: DataFrame) -> DataFrame:
-        return df.drop(columns='ESI', inplace=False)
+    def build_prompt_df(self, df: DataFrame, completeness_level) -> DataFrame:
+        match completeness_level:
+            case CompletenessLevel.total:
+                return df.drop(columns='ESI', inplace=False)
+            case CompletenessLevel.remove_column:
+                raise NotImplementedError("ti sei dimenticato di implementare questa funzionalità")
+            case _:
+                raise NotImplementedError(f"Completeness level {completeness_level} non implementato per questo test")
 
     def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], GroundTruthScoreList]:
         ground_truth_df = df.sort_values(by=['ESI'], ascending=False, inplace=False)

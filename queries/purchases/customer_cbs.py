@@ -161,7 +161,8 @@ class customer_CBS(customer_segmentation):
 
         return job, f"{instruction}\n\n{output}"
 
-    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int,
+                    completeness_level) -> tuple[tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList]]:
         k_list = []
         for kp in self.parameters.kp:
             if kp >= 1:
@@ -197,7 +198,7 @@ class customer_CBS(customer_segmentation):
         sorted_cids = top_similar_df.index.tolist()
         ground_truth_vals = top_similar_df.values.tolist()
 
-        result = (df, df, selected_cid, sorted_cids, ground_truth_vals)
+        result = (df, self.build_prompt_df(df, completeness_level), selected_cid, sorted_cids, ground_truth_vals)
         return result, result
 
     # non è più utilizzato

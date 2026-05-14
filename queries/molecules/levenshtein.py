@@ -6,7 +6,7 @@ from pandas import DataFrame
 from pydantic import BaseModel, Field
 
 from queries.test import PromptLevel, NamesLevel, TestParameters, data_folder, Test, GroundTruthScoreList, \
-    QueryParameters, PartitionedQueryParameters
+    QueryParameters, PartitionedQueryParameters, CompletenessLevel
 from queries.metrics import *
 
 type GTT = str
@@ -133,7 +133,17 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
         sorted_df = clean_gt_df.sort_values(by=sim_col, ascending=False)
         return sorted_df['SMILES'].tolist(), sorted_df[sim_col].tolist()
 
-    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT|None, list[GTT], GroundTruthScoreList]]:
+    def build_prompt_df(self, df: DataFrame, completeness_level) -> DataFrame:
+        match completeness_level:
+            case CompletenessLevel.total:
+                return df
+            case CompletenessLevel.remove_column:
+                raise NotImplementedError("ti sei dimenticato di implementare questa funzionalità")
+            case _:
+                raise NotImplementedError(f"Completeness level {completeness_level} non implementato per questo test")
+
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int,
+                    completeness_level) -> tuple[tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList]]:
         prompt_df = DataFrame()
         while True:
             if self.parameters.seed != 0:
@@ -151,5 +161,5 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
             prompt_df = mol_df[mol_df['SMILES'].isin(ground_truth)]
             break
 
-        result = (mol_df, prompt_df, target_mol, ground_truth, ground_truth_score)
+        result = (mol_df, self.build_prompt_df(prompt_df, completeness_level), target_mol, ground_truth, ground_truth_score)
         return result, result

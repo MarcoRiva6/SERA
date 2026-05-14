@@ -42,7 +42,7 @@ run_types:
   - 'partitioned'
 seed: 1234
 disabled: false
-skip_model: true
+skip_model: false
 queries:
   - name: 'planets/esi'
     n_queries: 15

@@ -1,12 +1,10 @@
 models:
   - name: 'together/deepseek-V3'
     batched: true
-    no_waiting: true
     temperature: 0
     run_type_filter: 'direct'
   - name: 'together/deepseek-V3-thinking'
     batched: true
-    no_waiting: true
     temperature: 0
     run_type_filter: 'direct'
 #  - name: 'together/qwen-3.5-397b'
@@ -21,20 +19,22 @@ models:
 #    run_type_filter: 'direct'
   - name: 'google/gemini-2.5-flash'
     batched: true
-    no_waiting: true
     temperature: 0
     run_type_filter: 'direct'
   - name: 'google/gemini-2.5-flash-thinking'
     batched: true
-    no_waiting: true
     temperature: 0
     run_type_filter: 'direct'
   - name: 'ollama/gemma3-27b'
-    no_waiting: false
     remote_job: false
     temperature: 0
   - name: 'ollama/qwen3-30b'
-    no_waiting: false
+    remote_job: false
+    temperature: 0
+  - name: 'ollama/gemma3-12b'
+    remote_job: false
+    temperature: 0
+  - name: 'ollama/qwen3-14b'
     remote_job: false
     temperature: 0
 run_types:

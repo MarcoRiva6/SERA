@@ -1,6 +1,7 @@
 import os
 import random
 import sys
+from collections import defaultdict
 from itertools import product
 
 from tqdm import tqdm
@@ -18,7 +19,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, asdict, field
 from enum import StrEnum, auto
 from pathlib import Path
-from typing import get_type_hints, get_origin
+from typing import get_type_hints, get_origin, Any, get_args
 
 import kagglehub
 import pandas as pd
@@ -33,6 +34,7 @@ from metrics import *
 data_folder: Path = Path(__file__).resolve().parent.parent / 'data' # path to the project's data folder
 type GroundTruthScoreElem = float
 type GroundTruthScoreList = list[float]
+type QueryRegistry = dict[int, dict[CompletenessLevel, dict[float, dict[NamesLevel, dict[PromptLevel, dict[PrintingMode, list[int] | dict[int, dict[int, list[int]]]]]]]]]
 
 class PromptLevel(StrEnum):
     generic = 'generic'
@@ -411,6 +413,15 @@ class PartitionedQuery[GTT: (str,int)](Query[GTT, PartitionedQueryParameters]):
         base["sub_queries_parsed_response"] = [subq.parsed_response for subq in self.sub_queries]
         return base
 
+
+def finalize_kp(kp: float, elem_per_query: int) -> int:
+    if kp >= 1:
+        k = int(kp)
+    else:
+        k = max(1, math.ceil(kp * elem_per_query))
+    return k
+
+
 @dataclass
 class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
     """
@@ -423,6 +434,7 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
     json_schema: BaseModel = None
     named_index_col: str = None
     queries: list[Query[GTT, QueryParameters]] = None # The list of queries generated for this test.
+    queries_registry: QueryRegistry = None
     prepared_queries_file_name: str = "prepared_queries.pkl" # Path to the file where prepared queries are stored.
     parameters: T_TestParameters = None
     evaluations: Evaluations = None # Aggregated evaluations across all queries for this test.
@@ -433,6 +445,40 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
             self.json_schema = self.__class__.json_schema
         if self.named_index_col is None:
             self.named_index_col = self.__class__.named_index_col
+
+    def init_queries_registry(self):
+        match self.run_type:
+            case RunType.DIRECT:
+                self.queries_registry = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))))
+                for elem_per_query, completeness_level, kp, name_mode, prompt_level, printing_mode in product(self.parameters.elems_per_query, self.parameters.completeness_levels, self.parameters.kp, self.parameters.names_levels, self.parameters.prompt_levels, self.parameters.prompt_printing_modes):
+                    self.queries_registry[elem_per_query][completeness_level][finalize_kp(kp, elem_per_query)][name_mode][prompt_level][printing_mode] = []
+            case RunType.PARTITIONED:
+                self.queries_registry = defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(lambda: defaultdict(list))))))))
+                for elem_per_query, completeness_level, kp, name_mode, prompt_level, printing_mode, (pr, pk) in product(self.parameters.elems_per_query, self.parameters.completeness_levels,self.parameters.kp, self.parameters.names_levels, self.parameters.prompt_levels, self.parameters.prompt_printing_modes, zip(self.parameters.setwise_partition_rates, self.parameters.setwise_partition_ks)):
+                    self.queries_registry[elem_per_query][completeness_level][finalize_kp(kp, elem_per_query)][name_mode][prompt_level][printing_mode][pr][pk] = []
+            case _:
+                raise NotImplementedError
+
+    def insert_in_query_registry(self, q: Query[GTT, QueryParameters]):
+        match self.run_type:
+            case RunType.DIRECT:
+                assert isinstance(q, DirectQuery)
+                self.queries_registry[q.parameters.n_elems][q.parameters.completeness_level][q.parameters.k][q.parameters.names_level][q.parameters.prompt_level][q.parameters.prompt_printing_mode].append(q.id)
+            case RunType.PARTITIONED:
+                assert isinstance(q, PartitionedQuery)
+                self.queries_registry[q.parameters.n_elems][q.parameters.completeness_level][q.parameters.k][q.parameters.names_level][q.parameters.prompt_level][q.parameters.prompt_printing_mode][q.parameters.partition_rate][q.parameters.partition_k].append(q.id)
+            case _:
+                raise NotImplementedError
+
+    def _registry_needs_query(self, q: Query[GTT, QueryParameters]) -> bool:
+        match self.run_type:
+            case RunType.DIRECT:
+                already_existing_qs = len(self.queries_registry[q.parameters.n_elems][q.parameters.completeness_level][q.parameters.k][q.parameters.names_level][q.parameters.prompt_level][q.parameters.prompt_printing_mode])
+            case RunType.PARTITIONED:
+                already_existing_qs = len(self.queries_registry[q.parameters.n_elems][q.parameters.completeness_level][q.parameters.k][q.parameters.names_level][q.parameters.prompt_level][q.parameters.prompt_printing_mode][q.parameters.partition_rate][q.parameters.partition_k])
+            case _:
+                raise NotImplementedError
+        return already_existing_qs < self.parameters.n_queries
 
     def save_params(self) -> None:
         """
@@ -453,20 +499,29 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
         current_params = json.loads(json.dumps(asdict(self.parameters)))
         return saved_params == current_params
 
-    def generate_queries(self) -> None:
-        """
-        After this method is called, variable 'queries' should be populated.
-        It automatically calls the appropriate 'prepare' method (based on the current run_type) as 'prepare_queries_for_<run_type>()'.
-        """
-        self.prepare_queries_for_direct()
-        return
-        method_name = 'prepare_queries_for_' + "direct"
-        try:
-            method = getattr(self, method_name)
-            method()
-        except AttributeError:
-            raise NotImplementedError(
-                f'Run mode {self.run_type} not implemented for this test (method {method_name} does not exists).')
+    def compatible_params(self) -> bool:
+        current_params = asdict(self.parameters)
+        with open(self.run_folder / self.params_file_name, 'r') as f:
+            saved_params = json.load(f)
+
+        for key in saved_params.keys():
+            match key:
+                case "seed" | "enforce_json_schema":
+                    continue
+                case "n_queries":
+                    if current_params[key] < saved_params[key]:
+                        raise NotImplementedError("c'è il problema del fatto che andrebbe a ricreare le prime...")
+                        return False
+                case _:
+                    match saved_params[key]:
+                        case list():
+                            if not all(elem in current_params[key] for elem in saved_params[key]):
+                                return False
+                        case _:
+                            if not saved_params[key] == current_params[key]:
+                                return False
+
+        return True
 
     def _sample_for_query(self, current_seed: int, df: DataFrame, elem_per_query: int) -> DataFrame:
         raise NotImplementedError()
@@ -586,11 +641,30 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
         anon_prompt_df = self.build_prompt_df(anon_sampled_df, completeness_level)
         return (sampled_df, prompt_df, target, gt_ids, gt_scores), (anon_sampled_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores)
 
-    def _prepare_queries(self, clean_df, t_parameters: TestParameters) -> list[Query[GTT, QueryParameters]]:
-        queries = []
+    def _prepare_queries(self, clean_df: DataFrame, existing_queries: list[Query],
+                         t_parameters: TestParameters) -> list[Query[GTT, QueryParameters]]:
+        new_queries = []
+        generated_prompts: list[str] = []
+        for q in existing_queries:
+            match q:
+                case PartitionedQuery():
+                    generated_prompts.append(q.raw_df.to_string())
+                case DirectQuery() | LotusQuery():
+                    generated_prompts.append(q.prompt_df.to_string())
+
         current_seed = t_parameters.seed
-        counter = 0
         ds_id = 0
+
+        def extract_max_ids(d):
+            if isinstance(d, dict):
+                for val in d.values():
+                    yield from extract_max_ids(val)
+            elif isinstance(d, list) and len(d) > 0:
+                yield max(d, default=-1)
+        def next_id():
+            return max(extract_max_ids(self.queries_registry), default=-1) + 1
+
+        counter = next_id()
 
         total_iters = (t_parameters.n_queries
                        * len(t_parameters.elems_per_query)
@@ -600,84 +674,86 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                        * len(t_parameters.prompt_printing_modes)
                        * len(t_parameters.completeness_levels)
                        * (len(t_parameters.setwise_partition_rates) if self.run_type == RunType.PARTITIONED else 1))
-        with tqdm(total=total_iters, desc="Generating queries", unit='query', colour='green') as pbar:
+        with tqdm(total=total_iters, desc="Generating queries", unit='query', colour='green', initial=counter) as pbar:
 
-            for _ in range(t_parameters.n_queries):
-                for elem_per_query, completeness_level in product(t_parameters.elems_per_query, t_parameters.completeness_levels):
-                    if t_parameters.seed != 0:
-                        random.seed(current_seed)
+            for q_number, elem_per_query, completeness_level in product(range(t_parameters.n_queries), t_parameters.elems_per_query, t_parameters.completeness_levels):
+                if t_parameters.seed != 0:
+                    random.seed(current_seed)
 
-                    retry = True
-                    while retry:
-                        (real_full_df, real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_full_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
-                            current_seed, clean_df, elem_per_query, completeness_level)
-                        collision = False
-                        for q in queries:
-                            match q:
-                                case PartitionedQuery():
-                                    collision = q.raw_df.to_string() == real_full_df.to_string()
-                                case LotusQuery() | DirectQuery():
-                                    collision = q.prompt_df.to_string() == real_prompt_df.to_string() or q.prompt_df.to_string() == anon_prompt_df.to_string()
-                            if collision:
-                                break
-                        if collision:
-                            current_seed += 1
-                            retry = True
-                            print("Generati due prompt uguali")
-                        else:
-                            retry = False
-
-                    for kp, name_mode, prompt_level, printing_mode in product(t_parameters.kp, t_parameters.names_levels, t_parameters.prompt_levels, t_parameters.prompt_printing_modes):
-                        if kp >= 1:
-                            k = int(kp)
-                        else:
-                            k = max(1, math.ceil(kp * elem_per_query))
-
-                        match name_mode:
-                            case NamesLevel.real:
-                                full_df = real_full_df
-                                prompt_df = real_prompt_df
-                                target = real_target
-                                gt_ids = real_gt_ids
-                                gt_scores = real_gt_scores
-                            case NamesLevel.fake:
-                                full_df = anon_full_df
-                                prompt_df = anon_prompt_df
-                                target = anon_target
-                                gt_ids = anon_gt_ids
-                                gt_scores = anon_gt_scores
-
+                retry = True
+                while retry:
+                    (real_full_df, real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_full_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
+                        current_seed, clean_df, elem_per_query, completeness_level)
+                    collision = False
+                    for prompt in generated_prompts:
                         match self.run_type:
                             case RunType.PARTITIONED:
-                                if target is not None:
-                                    raise NotImplementedError("I test con un target non sono supportati in modalità partitioned")
-                                if len(t_parameters.setwise_partition_rates) != len(t_parameters.setwise_partition_ks):
-                                    raise ValueError("I partition_ks devono essere mappati 1:1 con i partition_rates")
-                                for pr_index, pr in enumerate(t_parameters.setwise_partition_rates):
-                                    query = self._build_query(q_id=counter, ds_id=ds_id, prompt_df=prompt_df,
-                                                              full_df=full_df, target=target, k=k, gt_ids=gt_ids,
-                                                              gt_vals=gt_scores, prompt_level=prompt_level,
-                                                              names_level=name_mode, partition_rate=pr, partition_k=t_parameters.setwise_partition_ks[pr_index],
-                                                              n_elems=elem_per_query, printing_mode=printing_mode,
-                                                              completeness_level=completeness_level)
-                                    queries.append(query)
-                                    counter += 1
-                                    pbar.update(1)
-                            case _:
+                                collision = prompt == real_full_df.to_string()
+                            case RunType.LOTUS | RunType.DIRECT:
+                                collision = prompt == real_prompt_df.to_string() or prompt == anon_prompt_df.to_string()
+                        if collision:
+                            break
+                    if collision:
+                        current_seed += 1
+                        retry = True
+                        print("Generati due prompt uguali")
+                    else:
+                        retry = False
+
+                for kp, name_mode, prompt_level, printing_mode in product(t_parameters.kp, t_parameters.names_levels, t_parameters.prompt_levels, t_parameters.prompt_printing_modes):
+                    k = finalize_kp(kp, elem_per_query)
+
+                    match name_mode:
+                        case NamesLevel.real:
+                            full_df = real_full_df
+                            prompt_df = real_prompt_df
+                            target = real_target
+                            gt_ids = real_gt_ids
+                            gt_scores = real_gt_scores
+                        case NamesLevel.fake:
+                            full_df = anon_full_df
+                            prompt_df = anon_prompt_df
+                            target = anon_target
+                            gt_ids = anon_gt_ids
+                            gt_scores = anon_gt_scores
+
+                    match self.run_type:
+                        case RunType.PARTITIONED:
+                            if target is not None:
+                                raise NotImplementedError("I test con un target non sono supportati in modalità partitioned")
+                            if len(t_parameters.setwise_partition_rates) != len(t_parameters.setwise_partition_ks):
+                                raise ValueError("I partition_ks devono essere mappati 1:1 con i partition_rates")
+                            for pr, pk in zip(t_parameters.setwise_partition_rates, t_parameters.setwise_partition_ks):
                                 query = self._build_query(q_id=counter, ds_id=ds_id, prompt_df=prompt_df,
                                                           full_df=full_df, target=target, k=k, gt_ids=gt_ids,
                                                           gt_vals=gt_scores, prompt_level=prompt_level,
-                                                          names_level=name_mode, partition_rate=0, partition_k=0,
+                                                          names_level=name_mode, partition_rate=pr, partition_k=pk,
                                                           n_elems=elem_per_query, printing_mode=printing_mode,
                                                           completeness_level=completeness_level)
-                                queries.append(query)
+                                if self._registry_needs_query(query):
+                                    self.insert_in_query_registry(query)
+                                    new_queries.append(query)
+                                    generated_prompts.append(prompt_df.to_string())
+                                    counter += 1
+                                    pbar.update(1)
+                        case _:
+                            query = self._build_query(q_id=counter, ds_id=ds_id, prompt_df=prompt_df,
+                                                      full_df=full_df, target=target, k=k, gt_ids=gt_ids,
+                                                      gt_vals=gt_scores, prompt_level=prompt_level,
+                                                      names_level=name_mode, partition_rate=0, partition_k=0,
+                                                      n_elems=elem_per_query, printing_mode=printing_mode,
+                                                      completeness_level=completeness_level)
+                            if self._registry_needs_query(query):
+                                self.insert_in_query_registry(query)
+                                new_queries.append(query)
+                                generated_prompts.append(prompt_df.to_string())
                                 counter += 1
                                 pbar.update(1)
 
-                    current_seed += 1
-                    ds_id += 1
+                current_seed += 1
+                ds_id += 1
 
-        return queries
+        return new_queries
 
     def _load_ds(self) -> DataFrame:
         """loads the dataset file as a DataFrame"""
@@ -693,16 +769,23 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                 return False
         return True
 
-    def prepare_queries_for_direct(self) -> None:
+    def generate_queries(self) -> None:
         print('loading dataset...')
         full_df = self._load_ds()
         print('preparing DF...')
         clean_df = self._prepare_df(full_df)
         print('initializing queries...')
+        old_kp = self.parameters.kp.copy()
+        if self.run_type == RunType.PARTITIONED:
+            self.parameters.kp = [self.parameters.kp[0]]
         if not self._ensure_enough_combinations(clean_df):
             raise ValueError(
                 f"Not enough unique combinations of elems to generate the requested number of queries.")
-        self.queries = self._prepare_queries(clean_df, self.parameters)
+        if self.queries is None:
+            self.queries = []
+        self.queries.extend(self._prepare_queries(clean_df, self.queries, self.parameters))
+        if self.run_type == RunType.PARTITIONED:
+            self.parameters.kp = old_kp
 
     def _parse_direct_query_schema(self, query: DirectQuery[GTT]) -> None:
         if query.response is None:
@@ -866,6 +949,8 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
 
     def restore_queries(self) -> None:
         self.pickle_to_queries(self.run_folder / self.prepared_queries_file_name)
+        for q in self.queries:
+            self.insert_in_query_registry(q)
 
     def queries_to_csv(self, file_name: str, dest: Path = None) -> None:
         """

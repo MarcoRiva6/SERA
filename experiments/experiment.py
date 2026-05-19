@@ -8,10 +8,6 @@ from queries.test import Test
 
 from experiments.run_type import RunType
 
-import plotly.express as px
-import plotly.graph_objects as go
-import pandas as pd
-
 @dataclass
 class Experiment:
     """
@@ -32,33 +28,41 @@ class Experiment:
         """
         Execute the experiment by preparing the test, submitting queries to the model and saving results.
         """
-        test_has_already_run_once = (self.test.run_folder / self.test.params_file_name).exists()
-        model_has_already_run_once = (self.model.run_folder / self.model.params_file_name).exists()
-        if test_has_already_run_once and not self.test.same_params() or model_has_already_run_once and not self.model.same_params():
-            print('Test parameters have changed since last execution. Stopping to avoid inconsistencies')
-            return
-
         print('Preparing test...')
-        self.test.save_params()
-        self.model.save_params()
+        self.test.init_queries_registry()
+        needs_query_generation = False
+        # è il nuovo equivalente di test_has_already_run_once
         queries_file_exists: bool = (self.test.run_folder / self.test.prepared_queries_file_name).exists()
         if queries_file_exists:
+            if not self.test.same_params():
+                if not self.test.compatible_params():
+                    print('Test parameters have changed since last execution and are not compatible with the new ones. terminating...')
+                    return
+                needs_query_generation = True
             print('Restoring already generated queries...')
             self.test.restore_queries()
         else:
+            needs_query_generation = True
+        if needs_query_generation:
             print('Generating queries...')
             try:
                 self.test.generate_queries()
             except NotImplementedError as e:
                 print(e)
                 return
-            print('Storing queries...')
             self.test.store_queries()
             self.test.queries_to_csv('prepared_queries.csv')
+            self.test.save_params()
         print('test ready.')
+
         if self.skip_model:
             print('Skipping model...')
         else:
+            model_has_already_run_once = (self.model.run_folder / self.model.params_file_name).exists()
+            if model_has_already_run_once and not self.model.same_params():
+                print('Model parameters have changed since last execution.')
+                return
+            self.model.save_params()
             try:
                 self.model.run(self.test.queries, self.test)
                 print('Model processing complete.')
@@ -67,9 +71,6 @@ class Experiment:
                 return
             except SubmissionError as e:
                 print('Submission error:', e)
-            except KeyboardInterrupt:
-                print('Experiment interrupted.')
-                self.model._finish_model()
             except Exception as e:
                 print('An unknown error occurred during submission:', e)
                 return

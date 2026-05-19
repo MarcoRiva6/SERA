@@ -10,6 +10,7 @@ import pandas as pd
 import yaml
 from pandas import DataFrame
 
+from models.model import BatchableModel
 from queries.test import Test
 
 import models.model
@@ -59,16 +60,15 @@ def get_test_class(modul_path):
         raise Exception(f'Found {len(candidates)} test classes for {modul_path}')
     return candidates[0]
 
-def get_test_generic_types(test_cls: type):
+def get_generic_types(test_cls: type):
     """
-    Returns (T_Query, T_TestParameters, T_Evaluations) for a concrete Test subclass.
+    Returns generic types of a class.
     """
     # Look at the generic base used in the class definition
     for base in getattr(test_cls, "__orig_bases__", ()):
-        if get_origin(base) is Test:
-            return get_args(base)
+        return get_args(base)
 
-    raise TypeError(f"{test_cls.__name__} does not directly specify Test[...] generics")
+    raise TypeError(f"{test_cls.__name__} does not directly specify generics")
 
 def class_from_path(class_path: str):
     module_path, class_name = class_path.rsplit(".", 1)
@@ -254,7 +254,7 @@ def instantiate_test(exp_seed: int, inner_run_folder: Path, query_dictionary: di
     q_module_path = 'queries.' + query_dictionary['name'].replace('/', '.')
     q_class = get_test_class(q_module_path)
 
-    q_param_class = get_test_generic_types(q_class)[1]
+    q_param_class = get_generic_types(q_class)[1]
 
     # instantiate test parameters object
     q_external_params = {k: v for k, v in query_dictionary.items() if k != 'name'}
@@ -278,7 +278,8 @@ def instantiate_model(exp_seed: int, inner_run_folder: Path, model_dictionary: d
         'run_folder': inner_run_folder / 'results' / model_name_path / rt,
     }
     # instantiate model parameters object
-    model_param_class = getattr(model_class, 'Params')
+    model_generics = get_generic_types(model_class)
+    model_param_class = model_generics[2 if issubclass(model_class, BatchableModel) else 0]
     model_external_args = {k: v for k, v in model_dictionary.items() if k != 'name'}
     model_params = model_param_class(seed=exp_seed, **model_external_args)
     model = model_class.from_yaml_file(**model_base_args, params=model_params)

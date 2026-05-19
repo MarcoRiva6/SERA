@@ -1,6 +1,9 @@
+import ast
+import hashlib
 import json
 import os
 from abc import ABC
+from time import sleep
 from typing import Any
 
 import math
@@ -46,9 +49,17 @@ def _split_queries(counting_method, tokens_per_submission: int, queries: list[Qu
     else:
         return [queries]
 
+@dataclass
+class ModelParams:
+    seed: int = 0
+    temperature: float = -1
 
 @dataclass
-class Model(ABC):
+class BatchableModelParams(ModelParams):
+    batched: bool = True
+
+@dataclass
+class Model[T_ModelParams: ModelParams](ABC):
     name: str
     name_path: str
     name_api: str
@@ -56,12 +67,7 @@ class Model(ABC):
     max_tokens: int
     run_type: RunType
     run_folder: Path
-    @dataclass
-    class Params(ABC):
-        seed: int = 0
-        no_waiting: bool = False
-        temperature: float = -1
-    params: Params
+    params: T_ModelParams
     responses_file_name: str = 'responses.jsonl'
     params_file_name: str = 'model_params.json'
 
@@ -156,8 +162,7 @@ class Model(ABC):
             self._store_query_inline(q.id, q.response, q.tokens)
 
     def _submit_direct_queries(self, queries: list[DirectQuery]) -> None:
-        for query in queries:
-            self._submit_direct_query_inline(query)
+        self._submit_direct_queries_inline(queries)
 
     def _get_lotus_params(self) -> tuple[str,str|None]:
         raise NotImplementedError(f"Lotus submission not implemented for model {self.name}.")
@@ -217,7 +222,7 @@ class Model(ABC):
             subquery_raw_df, updated_remaining_keys = test.select_next_partition(query.raw_df, query.parameters.partition_rate, query.remaining_keys, current_top_keys)
             query.remaining_keys = updated_remaining_keys
             gt, gt_scores = test.build_ground_truth(subquery_raw_df, None)
-            subquery_prompt_df = test.build_prompt_df(subquery_raw_df, completeness_level)
+            subquery_prompt_df = test.build_prompt_df(subquery_raw_df, query.parameters.completeness_level)
             subquery = DirectQuery(
                 id=subq_id,
                 ds_id=query.ds_id,
@@ -318,3 +323,122 @@ class Model(ABC):
             raise SubmissionError(f'Error during submission: {e}', 'error type:', type(e))
         finally:
             self._finish_model()
+
+@dataclass
+class BatchableModel[QIID: (str,int), T_BatchID: Any, T_ModelParam: BatchableModelParams](Model[T_ModelParam]):
+    supports_batched: bool = True
+    @dataclass
+    class QueryBatchMapping:
+        q_id: int
+        batch_id: int
+        qiid: int|str
+
+    def _query_to_qiid(self, q: DirectQuery) -> QIID:
+        return hashlib.md5(q.prompt.encode()).hexdigest()
+
+    def _batch_input_to_qiids(self, batch_input_path: Path)  -> list[QIID]:
+        raise NotImplementedError(f"Batch input parsing method not implemented for model {self.name}.")
+
+    def _build_batch_input(self, mapping: dict[QIID, DirectQuery]) -> list:
+        raise NotImplementedError(f"Batch input building not implemented for model {self.name}.")
+
+    def _send_batch(self, input_file_path: Path) -> T_BatchID:
+        raise NotImplementedError(f"Batch submission method not implemented for model {self.name}.")
+
+    def _check_batch(self, batch_id: T_BatchID, error_path: Path) -> bool:
+        raise NotImplementedError(f"Batch status checking method not implemented for model {self.name}.")
+
+    def _download_batch(self, batch_id: T_BatchID, output_path: Path) -> None:
+        raise NotImplementedError(f"Batch result downloading method not implemented for model {self.name}.")
+
+    def _process_batch_output(self, batched_queries: dict[QIID, DirectQuery], output_path: Path, batch_token_usage_path: Path):
+        raise NotImplementedError(f"Batch output processing method not implemented for model {self.name}.")
+
+    def _submit_direct_queries_batch(self, batch_number: int, queries: list[DirectQuery]) -> None:
+        batch_folder = self.run_folder / f"batch_{batch_number}"
+        batch_id_path = batch_folder / "batch_id.txt"
+        input_path = batch_folder / "batch_input.jsonl"
+        output_path = batch_folder / "batch_output.jsonl"
+        error_path = batch_folder / "batch_error.jsonl"
+        batch_token_usage_path = batch_folder / "batch_token_usage.txt"
+
+        batch_queries = {self._query_to_qiid(q): q for q in queries}
+
+        if input_path.exists():
+            input_file_qiids = self._batch_input_to_qiids(input_path)
+            if set(input_file_qiids) != set(batch_queries.keys()):
+                raise RuntimeError(f"Batch {batch_number} input file qiids don't match batch queries qiids. Interrupting.")
+
+        if output_path.exists():
+            print(f"Using existing batch output file...")
+        else:
+            if batch_id_path.exists(): # recover existing batch
+                with open(batch_id_path, "r") as f:
+                    batch_id: T_BatchID = f.read().strip()
+                print(f"Trying to recover already submitted batch {batch_id}...")
+            else:
+                requests = self._build_batch_input(batch_queries)
+                batch_folder.mkdir(parents=True, exist_ok=True)
+                write_jsonl(input_path, requests)
+
+                batch_id: T_BatchID = self._send_batch(input_path)
+                batch_id_path.write_text(batch_id)
+                sleep(2)
+
+            downloadable = self._check_batch(batch_id, error_path)
+            if downloadable:
+                print(f"downloading batch {batch_number}...")
+                self._download_batch(batch_id, output_path)
+            else:
+                print(f"batch {batch_number} hasn't finished yet")
+                return
+
+        self._process_batch_output(batch_queries, output_path, batch_token_usage_path)
+
+    def _split_batches(self, queries: list[DirectQuery]) -> list[list[DirectQuery]]:
+        raise NotImplementedError(f"Batch splitting method not implemented for model {self.name}.")
+
+    def _map_queries_to_batches(self, queries: list[DirectQuery]) -> dict[int, list[DirectQuery]]:
+        batches_queries = {self._query_to_qiid(q): q for q in queries}
+        batches_map: dict[int, list[DirectQuery]] = {}
+        for elem in self.run_folder.iterdir():
+            if elem.is_dir() and elem.name.startswith("batch_"):
+                maybe_batch_number = elem.name.replace("batch_", "")
+                if maybe_batch_number.isdigit():
+                    batch_number = int(maybe_batch_number)
+                    batch_folder = self.run_folder / f"batch_{batch_number}"
+                    batch_input_path = batch_folder / "batch_input.jsonl"
+                    if batch_input_path.exists():
+                        batch_quiids = self._batch_input_to_qiids(batch_folder / "batch_input.jsonl")
+                        batches_map[batch_number] = [batches_queries.pop(qiid) for qiid in batch_quiids]
+        batches_map[-1] = list(batches_queries.values())
+
+        return batches_map
+
+    def _submit_direct_queries(self, queries: list[DirectQuery]) -> None:
+        if not self.supports_batched and self.params.batched:
+            print(f"Model {self.name} does not support batched submissions. Submitting direct.")
+            self.params.batched = False
+
+        if self.params.batched:
+            if self.family == "google" and "smartphones" in queries[0].prompt:
+                self.batch_max_tokens = int(self.batch_max_tokens / 2)
+            # parse existing batches
+            batches_map = self._map_queries_to_batches(queries)
+            # new batches
+            to_be_split: list[DirectQuery] = batches_map.pop(-1)
+            if to_be_split:
+                new_batches_lists = self._split_batches(to_be_split)
+                old_batches_ids = batches_map.keys()
+                new_batches_start_id = max(old_batches_ids) + 1 if old_batches_ids else 1
+                for new_batch_id, qs in enumerate(new_batches_lists, start=new_batches_start_id):
+                    batches_map[new_batch_id] = qs
+                print(f"New {len(to_be_split)} queries to submit in {len(new_batches_lists)} batches.")
+            # process batches
+            batches_count = len(batches_map.keys())
+            print(f"Processing {batches_count} batches...")
+            for progress_counter, (batch_number, batch_queries) in enumerate(batches_map.items(), start=1):
+                print(f"Processing batch {batch_number} ({progress_counter}/{batches_count})...")
+                self._submit_direct_queries_batch(batch_number, batch_queries)
+        else:
+            self._submit_direct_queries_inline(queries)

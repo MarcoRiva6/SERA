@@ -9,7 +9,7 @@ import psutil
 import requests
 from pydantic import BaseModel
 from tqdm import tqdm
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import PurePosixPath, PureWindowsPath, Path
 from typing import Iterable
 
@@ -17,7 +17,7 @@ import paramiko
 from ollama import Client
 
 from experiments.run_type import RunType
-from models.model import Model, SubmissionError
+from models.model import Model, SubmissionError, ModelParams
 from queries.test import Query, DirectQuery
 
 import subprocess
@@ -192,9 +192,13 @@ def spawn_client_ssh(hostname: str, user: str, password: str) -> paramiko.SSHCli
     client.connect(hostname=hostname, username=user, password=password)
     return client
 
+@dataclass
+class OllamaModelParams(ModelParams):
+    remote_job: bool = False
+
 
 @dataclass
-class OllamaModel(Model):
+class OllamaModel(Model[OllamaModelParams]):
     client: Client = None
     tunnel: OllamaTunnelManager = None
     ollama_address: str = "localhost:11434".replace("11434","8080")
@@ -204,10 +208,6 @@ class OllamaModel(Model):
     supports_thinking: bool = False
     questions_file_name: str = 'questions.jsonl'
     remote_run_file_name: str = 'remote_run.py'
-    @dataclass
-    class Params(Model.Params):
-        remote_job: bool = False
-    params: Params = field(default_factory=Params)
 
     def _get_lotus_params(self) -> tuple[str,str]:
         return f"ollama/{self.name_api}", f"http://{self.ollama_address}"#.replace("11434","8080")
@@ -412,12 +412,8 @@ if __name__ == "__main__":
                     self._prepare_remote_job(os_type, ssh_client, queries)
                     remote_run_file_path = build_remote_path(os_type,self.__remote_run_folder(os_type), self.remote_run_file_name)
                     launch_remote_job(ssh_client, remote_run_file_path)
-                    if self.params.no_waiting:
-                        print("Remote job launched. Not waiting.")
-                        return
-                    else:
-                        print("Remote job launched. Attaching to stdout...")
-                        monitor_remote_running(self.hostname, self.user, self.password)
+                    print("Remote job launched. Attaching to stdout...")
+                    monitor_remote_running(self.hostname, self.user, self.password)
         else:
             self._submit_direct_queries_inline(queries)
 

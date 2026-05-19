@@ -1,28 +1,25 @@
-import hashlib
 import json
 import os
 import time
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from google.genai import Client
 from google.genai.types import BatchJob, ThinkingConfig, GenerationConfig, Content, Part, GenerateContentConfig
-from tqdm import tqdm
 
-from models.model import Model, write_jsonl, _split_queries, SubmissionError
+from models.model import _split_queries, SubmissionError, BatchableModel, BatchableModelParams
+from models.together.TogetherModel import T_BatchID
 from queries.test import Query, DirectQuery
 
+type QIID = str
+
 @dataclass
-class GoogleModel(Model):
+class GoogleModel(BatchableModel[QIID, Any, BatchableModelParams]):
     client: Client = None
     batch_max_tokens: int = 0
     supports_batched: bool = False
     reasoning: bool = False
-    @dataclass
-    class Params(Model.Params):
-        batched: bool = True
-    params: Params = field(default_factory=Params)
 
     def __init_google_client(self):
         # Load API key from .env file
@@ -121,87 +118,7 @@ class GoogleModel(Model):
                 else:
                     raise SubmissionError("Gemini non risponde")
 
-    def _submit_direct_queries_batched(self, folder: Path, queries: list[DirectQuery]) -> bool:
-        poll_interval = 60 #seconds
-        timeout = 86400  #seconds (24 hours)
-        batch_id_path = folder / "batch_id.txt"
-        input_path = folder / "batch_input.jsonl"
-        output_path = folder / "batch_output.jsonl"
-        error_path = folder / "batch_error.jsonl"
-        batch_token_usage_path = folder / "batch_token_usage.txt"
-
-        batch_queries: dict[str, DirectQuery] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
-        if len(batch_queries) < len(queries):
-            raise SubmissionError("Collisione nell'hashing delle query")
-
-        if os.path.exists(output_path):
-            print(f"Using existing batch output file...")
-        else:
-            if os.path.exists(batch_id_path): # recover existing batch
-                with open(batch_id_path, "r") as f:
-                    batch_id = f.read().strip()
-                print(f"Trying to recover already submitted batch {batch_id}...")
-            else:
-                requests: list[dict] = []
-                # con i modelli V3 si setta in un altro modo
-                thinking_config = ThinkingConfig(include_thoughts=False)
-                if self.reasoning:
-                    thinking_config.thinking_budget = -1 # auto hybrid thinking
-                else:
-                    thinking_config.thinking_budget = 0
-                gen_config = GenerationConfig(max_output_tokens=self.max_tokens, thinking_config=thinking_config, temperature=self.params.temperature if self.params.temperature != -1 else None)
-                for q_key, q in batch_queries.items():
-                    content = Content(parts=[Part(text=q.prompt)], role="user")
-                    req_gen_config = gen_config.model_copy()
-                    if q.response_json_schema is not None:
-                        req_gen_config.response_mime_type = "application/json"
-                        req_gen_config.response_json_schema = q.response_json_schema.model_json_schema()
-                    r = {
-                        "key": q_key,
-                        "request": {
-                            "contents": [content.to_json_dict()],
-                            "generation_config": req_gen_config.to_json_dict()
-                        }
-                    }
-                    requests.append(r)
-
-                folder.mkdir(parents=True, exist_ok=True)
-                write_jsonl(input_path, requests)
-
-                # Upload the file to the File API
-                file_resp = self.client.files.upload(file=input_path, config={'mime_type': 'jsonl'})
-                file_id = file_resp.name
-
-                # Create the batch job
-                batch: BatchJob = self.client.batches.create(model=self.name_api, src=file_id)
-                batch_id = batch.name
-                batch_id_path.write_text(batch_id)
-
-            start_time = time.time()
-            while True:
-                b = self.client.batches.get(name=batch_id)
-                status = b.state.name
-                print(f"[{datetime.now().strftime('%y-%m-%d %H:%M:%S')}] Batch {batch_id} status: {status}")
-
-                failing_states = {'JOB_STATE_FAILED', 'JOB_STATE_CANCELLED', 'JOB_STATE_EXPIRED'}
-                successfully_completed_states = {'JOB_STATE_SUCCEEDED'}
-                completed_states = successfully_completed_states | failing_states
-                if status in completed_states:
-                    if status not in successfully_completed_states:
-                        print(f"Warning: Batch {batch_id} completed with state: {status}. error file ID {b.error}")
-                    break
-                if (time.time() - start_time) > timeout:
-                    raise TimeoutError(f"Batch {batch_id} did not complete within {timeout} seconds")
-
-                if self.params.no_waiting:
-                    return False
-                time.sleep(poll_interval)
-
-            # download result file
-            output_file_id = b.dest.file_name
-            file_content = self.client.files.download(file=output_file_id)
-            output_path.write_text(file_content.decode('utf-8'))
-
+    def _process_batch_output(self, batch_queries: dict[str, DirectQuery], output_path: Path, batch_token_usage_path: Path):
         total_token_consumed = 0
         # 5. Parse the results
         with output_path.open("r", encoding="utf-8") as f:
@@ -226,7 +143,70 @@ class GoogleModel(Model):
         for bq in batch_queries.values():
             if not bq.response:
                 print(f"Warning: No response for query with prompt hash {hash(bq.prompt)}")
-        return True
+
+    def _download_batch(self, batch_id: T_BatchID, output_path: Path):
+        b = self.client.batches.get(name=batch_id)
+        output_file_id = b.dest.file_name
+        file_content = self.client.files.download(file=output_file_id)
+        output_path.write_text(file_content.decode('utf-8'))
+
+    def _check_batch(self, batch_id, error_path: Path) -> bool:
+        b = self.client.batches.get(name=batch_id)
+        status = b.state.name
+
+        failing_states = {'JOB_STATE_FAILED', 'JOB_STATE_CANCELLED', 'JOB_STATE_EXPIRED'}
+        successfully_completed_states = {'JOB_STATE_SUCCEEDED'}
+        completed_states = successfully_completed_states | failing_states
+        if status in completed_states:
+            if status not in successfully_completed_states:
+                print(f"Warning: Batch {batch_id} completed with state: {status}. error file ID {b.error}")
+            return True
+        else:
+            return False
+
+    def _send_batch(self, input_file_path: Path) -> Any:
+        # Upload the file to the File API
+        file_resp = self.client.files.upload(file=input_file_path, config={'mime_type': 'jsonl'})
+        file_id = file_resp.name
+
+        # Create the batch job
+        batch: BatchJob = self.client.batches.create(model=self.name_api, src=file_id)
+        return batch.name
+
+    def _batch_input_to_qiids(self, batch_input_path: Path) -> list[QIID]:
+        qiids_list: list[QIID] = []
+        with batch_input_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                batch_q = json.loads(line)
+                qiids_list.append(batch_q['key'])
+
+        return qiids_list
+
+    def _build_batch_input(self, batch_queries: dict[str, DirectQuery]) -> list[dict]:
+        requests: list[dict] = []
+        # con i modelli V3 si setta in un altro modo
+        thinking_config = ThinkingConfig(include_thoughts=False)
+        if self.reasoning:
+            thinking_config.thinking_budget = -1  # auto hybrid thinking
+        else:
+            thinking_config.thinking_budget = 0
+        gen_config = GenerationConfig(max_output_tokens=self.max_tokens, thinking_config=thinking_config,
+                                      temperature=self.params.temperature if self.params.temperature != -1 else None)
+        for q_key, q in batch_queries.items():
+            content = Content(parts=[Part(text=q.prompt)], role="user")
+            req_gen_config = gen_config.model_copy()
+            if q.response_json_schema is not None:
+                req_gen_config.response_mime_type = "application/json"
+                req_gen_config.response_json_schema = q.response_json_schema.model_json_schema()
+            r = {
+                "key": q_key,
+                "request": {
+                    "contents": [content.to_json_dict()],
+                    "generation_config": req_gen_config.to_json_dict()
+                }
+            }
+            requests.append(r)
+        return requests
 
     def _init_model(self) -> None:
         self.client = self.__init_google_client()
@@ -234,22 +214,5 @@ class GoogleModel(Model):
     def _finish_model(self) -> None:
         self.client.close()
 
-    def _submit_direct_queries(self, queries: list[DirectQuery]):
-        if not self.supports_batched and self.params.batched:
-            print(f"Model {self.name} does not support batched submissions. Submitting inline.")
-            self.params.batched = False
-        #TODO: parallelize batch submissions
-        if self.params.batched:
-            batches = _split_queries(self._count_tokens, self.batch_max_tokens, queries) if self.batch_max_tokens else None
-            all_completed = True
-            pbar = tqdm(batches, desc="Uploading batches", unit="batch")
-            for i, b in enumerate(pbar):
-                pbar.set_postfix(queries=len(b))
-                completed = self._submit_direct_queries_batched(self.run_folder / f"batch_{i + 1}", b)
-                all_completed = all_completed and completed
-            if not all_completed:
-                print("Not waiting for submission to complete...")
-            return
-        else:
-            self._submit_direct_queries_inline(queries)
-
+    def _split_batches(self, queries: list[DirectQuery]) -> list[list[DirectQuery]]:
+        return _split_queries(self._count_tokens, self.batch_max_tokens, queries) if self.batch_max_tokens else None

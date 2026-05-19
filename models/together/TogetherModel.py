@@ -1,31 +1,23 @@
-import hashlib
 import json
 import os
-import time
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from pathlib import Path
 
 import together
 from pydantic import BaseModel
 from together.types import ChatCompletionResponse
-from tqdm import tqdm
 
-from models.model import Model, write_jsonl, SubmissionError
+from models.model import BatchableModel, BatchableModelParams
 from queries.test import Query, DirectQuery
 
+type QIID = str
+type T_BatchID = str
 
 @dataclass
-class TogetherModel(Model):
+class TogetherModel(BatchableModel[QIID, T_BatchID, BatchableModelParams]):
     client: together.Client = None
-    supports_batched: bool = True
     supports_structured_output: bool = False
     reasoning: bool = False
-    @dataclass
-    class Params(Model.Params):
-        batched: bool = True
-        temperature: float = -1
-    params: Params = field(default_factory=Params)
 
     def _init_model(self) -> None:
         # Load API key from .env file
@@ -91,87 +83,16 @@ class TogetherModel(Model):
     def _submit_direct_query_inline(self, query: DirectQuery) -> None:
         query.response, query.tokens = self._submit_prompt(query.prompt, query.response_json_schema)
 
-    def _submit_direct_queries_batched(self, folder: Path, queries: list[DirectQuery]) -> bool:
-        poll_interval = 60 #seconds
-        timeout = 86400  #seconds (24 hours)
-        batch_id_path = folder / "batch_id.txt"
-        input_path = folder / "batch_input.jsonl"
-        output_path = folder / "batch_output.jsonl"
-        error_path = folder / "batch_error.jsonl"
-        batch_token_usage_path = folder / "batch_token_usage.txt"
+    def _batch_input_to_qiids(self, batch_input_path: Path) -> list[QIID]:
+        qiids_list: list[QIID] = []
+        with batch_input_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                batch_q = json.loads(line)
+                qiids_list.append(batch_q['custom_id'])
 
-        batch_queries: dict[str, DirectQuery] = {hashlib.md5(q.prompt.encode()).hexdigest(): q for q in queries}
+        return qiids_list
 
-        if os.path.exists(output_path):
-            print(f"Using existing batch output file...")
-        else:
-            if os.path.exists(batch_id_path): # recover existing batch
-                with open(batch_id_path, "r") as f:
-                    batch_id = f.read().strip()
-                print(f"Trying to recover already submitted batch {batch_id}...")
-            else:
-                requests = []
-                for q_key, q in batch_queries.items():
-                    r: dict = {
-                        "custom_id": q_key,
-                        "body": {
-                            "model": self.name_api,
-                            "messages": [{"role": "user", "content": q.prompt}]
-                        }
-                    }
-                    if self.max_tokens is not None:
-                        r["body"]["max_tokens"] = self.max_tokens
-                    if q.response_json_schema is not None:
-                        r['body']['response_format'] = {"type": "json_schema", "schema": q.response_json_schema.model_json_schema()}
-                    if self.params.temperature != -1:
-                        r['body']['temperature'] = self.params.temperature
-                    if self.reasoning:
-                        r['body']['reasoning'] = {"enabled": True}
-                    requests.append(r)
-
-                # 1. Write requests to a .jsonl file
-                folder.mkdir(parents=True, exist_ok=True)
-                write_jsonl(input_path, requests)
-
-                # 2. Upload the batch file
-                file_resp = self.client.files.upload(file=input_path, purpose="batch-api")
-                file_id = file_resp.id
-
-                # 3. Create the batch job
-                batch = self.client.batches.create_batch(file_id, endpoint="/v1/chat/completions")
-                batch_id = batch.id
-                batch_id_path.write_text(batch_id)
-
-            start_time = time.time()
-            while True:
-                b = self.client.batches.get_batch(batch_id)
-                status = b.status
-                print(f"[{datetime.now().strftime('%y-%m-%d %H:%M:%S')}] Batch {batch_id} status: {status}")
-
-                if status == 'VALIDATING':
-                    time.sleep(5)
-                    continue
-                if status == "COMPLETED":
-                    if b.error_file_id is not None:
-                        print(f"Warning: Batch {batch_id} completed with errors. error file ID {b.error_file_id}")
-                        self.client.files.retrieve_content(id=b.error_file_id, output=str(error_path))
-                    break
-                if status in ("FAILED", "EXPIRED", "CANCELLED"):
-                    with error_path.open("w", encoding="utf-8") as f:
-                        f.write(b.model_dump_json())
-                    raise RuntimeError(f"Batch {batch_id} failed with error {b.error}")
-
-                if (time.time() - start_time) > timeout:
-                    raise TimeoutError(f"Batch {batch_id} did not complete within {timeout} seconds")
-
-                if self.params.no_waiting:
-                    return False
-                time.sleep(poll_interval)
-
-            # 4. Download the result file
-            output_file_id = b.output_file_id
-            self.client.files.retrieve_content(id=output_file_id, output=str(output_path))
-
+    def _process_batch_output(self, batch_queries: dict[str, DirectQuery], output_path: Path, batch_token_usage_path: Path):
         total_token_consumed = 0
         # 5. Parse the results
         with output_path.open("r", encoding="utf-8") as f:
@@ -188,30 +109,63 @@ class TogetherModel(Model):
 
         print(f"Total tokens consumed in batch: {total_token_consumed}")
         batch_token_usage_path.write_text(f"{total_token_consumed}")
-        #TODO: handle errors per query (non capita mai che non venga data risposta, al massimo fallisce)
+        # TODO: handle errors per query (non capita mai che non venga data risposta, al massimo fallisce)
         for bq in batch_queries.values():
             if not bq.response:
                 print(f"Warning: No response for query with prompt hash {hash(bq.prompt)}")
-        return True
 
-    def _submit_direct_queries(self, queries: list[DirectQuery]) -> None:
-        if any(q.response_json_schema is not None for q in queries) and not self.supports_structured_output:
-            raise SubmissionError(f"Model {self.name} does not support structured output required by some queries.")
+    def _download_batch(self, batch_id: T_BatchID, output_path: Path):
+        b = self.client.batches.get_batch(batch_id)
+        output_file_id = b.output_file_id
+        self.client.files.retrieve_content(id=output_file_id, output=str(output_path))
 
-        if not self.supports_batched and self.params.batched:
-            print(f"Model {self.name} does not support batched submissions. Submitting direct.")
-            self.params.batched = False
+    def _check_batch(self, batch_id: str, error_path) -> bool:
+        b = self.client.batches.get_batch(batch_id)
+        status = b.status
 
-        if self.params.batched:
-            batches = self._split_batches(queries)
-            all_completed = True
-            pbar = tqdm(batches, desc="Uploading batches", unit="batch")
-            for i, b in enumerate(pbar):
-                pbar.set_postfix(queries=len(b))
-                completed = self._submit_direct_queries_batched(self.run_folder / f"batch_{i + 1}", b)
-                all_completed = all_completed and completed
-            if not all_completed:
-                print("Not waiting for submission to complete...")
-            return
-        else:
-            self._submit_direct_queries_inline(queries)
+        match status:
+            case "VALIDATING" | "IN_PROGRESS":
+                return False
+            case "COMPLETED":
+                if b.error_file_id is not None:
+                    print(f"Warning: Batch {batch_id} completed with errors. error file ID {b.error_file_id}")
+                    self.client.files.retrieve_content(id=b.error_file_id, output=str(error_path))
+                return True
+            case "FAILED" | "EXPIRED" | "CANCELLED":
+                with error_path.open("w", encoding="utf-8") as f:
+                    f.write(b.model_dump_json())
+                raise RuntimeError(f"Batch {batch_id} failed with error {b.error}")
+            case _:
+                raise RuntimeError(f"Batch {batch_id} has unrecognized status: {status}")
+
+
+    def _send_batch(self, input_path: Path) -> str:
+        # 2. Upload the batch file
+        file_resp = self.client.files.upload(file=input_path, purpose="batch-api")
+        file_id = file_resp.id
+
+        # 3. Create the batch job
+        batch = self.client.batches.create_batch(file_id, endpoint="/v1/chat/completions")
+        return batch.id
+
+    def _build_batch_input(self, mapping: dict[str, DirectQuery]) -> list:
+        requests = []
+        for q_key, q in mapping.items():
+            r: dict = {
+                "custom_id": q_key,
+                "body": {
+                    "model": self.name_api,
+                    "messages": [{"role": "user", "content": q.prompt}]
+                }
+            }
+            if self.max_tokens is not None:
+                r["body"]["max_tokens"] = self.max_tokens
+            if q.response_json_schema is not None:
+                r['body']['response_format'] = {"type": "json_schema",
+                                                "schema": q.response_json_schema.model_json_schema()}
+            if self.params.temperature != -1:
+                r['body']['temperature'] = self.params.temperature
+            if self.reasoning:
+                r['body']['reasoning'] = {"enabled": True}
+            requests.append(r)
+        return requests

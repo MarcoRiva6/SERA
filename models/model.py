@@ -268,8 +268,12 @@ class Model(ABC):
         queries_to_process = []
         for query in queries:
             if query.id in processed_queries:
-                query.parsed_response = processed_queries[query.id]["response"]
-                query.parsing_failed = query.parsed_response is None
+                q_stored_response = processed_queries[query.id]["response"]
+                if q_stored_response is None:
+                    query.parsing_failed = True
+                else:
+                    query.parsed_response = ast.literal_eval(q_stored_response)
+                    query.parsing_failed = False
                 query.tokens = processed_queries[query.id]["tokens"]
             else:
                 queries_to_process.append(query)
@@ -300,10 +304,6 @@ class Model(ABC):
             return cls(**model_args)
 
     def run(self, queries: list[Query], test: Test):
-        needs_run = any(not q.is_answered() for q in queries)
-        if not needs_run:
-            print('All queries already have a response. Skipping submission.')
-            return
         self._init_model()
         print(f"Model processing {len(queries)} queries...")
         try:

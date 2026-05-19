@@ -374,11 +374,13 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
     # capabilities
     partizionabili = ('cities', 'planets', 'meters', 'smartphones')
     anonimizzabili = ('cities', 'planets', 'smartphones')
+    generalizzabili = ('planets/esi', 'meters/spa', 'molecules/levenshtein', 'hr/rid', 'cities/global_liveability', 'purchases/customer_segmentation', 'smartphones/hw_eff_score')
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
             for q in queries:
                 setattr(q.parameters, 'partizionabile', test_name.split('/')[0] in partizionabili)
                 setattr(q.parameters, 'anonimizzabile', test_name.split('/')[0] in anonimizzabili)
+                setattr(q.parameters, 'generalizzabile', test_name in generalizzabili)
 
     #rinominiamo i test con nomi brevi
     rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'Average', 'planets/dif':'DIF', 'planets/esi':'ESI',

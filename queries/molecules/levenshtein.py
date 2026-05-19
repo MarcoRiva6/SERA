@@ -120,7 +120,7 @@ The Levenshtein distance as a similarity metric between two molecular SMILES str
 12. Subtract the result of this division from 1 to obtain the normalized similarity score, obtaining the final result.
     """
             case PromptLevel.generic:
-                request = f"Return the {q_params.k} most similar molecules to the molecule {target}, based only on their SMILES strings similarity."
+                request = f"Return the {q_params.k} most similar molecules to the molecule {target}."
 
         return job, f"{request}\n\n{output}"
 

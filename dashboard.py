@@ -60,6 +60,9 @@ def get_param_fields_from_queries(queries: List[Any]) -> List[str]:
     # supporto ad anonimizzabile
     if hasattr(params, "anonimizzabile") and "anonimizzabile" not in fields_list:
         fields_list.append("anonimizzabile")
+    # supporto ad anonimizzabile
+    if hasattr(params, "generalizzabile") and "generalizzabile" not in fields_list:
+        fields_list.append("generalizzabile")
 
     return fields_list
 

@@ -74,7 +74,7 @@ class spa(Test[GTT, SPATestParameters]):
 
         match q_params.prompt_level:
             case PromptLevel.generic:
-                raise NotImplementedError()
+                instruction = f"Return the {q_params.k} {self.named_index_col} who have the highest average peak consumptions."
             case PromptLevel.instruct:
                 instruction = f"""Return the {q_params.k} {self.named_index_col} who have the highest Sustained Peak Average (SPA) from the provided dataset.
 To calculate the SPA for a user: first, evaluate the '3h_intervals' array for every row associated with them. For each array, identify the 3 highest numerical values and calculate their arithmetic mean (this is the Daily Peak Average). Then, group by '{self.named_index_col}' and finally calculate the overall mean of these Daily Peak Averages across all recorded days for each household."""

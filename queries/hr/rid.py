@@ -78,7 +78,7 @@ class rid(Test[GTT, RIDTestParameters]):
         output = f"Your output must contain only the required list of {named_index_col}."
         match q_params.prompt_level:
             case PromptLevel.generic:
-                raise NotImplementedError("generic non ancora implementato")
+                instruction = f"Return the {q_params.k} least interchangeable employees to the target employee '{target}', considering their department, education field and level, years of employment and income."
             case PromptLevel.instruct:
                 instruction = \
                     f"""Return the {q_params.k} least interchangeable employees to the target employee '{target}' from the provided dataset, using the Role Interchangeability Distance (RID). Calculate the RID by summing four components:

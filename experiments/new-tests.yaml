@@ -55,6 +55,7 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
+      - 'generic'
     kp:
       - 5
       - 10
@@ -66,6 +67,7 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
+      - 'generic'
   - name: 'molecules/levenshtein'
     n_queries: 15
     elems_per_query:
@@ -76,6 +78,7 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
+      - 'generic'
   - name: 'hr/rid'
     n_queries: 15
     elems_per_query:
@@ -86,6 +89,7 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
+      - 'generic'
   - name: 'molecules/RWED'
     n_queries: 15
     elems_per_query:
@@ -121,6 +125,7 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
+      - 'generic'
     kp:
       - 5
       - 10
@@ -161,6 +166,7 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
+      - 'generic'
     kp:
       - 5
       - 10
@@ -172,3 +178,4 @@ queries:
     prompt_levels:
       - 'instruct'
       - 'formula'
+      - 'generic'

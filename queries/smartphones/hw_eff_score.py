@@ -71,7 +71,7 @@ class hw_eff_score(Test[GTT, SmartphoneTestParameters]):
 
         match q_params.prompt_level:
             case PromptLevel.generic:
-                raise NotImplementedError("generic non ancora implementato")
+                instruction = f"Return the top {q_params.k} smartphones models by '{named_index_col}' from the provided dataset rewarding those who have high battery and memory capacities, and penalizing those who are heavy or have an high energy consumption processor."
             case PromptLevel.instruct:
                 instruction = \
                     f"""Return the {q_params.k} smartphone models by '{named_index_col}' from the provided dataset that have the highest Hardware Efficiency Score (HES).

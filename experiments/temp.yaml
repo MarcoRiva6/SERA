@@ -1,93 +1,82 @@
 models:
-  - name: 'together/qwen-3.5-397b'
-    no_waiting: true
-    batched: false
-    temperature: 0
-  - name: 'together/qwen-3.5-397b-thinking'
-    no_waiting: true
-    batched: false
-    temperature: 0
-  - name: 'together/deepseek-V3-reasoning'
-    batched: true
-    no_waiting: true
-    temperature: 0
-  - name: 'google/gemini-2.5-flash'
-    no_waiting: true
+  - name: 'together/deepseek-V3'
     batched: true
     temperature: 0
-#  - name: 'google/gemini-2.5-pro'
+    run_type_filter: 'direct'
+  - name: 'together/deepseek-V3-thinking'
+    batched: true
+    temperature: 0
+    run_type_filter: 'direct'
+#  - name: 'together/qwen-3.5-397b'
 #    no_waiting: true
 #    batched: true
 #    temperature: 0
-#  - name: 'ollama/gemma3-27b'
-#    no_waiting: false
-#    remote_job: false
+#    run_type_filter: 'direct'
+#  - name: 'together/qwen-3.5-397b-thinking'
+#    no_waiting: true
+#    batched: true
 #    temperature: 0
-#  - name: 'ollama/qwen3-30b'
-#    no_waiting: false
-#    remote_job: false
-#    temperature: 0
+#    run_type_filter: 'direct'
+  - name: 'google/gemini-2.5-flash'
+    batched: true
+    temperature: 0
+    run_type_filter: 'direct'
+  - name: 'google/gemini-2.5-flash-thinking'
+    batched: true
+    temperature: 0
+    run_type_filter: 'direct'
+  - name: 'ollama/gemma3-27b'
+    remote_job: false
+    temperature: 0
+  - name: 'ollama/qwen3-30b'
+    remote_job: false
+    temperature: 0
 run_types:
   - 'direct'
-#  - 'partitioned'
+  - 'partitioned'
 seed: 1234
-disabled: true
-skip_model: false
+disabled: false
+skip_model: true
 queries:
-#  - name: 'hr/rid'
+  - name: 'meters/spa'
+    n_queries: 15
+    elems_per_query:
+      - 130
+    prompt_levels:
+      - 'instruct'
+      - 'formula'
+  - name: 'molecules/levenshtein'
+    n_queries: 15
+    elems_per_query:
+      - 130
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'instruct'
+      - 'formula'
+      - 'generic'
+  - name: 'hr/rid'
+    n_queries: 15
+    elems_per_query:
+      - 130
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'instruct'
+      - 'formula'
+#  - name: 'molecules/RWED'
 #    n_queries: 15
 #    elems_per_query:
-#      - 30
-#      - 70
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
-#    kp:
-#      - 0.05
-#      - 0.10
-#  - name: 'planets/esi'
-#    n_queries: 10
-#    elems_per_query:
-#      - 30
-#      - 69
+#      - 130
 #    names_levels:
-##      - 'fake'
-#      - 'real'
+#      - 'fake'
 #    prompt_levels:
 #      - 'instruct'
 #      - 'formula'
-#    kp:
-#      - 0.05
-#      - 0.10
-#    prompt_printing_modes:
-#      - 'plain'
-#      - 'markdown'
-#  - name: 'purchases/customer_segmentation'
-#    n_queries: 5
-#    elems_per_query:
-#      - 30
-#      - 70
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
-#    kp:
-#      - 5
-#  - name: 'smartphones/hw_eff_score'
-#    n_queries: 8
-#    elems_per_query:
-#      - 30
-#      - 70
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
-#    kp:
-#      - 0.05
-#      - 0.10
 #  - name: 'cities/city_free_score'
-#    n_queries: 2
+#    n_queries: 15
 #    elems_per_query:
-#      - 30
-#      - 70
+#      - 130
 #    names_levels:
 #      - 'fake'
 #      - 'real'
@@ -96,83 +85,49 @@ queries:
 #      - 'formula'
 #    kp:
 #      - 5
-#  - name: 'cities/global_liveability'
-#    n_queries: 10
-#    elems_per_query:
-#      - 30
-#      - 70
-#    names_levels:
-#      - 'fake'
-#      - 'real'
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
-#    kp:
-#      - 0.05
-#  - name: 'molecules/RWED'
-#    n_queries: 3
-#    elems_per_query:
-#      - 30
-#      - 70
-#    names_levels:
-#      - 'fake'
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
-#    kp:
-#      - 0.10
-#  - name: 'molecules/levenshtein'
-#    n_queries: 5
-#    elems_per_query:
-#      - 30
-#      - 70
-#    names_levels:
-#      - 'fake'
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
-#    kp:
-#      - 5
-  - name: 'planets/dif'
-    n_queries: 2
+#      - 10
+  - name: 'cities/global_liveability'
+    n_queries: 15
     elems_per_query:
-      - 30
-      - 70
+      - 130
     names_levels:
+      - 'fake'
       - 'real'
     prompt_levels:
       - 'instruct'
       - 'formula'
     kp:
       - 5
-#  - name: 'planets/esi'
-#    n_queries: 10
-#    elems_per_query:
-#      - 30
-#      - 70
-#    names_levels:
-#      - 'fake'
-#      - 'real'
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
-#    kp:
-#      - 0.05
-#  - name: 'purchases/customer_cbs'
-#    elems_per_query:
-#      - 30
-#      - 70
-#    names_levels:
-#      - 'real'
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
-#  - name: 'purchases/customer_segmentation'
-#    elems_per_query:
-#      - 30
-#      - 70
-#    names_levels:
-#      - 'real'
-#    prompt_levels:
-#      - 'instruct'
-#      - 'formula'
+      - 10
+  - name: 'purchases/customer_cbs'
+    n_queries: 15
+    elems_per_query:
+      - 130
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'instruct'
+      - 'formula'
+    kp:
+      - 5
+      - 10
+  - name: 'purchases/customer_segmentation'
+    n_queries: 15
+    elems_per_query:
+      - 130
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'instruct'
+      - 'formula'
+      - 'generic'
+    kp:
+      - 5
+      - 10
+  - name: 'smartphones/hw_eff_score'
+    n_queries: 15
+    elems_per_query:
+      - 130
+    prompt_levels:
+      - 'instruct'
+      - 'formula'

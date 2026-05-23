@@ -28,6 +28,9 @@ class Experiment:
         """
         Execute the experiment by preparing the test, submitting queries to the model and saving results.
         """
+        if not self.test.check_test_configuration():
+            print('Test has incompatible configuration, skipping...')
+            return
         print('Preparing test...')
         self.test.init_queries_registry()
         needs_query_generation = False

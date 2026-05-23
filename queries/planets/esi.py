@@ -35,6 +35,7 @@ class esi(Test[GTT, PlanetTestParameters]):
     name_short = "ESI"
     json_schema = TopESIPlanets
     named_index_col = "Planet"
+    prompt_scoring_cols = ['Radius (Re)', 'Flux (Se)']
 
     def _load_ds(self) -> DataFrame:
         folder = data_folder / self.family
@@ -104,14 +105,8 @@ class esi(Test[GTT, PlanetTestParameters]):
         fake_selected_planets[self.named_index_col] = "Planet " + fake_selected_planets.index.astype(str)
         return fake_selected_planets
 
-    def build_prompt_df(self, df: DataFrame, completeness_level) -> DataFrame:
-        match completeness_level:
-            case CompletenessLevel.total:
-                return df.drop(columns='ESI', inplace=False)
-            case CompletenessLevel.remove_column:
-                raise NotImplementedError("ti sei dimenticato di implementare questa funzionalità")
-            case _:
-                raise NotImplementedError(f"Completeness level {completeness_level} non implementato per questo test")
+    def build_prompt_df(self, df: DataFrame) -> DataFrame:
+        return df.drop(columns='ESI', inplace=False)
 
     def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], GroundTruthScoreList]:
         ground_truth_df = df.sort_values(by=['ESI'], ascending=False, inplace=False)

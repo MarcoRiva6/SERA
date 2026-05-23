@@ -1,12 +1,12 @@
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 
 from queries.test import TestParameters, Test, data_folder, PromptLevel, sample_ds_interesting, \
-    PartitionedQueryParameters, NamesLevel
+    PartitionedQueryParameters, NamesLevel, CompletenessLevel
 
 type GTT = str
 
@@ -16,6 +16,7 @@ class MostConsumingFamilies(BaseModel):
 @dataclass
 class SPATestParameters(TestParameters):
     names_levels: tuple[NamesLevel, ...] = tuple([NamesLevel.fake])
+    completeness_levels: list[CompletenessLevel] = field(default_factory=lambda: [CompletenessLevel.total])
 
 @dataclass
 class spa(Test[GTT, SPATestParameters]):

@@ -10,7 +10,6 @@ from queries.test import TestParameters, Test, data_folder, PromptLevel, Partiti
 
 type GTT = int
 named_index_col = 'smart_id'
-scoring_cols = ['Nominal Battery Capacity', 'CPU Clock', 'Mass', 'Memory Capacity', 'Display Diagonal']
 
 class BestSmartphones(BaseModel):
     top_k: list[GTT] = Field(description=f"Ordered list of the k best smartphones (by {named_index_col}) according to the specified metric.")
@@ -26,11 +25,12 @@ class hw_eff_score(Test[GTT, SmartphoneTestParameters]):
     json_schema = BestSmartphones
     full_df: DataFrame = None
     named_index_col = named_index_col
+    prompt_scoring_cols = ['Nominal Battery Capacity', 'CPU Clock', 'Mass', 'Memory Capacity', 'Display Diagonal']
 
     def _load_ds(self) -> DataFrame:
         df_path = data_folder / self.family / 'mobile.csv'
         df = pd.read_csv(df_path, index_col=0)
-        df = df.dropna(subset=scoring_cols)
+        df = df.dropna(subset=self.prompt_scoring_cols)
         return df.rename_axis(self.named_index_col).reset_index()
 
     def _anonymize_query_df(self, df: DataFrame) -> DataFrame:

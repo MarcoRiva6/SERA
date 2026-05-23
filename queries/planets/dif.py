@@ -16,6 +16,7 @@ class dif(esi):
     name: str = "DIF"
     name_short: str = "DIF"
     json_schema = TopDIFPlanets
+    prompt_scoring_cols = ['Mass (Me)', 'Radius (Re)', 'Flux (Se)']
 
     def build_ground_truth(self, df: DataFrame, target: GTT | None) -> tuple[list[GTT], GroundTruthScoreList]:
         result_df = df.copy()

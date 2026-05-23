@@ -53,6 +53,7 @@ class rid(Test[GTT, RIDTestParameters]):
     json_schema = FarthestEmployees
     full_df: DataFrame = None
     named_index_col = named_index_col
+    prompt_scoring_cols = ["Department","EducationField","Education","TotalWorkingYears","MonthlyIncome"]
 
     def _load_ds(self) -> DataFrame:
         df_path = data_folder / self.family / 'WA_Fn-UseC_-HR-Employee-Attrition.csv'

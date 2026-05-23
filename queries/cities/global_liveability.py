@@ -45,6 +45,7 @@ class global_liveability(Test[GTT, TestParameters]):
     name_short: str = "GLI"
     json_schema = BestCities
     named_index_col = named_index_col
+    prompt_scoring_cols = scoring_cols
 
     def _load_ds(self) -> DataFrame:
         return pd.read_excel(data_folder / 'cities' / 'global_liveability.xlsx', sheet_name='Foglio2')
@@ -100,11 +101,5 @@ class global_liveability(Test[GTT, TestParameters]):
         gt_df = gt_df.sort_values(by=score_col, ascending=False)
         return gt_df[named_index_col].tolist(), gt_df[score_col].tolist()
 
-    def build_prompt_df(self, df: DataFrame, completeness_level) -> DataFrame:
-        match completeness_level:
-            case CompletenessLevel.total:
-                return df.drop(columns=score_col)
-            case CompletenessLevel.remove_column:
-                raise NotImplementedError("ti sei dimenticato di implementare questa funzionalità")
-            case _:
-                raise NotImplementedError(f"Completeness level {completeness_level} non implementato per questo test")
+    def build_prompt_df(self, df: DataFrame) -> DataFrame:
+        return df.drop(columns=score_col)

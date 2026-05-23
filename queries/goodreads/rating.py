@@ -1,11 +1,11 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pandas as pd
 from pandas import DataFrame
 from pydantic import BaseModel, Field
 
-from queries.test import TestParameters, Test, data_folder, GroundTruthScoreList, finalize_kp, sample_ds_interesting, \
-    CompletenessLevel, PartitionedQueryParameters, PromptLevel, PrintingMode
+from queries.test import TestParameters, Test, data_folder, finalize_kp, sample_ds_interesting, \
+    PartitionedQueryParameters, PromptLevel, PrintingMode, CompletenessLevel
 
 type GTT = str
 
@@ -13,7 +13,11 @@ class MostRelevantReviews(BaseModel):
     top_k: list[GTT] = Field(description="Top k most relevant reviews")
 
 @dataclass
-class rating(Test[GTT, TestParameters]):
+class GoodreadsTestParameters(TestParameters):
+    completeness_levels: list[CompletenessLevel] = field(default_factory=lambda: [CompletenessLevel.total])
+
+@dataclass
+class rating(Test[GTT, GoodreadsTestParameters]):
     name: str = "Goodreads Ratings"
     name_short: str = "GRR"
     json_schema = MostRelevantReviews
@@ -63,7 +67,7 @@ class rating(Test[GTT, TestParameters]):
             case _:
                 NotImplementedError(f"{printing_mode} not implemented for test goodreads/rating")
 
-    def build_prompt_df(self, df: DataFrame, completeness_level: CompletenessLevel) -> DataFrame:
+    def build_prompt_df(self, df: DataFrame) -> DataFrame:
         return df.drop(columns=['rating'])
 
     def _create_prompt_partitioned(self, df: DataFrame, target: GTT | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:

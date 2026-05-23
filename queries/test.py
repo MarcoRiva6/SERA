@@ -4,6 +4,7 @@ import sys
 from collections import defaultdict
 from itertools import product
 
+from pandas.core.dtypes.common import is_integer_dtype, is_bool_dtype
 from tqdm import tqdm
 
 cartella_corrente = os.path.dirname(os.path.abspath(__file__))
@@ -52,6 +53,7 @@ class PrintingMode(StrEnum):
 class CompletenessLevel(StrEnum):
     total = auto()
     remove_column = auto()
+    mask = auto()
 
 @dataclass
 class TestParameters(ABC):
@@ -305,6 +307,35 @@ def sample_ds_interesting(df: pd.DataFrame, length: int, min_unique: int, key: s
 
     return df_finale
 
+def df_mask_values(seed: int, df: DataFrame, columns, percentage: float=0.2) -> DataFrame:
+    valid_columns = []
+    for col in columns:
+        if is_integer_dtype(df[col]) or is_bool_dtype(df[col]):
+            continue
+        valid_columns.append(col)
+    if not valid_columns:
+        raise ValueError(f"Non sono rimaste colonne valide da mascherare.")
+    rng = np.random.default_rng(seed)
+
+    n_righe = len(df)
+    n_colonne = len(valid_columns)
+    righe_da_colpire = int(n_righe * percentage)
+    if righe_da_colpire == 0 or n_colonne == 0:
+        return df
+    indici_selezionati =rng.choice(n_righe, righe_da_colpire, replace=False)
+    quanti_nan_per_riga = rng.integers(1, n_colonne + 1, size=righe_da_colpire)
+    modifiche_per_colonna = {col: [] for col in valid_columns}
+    for indice_riga, quanti_nan in zip(indici_selezionati, quanti_nan_per_riga):
+        colonne_scelte = rng.choice(valid_columns, quanti_nan, replace=False)
+        for col in colonne_scelte:
+            modifiche_per_colonna[col].append(indice_riga)
+    for col, indici_da_modificare in modifiche_per_colonna.items():
+        if indici_da_modificare:
+            veri_indici = df.index[indici_da_modificare]
+            df.loc[veri_indici, col] = np.nan
+
+    return df
+
 @dataclass
 class Query[GTT: (str,int), QPT: QueryParameters](ABC):
     id: int # must be unique within a test
@@ -433,6 +464,7 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
     run_folder: Path # /data/{direct | lotus}
     json_schema: BaseModel = None
     named_index_col: str = None
+    prompt_scoring_cols: list[str] = None
     queries: list[Query[GTT, QueryParameters]] = None # The list of queries generated for this test.
     queries_registry: QueryRegistry = None
     prepared_queries_file_name: str = "prepared_queries.pkl" # Path to the file where prepared queries are stored.
@@ -445,6 +477,8 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
             self.json_schema = self.__class__.json_schema
         if self.named_index_col is None:
             self.named_index_col = self.__class__.named_index_col
+        if self.prompt_scoring_cols is None:
+            self.prompt_scoring_cols = self.__class__.prompt_scoring_cols
 
     def init_queries_registry(self):
         match self.run_type:
@@ -540,21 +574,13 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
         """
         raise NotImplementedError()
 
-    def build_prompt_df(self, df: DataFrame, completeness_level) -> DataFrame:
+    def build_prompt_df(self, df: DataFrame) -> DataFrame:
         """
-        Returns the cleaned version of the raw query DF, ready for create_prompt and compliant to the specified completeness_level.
+        Returns the cleaned version of the raw query DF, ready for create_prompt.
         It's called right before creating the Query.
-        By default, it returns the input for total completeness
+        By default, it returns the input.
         """
-        match completeness_level:
-            case CompletenessLevel.total:
-                return df
-            case CompletenessLevel.remove_column:
-                if self.named_index_col is None:
-                    raise ValueError("named_index_col must be defined to use remove_column completeness level")
-                return df.drop(columns=[self.named_index_col])
-            case _:
-                raise ValueError("completeness level not recognized")
+        return df
 
     def _create_prompt_direct(self, df: DataFrame, target: GTT | None, q_params: QueryParameters) -> str:
         """Should return the final prompt string. By default, it uses the strings produce by _create_prompt_partitioned, putting the dataframe in the middle.
@@ -630,15 +656,14 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                     **none_args,
                 )
 
-    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int,
-                    completeness_level) -> tuple[tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList]]:
+    def _init_query(self, seed: int, df: DataFrame, elem_per_query: int) -> tuple[tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList],tuple[DataFrame, DataFrame, GTT | None, list[GTT], GroundTruthScoreList]]:
         sampled_df = self._sample_for_query(seed, df, elem_per_query)
         anon_sampled_df = self._anonymize_query_df(sampled_df)
         target, anon_target = self._select_query_target(seed, sampled_df, anon_sampled_df)
         gt_ids, gt_scores = self.build_ground_truth(sampled_df, target)
         anon_gt_ids, anon_gt_scores = self.build_ground_truth(anon_sampled_df, anon_target)
-        prompt_df = self.build_prompt_df(sampled_df, completeness_level)
-        anon_prompt_df = self.build_prompt_df(anon_sampled_df, completeness_level)
+        prompt_df = self.build_prompt_df(sampled_df)
+        anon_prompt_df = self.build_prompt_df(anon_sampled_df)
         return (sampled_df, prompt_df, target, gt_ids, gt_scores), (anon_sampled_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores)
 
     def _prepare_queries(self, clean_df: DataFrame, existing_queries: list[Query],
@@ -676,14 +701,14 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                        * (len(t_parameters.setwise_partition_rates) if self.run_type == RunType.PARTITIONED else 1))
         with tqdm(total=total_iters, desc="Generating queries", unit='query', colour='green', initial=counter) as pbar:
 
-            for q_number, elem_per_query, completeness_level in product(range(t_parameters.n_queries), t_parameters.elems_per_query, t_parameters.completeness_levels):
+            for q_number, elem_per_query in product(range(t_parameters.n_queries), t_parameters.elems_per_query):
                 if t_parameters.seed != 0:
                     random.seed(current_seed)
 
                 retry = True
                 while retry:
                     (real_full_df, real_prompt_df, real_target, real_gt_ids, real_gt_scores), (anon_full_df, anon_prompt_df, anon_target, anon_gt_ids, anon_gt_scores) = self._init_query(
-                        current_seed, clean_df, elem_per_query, completeness_level)
+                        current_seed, clean_df, elem_per_query)
                     collision = False
                     for prompt in generated_prompts:
                         match self.run_type:
@@ -700,7 +725,7 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                     else:
                         retry = False
 
-                for kp, name_mode, prompt_level, printing_mode in product(t_parameters.kp, t_parameters.names_levels, t_parameters.prompt_levels, t_parameters.prompt_printing_modes):
+                for kp, name_mode, prompt_level, printing_mode, completeness_level in product(t_parameters.kp, t_parameters.names_levels, t_parameters.prompt_levels, t_parameters.prompt_printing_modes, t_parameters.completeness_levels):
                     k = finalize_kp(kp, elem_per_query)
 
                     match name_mode:
@@ -716,6 +741,14 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
                             target = anon_target
                             gt_ids = anon_gt_ids
                             gt_scores = anon_gt_scores
+
+                    match completeness_level:
+                        case CompletenessLevel.total:
+                            pass
+                        case CompletenessLevel.mask:
+                            prompt_df = df_mask_values(seed=current_seed, df=prompt_df, columns=self.prompt_scoring_cols, percentage=0.2)
+                        case _:
+                            raise NotImplementedError("Completeness level not implemented")
 
                     match self.run_type:
                         case RunType.PARTITIONED:
@@ -766,6 +799,12 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
     def _ensure_enough_combinations(self, df: DataFrame) -> bool:
         for elem_per_query in self.parameters.elems_per_query:
             if math.comb(len(df), elem_per_query) < self.parameters.n_queries:
+                return False
+        return True
+
+    def check_test_configuration(self) -> bool:
+        if self.run_type == RunType.PARTITIONED:
+            if any(cl != CompletenessLevel.total for cl in self.parameters.completeness_levels):
                 return False
         return True
 

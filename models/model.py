@@ -222,7 +222,7 @@ class Model[T_ModelParams: ModelParams](ABC):
             subquery_raw_df, updated_remaining_keys = test.select_next_partition(query.raw_df, query.parameters.partition_rate, query.remaining_keys, current_top_keys)
             query.remaining_keys = updated_remaining_keys
             gt, gt_scores = test.build_ground_truth(subquery_raw_df, None)
-            subquery_prompt_df = test.build_prompt_df(subquery_raw_df, query.parameters.completeness_level)
+            subquery_prompt_df = test.build_prompt_df(subquery_raw_df)
             subquery = DirectQuery(
                 id=subq_id,
                 ds_id=query.ds_id,

@@ -1,7 +1,11 @@
+import ast
 import os
 import sys
 
 import numpy as np
+from pydantic import ValidationError
+
+from queries.test import DirectQuery
 
 cartella_corrente = os.path.dirname(os.path.abspath(__file__))
 if cartella_corrente not in sys.path:
@@ -59,7 +63,7 @@ class scs(rating):
         risultato = risultato.sort_values(by=['Final_SCS_NDCG', self.named_index_col], ascending=[False, True]).reset_index(drop=True)
         return risultato[self.named_index_col].tolist(), risultato['Final_SCS_NDCG'].tolist()
 
-    def build_prompt_df(self, df: DataFrame, completeness_level: CompletenessLevel) -> DataFrame:
+    def build_prompt_df(self, df: DataFrame) -> DataFrame:
         return df.drop(columns=['rating'])
 
     def _create_prompt_partitioned(self, df: DataFrame, target: GTT | None, q_params: PartitionedQueryParameters) -> tuple[str, str]:
@@ -90,3 +94,25 @@ To calculate the Semantic Consensus Score (SCS) and rank the most loved books, e
     10.To resolve ties, order books by their id in descending order."""
 
         return job, f"{instruction}\n\n{output}"
+
+    def _parse_direct_query_schema(self, query: DirectQuery[GTT]) -> None:
+        if query.response is None:
+            query.parsing_failed = True
+            return
+        if query.response_json_schema is None:
+            raise ValueError("Si è cercato di fare parsing con schema su una query senza schema.")
+        try:
+            struttura_dati = ast.literal_eval(query.response.replace("\n", ""))
+        except (SyntaxError, ValueError):
+            query.parsing_failed = True
+            return
+        if not isinstance(struttura_dati, dict):
+            query.parsing_failed = True
+            return
+        try:
+            lista_interi = [int(elemento) for elemento in struttura_dati['top_k']]
+        except (ValueError, TypeError, KeyError):
+            query.parsing_failed = True
+            return
+        query.parsed_response = lista_interi
+        query.parsing_failed = False

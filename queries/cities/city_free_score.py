@@ -20,6 +20,7 @@ def redefine_ranking(df: DataFrame):
 class city_free_score(global_liveability):
     name: str = "City Free Score"
     name_short = "Average"
+    prompt_scoring_cols = [col for col in scoring_cols if col != ignoring_column]
 
     def _prepare_df(self, df: DataFrame) -> DataFrame:
         df = redefine_ranking(df)

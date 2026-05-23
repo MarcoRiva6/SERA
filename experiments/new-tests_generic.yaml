@@ -1,68 +1,56 @@
 models:
   - name: 'together/deepseek-V3'
     batched: true
+    no_waiting: true
     temperature: 0
     run_type_filter: 'direct'
   - name: 'together/deepseek-V3-thinking'
     batched: true
+    no_waiting: true
     temperature: 0
     run_type_filter: 'direct'
+#  - name: 'together/qwen-3.5-397b'
+#    no_waiting: true
+#    batched: true
+#    temperature: 0
+#    run_type_filter: 'direct'
+#  - name: 'together/qwen-3.5-397b-thinking'
+#    no_waiting: true
+#    batched: true
+#    temperature: 0
+#    run_type_filter: 'direct'
   - name: 'google/gemini-2.5-flash'
     batched: true
+    no_waiting: true
     temperature: 0
     run_type_filter: 'direct'
   - name: 'google/gemini-2.5-flash-thinking'
     batched: true
+    no_waiting: true
     temperature: 0
     run_type_filter: 'direct'
   - name: 'ollama/gemma3-27b'
+    no_waiting: false
     remote_job: false
     temperature: 0
   - name: 'ollama/qwen3-30b'
-    remote_job: false
-    temperature: 0
-  - name: 'ollama/gemma3-12b'
-    remote_job: false
-    temperature: 0
-  - name: 'ollama/qwen3-14b'
+    no_waiting: false
     remote_job: false
     temperature: 0
 run_types:
   - 'direct'
-  - 'partitioned'
+#  - 'partitioned'
 seed: 1234
 disabled: false
 skip_model: false
 queries:
-  - name: 'goodreads/scs'
+  - name: 'smartphones/hw_eff_score'
     n_queries: 15
     elems_per_query:
       - 30
       - 70
-      - 150
-    names_levels:
-      - 'fake'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
-    kp:
-      - 5
-      - 10
-  - name: 'goodreads/rating'
-    n_queries: 15
-    elems_per_query:
-      - 30
-      - 70
-      - 150
-    names_levels:
-      - 'fake'
-    prompt_levels:
-      - 'instruct'
-      - 'formula'
       - 'generic'
-    kp:
-      - 5
-      - 10
   - name: 'planets/esi'
     n_queries: 15
     elems_per_query:
@@ -72,8 +60,6 @@ queries:
       - 'fake'
       - 'real'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
       - 'generic'
     kp:
       - 5
@@ -83,10 +69,7 @@ queries:
     elems_per_query:
       - 30
       - 70
-      - 150
     prompt_levels:
-      - 'instruct'
-      - 'formula'
       - 'generic'
   - name: 'molecules/levenshtein'
     n_queries: 15
@@ -96,20 +79,15 @@ queries:
     names_levels:
       - 'fake'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
       - 'generic'
   - name: 'hr/rid'
     n_queries: 15
     elems_per_query:
       - 30
       - 70
-      - 150
     names_levels:
       - 'fake'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
       - 'generic'
   - name: 'molecules/RWED'
     n_queries: 15
@@ -119,8 +97,7 @@ queries:
     names_levels:
       - 'fake'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
+      - 'generic'
   - name: 'cities/city_free_score'
     n_queries: 15
     elems_per_query:
@@ -130,8 +107,7 @@ queries:
       - 'fake'
       - 'real'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
+      - 'generic'
     kp:
       - 5
       - 10
@@ -144,8 +120,6 @@ queries:
       - 'fake'
       - 'real'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
       - 'generic'
     kp:
       - 5
@@ -159,8 +133,7 @@ queries:
       - 'fake'
       - 'real'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
+      - 'generic'
     kp:
       - 5
       - 10
@@ -169,12 +142,10 @@ queries:
     elems_per_query:
       - 30
       - 70
-      - 150
     names_levels:
       - 'fake'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
+      - 'generic'
     kp:
       - 5
       - 10
@@ -183,23 +154,10 @@ queries:
     elems_per_query:
       - 30
       - 70
-      - 150
     names_levels:
       - 'fake'
     prompt_levels:
-      - 'instruct'
-      - 'formula'
       - 'generic'
     kp:
       - 5
       - 10
-  - name: 'smartphones/hw_eff_score'
-    n_queries: 15
-    elems_per_query:
-      - 30
-      - 70
-      - 150
-    prompt_levels:
-      - 'instruct'
-      - 'formula'
-      - 'generic'

@@ -1,0 +1,37 @@
+models:
+  - name: 'openrouter/deepseek-v3.1-OR'
+    temperature: 0
+    run_type_filter: 'direct'
+  - name: 'openrouter/deepseek-v3.1-thinking-OR'
+    temperature: 0
+    run_type_filter: 'direct'
+run_types:
+  - 'direct'
+seed: 1234
+disabled: false
+skip_model: false
+queries:
+  - name: 'goodreads/scs'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'instruct'
+      - 'formula'
+    kp:
+      - 5
+      - 10
+  - name: 'goodreads/rating'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'instruct'
+      - 'formula'
+    kp:
+      - 5
+      - 10

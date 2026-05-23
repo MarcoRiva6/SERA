@@ -1,0 +1,107 @@
+models:
+  - name: 'openrouter/deepseek-v3.1-OR'
+    temperature: 0
+    run_type_filter: 'direct'
+  - name: 'openrouter/deepseek-v3.1-thinking-OR'
+    temperature: 0
+    run_type_filter: 'direct'
+run_types:
+  - 'direct'
+seed: 1234
+disabled: false
+skip_model: false
+queries:
+  - name: 'planets/esi'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'real'
+    prompt_levels:
+      - 'formula'
+    kp:
+      - 10
+    completeness_levels:
+      - mask
+  - name: 'hr/rid'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'formula'
+    kp:
+      - 10
+    completeness_levels:
+      - mask
+  - name: 'cities/city_free_score'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'real'
+    prompt_levels:
+      - 'formula'
+    kp:
+      - 10
+    completeness_levels:
+      - mask
+  - name: 'cities/global_liveability'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'real'
+    prompt_levels:
+      - 'formula'
+    kp:
+      - 10
+    completeness_levels:
+      - mask
+  - name: 'planets/dif'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'real'
+    prompt_levels:
+      - 'formula'
+    kp:
+      - 10
+    completeness_levels:
+      - mask
+  - name: 'purchases/customer_cbs'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'formula'
+    kp:
+      - 10
+    completeness_levels:
+      - mask
+  - name: 'purchases/customer_segmentation'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    names_levels:
+      - 'fake'
+    prompt_levels:
+      - 'formula'
+    kp:
+      - 10
+    completeness_levels:
+      - mask
+  - name: 'smartphones/hw_eff_score'
+    n_queries: 5
+    elems_per_query:
+      - 70
+    prompt_levels:
+      - 'formula'
+    kp:
+      - 10
+    completeness_levels:
+      - mask

@@ -1,0 +1,4 @@
+name: 'DeepSeek V3 thinking (openrouter)'
+name_api: 'deepseek/deepseek-chat-v3-0324'
+max_tokens: 80000
+reasoning: true

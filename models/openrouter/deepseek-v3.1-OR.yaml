@@ -1,0 +1,4 @@
+name: 'DeepSeek V3.1 (openrouter)'
+name_api: 'deepseek/deepseek-chat-v3.1'
+max_tokens: 80000
+reasoning: false

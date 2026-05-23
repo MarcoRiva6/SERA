@@ -9,7 +9,7 @@ import psutil
 import requests
 from pydantic import BaseModel
 from tqdm import tqdm
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import PurePosixPath, PureWindowsPath, Path
 from typing import Iterable
 
@@ -202,9 +202,9 @@ class OllamaModel(Model[OllamaModelParams]):
     client: Client = None
     tunnel: OllamaTunnelManager = None
     ollama_address: str = "localhost:11434".replace("11434","8080")
-    hostname = "***REMOVED***"
-    user = "***REMOVED***"
-    password = "***REMOVED***"
+    hostname: str =  field(default_factory=lambda: os.getenv("VM_HOSTNAME", "nessuna_chiave_trovata"))
+    user: str = field(default_factory=lambda: os.getenv("VM_USER", "nessuna_chiave_trovata"))
+    password: str = field(default_factory=lambda: os.getenv("VM_PASSWORD", "nessuna_chiave_trovata"))
     supports_thinking: bool = False
     questions_file_name: str = 'questions.jsonl'
     remote_run_file_name: str = 'remote_run.py'
@@ -219,7 +219,7 @@ class OllamaModel(Model[OllamaModelParams]):
             self.tunnel = OllamaTunnelManager(
                 ssh_host=self.hostname,
                 ssh_user=self.user,
-                ssh_key_path="***REMOVED***"
+                ssh_key_path=os.getenv("LOCAL_KEY_PATH", "nessuna_chiave_trovata")
             )
             self.tunnel.start()
 
@@ -249,7 +249,7 @@ class OllamaModel(Model[OllamaModelParams]):
             f.flush()
 
     def __remote_run_folder(self, os_type: str) -> str:
-        return build_remote_path(os_type, "/home/***REMOVED***", *self.run_folder.parts[self.run_folder.parts.index('runs'):])
+        return build_remote_path(os_type, "/home/"+self.user, *self.run_folder.parts[self.run_folder.parts.index('runs'):])
 
     def __can_launch_remote(self, ssh_client: paramiko.SSHClient) -> bool:
         command = f"pgrep -f 'python.*{self.remote_run_file_name}'"
@@ -314,8 +314,8 @@ if __name__ == "__main__":
     def _prepare_remote_job(self, remote_os_type: str, ssh_client: paramiko.SSHClient, queries: list[DirectQuery]) -> None:
         self.__write_questions_file(queries)
         self.__build_remote_python_file(remote_os_type)
-        remote_question_path = build_remote_path(remote_os_type, "/home/***REMOVED***", self.__remote_run_folder(remote_os_type), self.questions_file_name)
-        remote_run_file_path = build_remote_path(remote_os_type, "/home/***REMOVED***", self.__remote_run_folder(remote_os_type), self.remote_run_file_name)
+        remote_question_path = build_remote_path(remote_os_type, "/home/"+ self.user, self.__remote_run_folder(remote_os_type), self.questions_file_name)
+        remote_run_file_path = build_remote_path(remote_os_type, "/home/"+ self.user, self.__remote_run_folder(remote_os_type), self.remote_run_file_name)
         send_files_ssh(ssh_client, [
             (self.run_folder / self.questions_file_name, remote_question_path),
             (self.run_folder / self.remote_run_file_name, remote_run_file_path)

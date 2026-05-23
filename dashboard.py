@@ -11,11 +11,15 @@ import dash
 from dash import Dash, dcc, html, Input, Output, State, ALL
 
 from queries.test import Query
+import plotly.colors
 
 
 # ----------------------------
 # Introspection helpers
 # ----------------------------
+
+font = 26 #30
+tickfont = font-2
 
 def safe_sort_val(v: Any) -> Tuple[int, float, str]:
     if v is None:
@@ -23,8 +27,20 @@ def safe_sort_val(v: Any) -> Tuple[int, float, str]:
     if isinstance(v, (int, float)):
         return (1, float(v), "")
     try:
+        # Prova a convertire in numero (se è una stringa numerica)
         return (1, float(v), "")
     except (ValueError, TypeError):
+        # Se è una stringa vera e propria, gestiamo i casi custom
+        if isinstance(v, str):
+            v_lower = v.lower()
+            if v_lower == "easy":
+                return (2, 0.0, "01_easy")
+            elif v_lower == "medium":
+                return (2, 0.0, "02_medium")
+            elif v_lower == "hard":
+                return (2, 0.0, "03_hard")
+
+        # Per tutte le altre stringhe, usa l'ordinamento alfabetico normale
         return (2, 0.0, str(v))
 
 def dataclass_field_names(dc_type: type) -> List[str]:
@@ -154,15 +170,17 @@ def run_dashboard(
         raise ValueError("experiment_suites is empty")
 
         # --- CONFIGURAZIONE EXPORT GLOBALE ---
-        # Definiamo qui i parametri per l'alta qualità SVG
+        # Modificato in formato PNG ad alta risoluzione (scale=3)
     def get_global_config(metric_name):
         return {
             'displayModeBar': True,
             'displaylogo': False,
             'toImageButtonOptions': {
-                'format': 'svg', # Formato vettoriale nitido
+                'format': 'png',                    # <--- Esporta in formato PNG
                 'filename': f'export_{metric_name}',
-                'scale': 1 # Per l'SVG non serve aumentare lo scale, è già infinito
+                'scale': 3#,
+                #'width': 1000,   # <--- BLOCCA LA LARGHEZZA BASE (es. 800 o 900)
+                #'height': 450   # <--- BLOCCA L'ALTEZZA (uguale al tuo layout) # <--- IMPORTANTE per la risoluzione
             }
         }
 
@@ -208,6 +226,18 @@ def run_dashboard(
     if not all_eval_fields:
         raise ValueError("No evaluation fields found in any suite.")
 
+    # Mappa colori globale fissa (codici HEX estratti esattamente dall'immagine di riferimento)
+    GLOBAL_COLOR_MAP = {
+        "deepseek": "#EF553B",               # Rosso/Arancio
+        "deepseek-thinking": "#00CC96",      # Verde acqua
+        "gemini": "#AB63FA",          # Viola
+        "gemini-thinking": "#FFA15A", # Arancio/Giallo chiaro
+        "gemma3-27b": "#19D3F3",                # Azzurro
+        "qwen3-30b": "#FF6692",                 # Rosa acceso/Rosso
+        "gemma3-12b": "#B6E880",                # Verde lime chiaro
+        "qwen3-14b": "#FF97FF"                  # Rosa chiaro
+    }
+
     app = Dash(__name__, suppress_callback_exceptions=True)
 
     app.layout = html.Div(
@@ -250,20 +280,25 @@ def run_dashboard(
                 ],
             ),
 
-            # LIVELLO 3: I TAB DEI GRAFICI / RIEPILOGO
+            # LIVELLO 3: I TAB DEI GRAFICI / RIEPILOGO / PARETO
             dcc.Tabs(
                 id="chart-type-tabs",
-                value="summary", # <-- Impostato "summary" come default iniziale
+                value="summary",
                 children=[
                     dcc.Tab(label="Riepilogo (Statistiche)", value="summary"),
-                    dcc.Tab(label="Line Plots (Medie)", value="line"),
+                    dcc.Tab(label="Scatter Plots (Medie)", value="line"), # (L'avevamo rinominato in Scatter Plots)
                     dcc.Tab(label="Box Plots (Distribuzioni)", value="box"),
                     dcc.Tab(label="Heatmap (Correlazioni)", value="heatmap"),
+                    dcc.Tab(label="Bar Plot (Correlazione Binaria)", value="bar_corr"), # <--- NUOVO TAB
+                    dcc.Tab(label="Fronte di Pareto", value="pareto"),
                 ],
                 style={"marginTop": "20px", "marginBottom": "5px"}
             ),
 
             html.Div(id="summary-container", style={"display": "block", "marginTop": "14px"}),
+
+            # ---> ECCO IL PEZZO CHE CAUSA L'ERRORE SE MANCA! <---
+            html.Div(id="pareto-container", style={"display": "none", "marginTop": "14px"}),
 
             # --- APPLICAZIONE DELLA CONFIGURAZIONE AI GRAFICI ---
             html.Div(
@@ -273,7 +308,7 @@ def run_dashboard(
                     dcc.Graph(
                         id={"type": "metric-graph", "metric": m},
                         config=get_global_config(m), # <--- APPLICATO QUI
-                        style={"height": "420px"}
+                        style={"height": "450px"}
                     )
                     for m in all_eval_fields
                 ],
@@ -281,16 +316,20 @@ def run_dashboard(
         ],
     )
 
-    # --- CALLBACK 0: Mostra/Nascondi vista Riepilogo o Grafici ---
+    # --- CALLBACK 0: Mostra/Nascondi vista Riepilogo, Pareto o Grafici ---
     @app.callback(
         Output("summary-container", "style"),
+        Output("pareto-container", "style"),
         Output("charts-grid", "style"),
         Input("chart-type-tabs", "value")
     )
     def toggle_views(chart_type):
         if chart_type == "summary":
-            return {"display": "block", "marginTop": "14px"}, {"display": "none"}
-        return {"display": "none"}, {"display": "grid", "gridTemplateColumns": "repeat(2, minmax(0, 1fr))", "gap": "14px", "marginTop": "14px"}
+            return {"display": "block", "marginTop": "14px"}, {"display": "none"}, {"display": "none"}
+        elif chart_type == "pareto":
+            return {"display": "none"}, {"display": "block", "marginTop": "14px"}, {"display": "none"}
+        else:
+            return {"display": "none"}, {"display": "none"}, {"display": "grid", "gridTemplateColumns": "repeat(2, minmax(0, 1fr))", "gap": "14px", "marginTop": "14px"}
 
     # --- CALLBACK 1: Aggiorna i tab degli esperimenti quando cambi la Suite ---
     @app.callback(
@@ -435,6 +474,151 @@ def run_dashboard(
         )
 
 
+        # --- CALLBACK EXTRA: Calcolo e rendering del Fronte di Pareto ---
+    @app.callback(
+        Output("pareto-container", "children"),
+        Input("set-tabs", "value"),
+        Input("chart-type-tabs", "value"),
+        Input("datasets-select", "value"),
+        Input({"type": "filter", "field": ALL}, "value"),
+        Input("suite-tabs", "value"),
+        State({"type": "filter", "field": ALL}, "id"),
+    )
+    def update_pareto_front(active_set, chart_type, selected_datasets, filter_values, active_suite, filter_ids):
+        if chart_type != "pareto":
+            return dash.no_update
+
+        if not active_set or active_set not in processed_suites.get(active_suite, {}):
+            return html.Div("Nessun dato disponibile.")
+
+        datasets = processed_suites[active_suite][active_set]
+        dataset_names, param_fields, eval_fields, values_by_param = schemas[active_suite][active_set]
+        selected_datasets = selected_datasets or dataset_names
+
+        # Scegliamo la metrica (priorità ndcg_k, altrimenti la prima disponibile)
+        metric_name = "ndcg_k" if "ndcg_k" in eval_fields else (eval_fields[0] if eval_fields else None)
+        if not metric_name:
+            return html.Div("Nessuna metrica di valutazione trovata per l'asse Y.")
+
+        # Ricostruzione dei filtri correnti
+        filters: Dict[str, List[Any]] = {}
+        for fid, vals in zip(filter_ids, filter_values):
+            filters[fid["field"]] = vals or []
+
+        def matches_filters(q: Any) -> bool:
+            for f, allowed in filters.items():
+                if not allowed:
+                    continue
+                val = getattr(q, "parsing_failed", None) if f == "parsing_failed" else get_param_value(q, f)
+                if val not in allowed:
+                    return False
+            return True
+
+        # Raggruppamento dei dati: (run_type, model, expr, prompt_level)
+        groups = {}
+        for ds in selected_datasets: # ds = model
+            qs = [q for q in datasets[ds] if matches_filters(q) and getattr(q, "response", None) is not None]
+            for q in qs:
+                run_type = get_param_value(q, "run_type")
+                expr = get_param_value(q, "expr")
+                prompt_level = get_param_value(q, "prompt_level")
+
+                combo_key = (str(run_type), ds, str(expr), str(prompt_level))
+
+                # Preleviamo token e ndcg
+                tokens = getattr(q, "tokens", None)
+                val = get_eval_value(q, metric_name)
+
+                if isinstance(tokens, (int, float)) and isinstance(val, (int, float)):
+                    if combo_key not in groups:
+                        groups[combo_key] = {'tokens': [], 'ndcg': [], 'model': ds}
+                    groups[combo_key]['tokens'].append(float(tokens))
+                    groups[combo_key]['ndcg'].append(float(val))
+
+        if not groups:
+            return html.Div("Dati insufficienti o mancanti (verifica che 'q.tokens' e la metrica esistano).")
+
+        # Calcolo delle medie per ogni combinazione
+        points = []
+        for combo, data in groups.items():
+            t_mean = sum(data['tokens']) / len(data['tokens'])
+            n_mean = sum(data['ndcg']) / len(data['ndcg'])
+            hover_txt = f"Model: {combo[1]}<br>Run Type: {combo[0]}<br>Expr: {combo[2]}<br>Prompt: {combo[3]}<br>Tokens: {t_mean:.1f}<br>{metric_name}: {n_mean:.4f}"
+            points.append({
+                'tokens': t_mean, 'ndcg': n_mean, 'model': data['model'], 'hover': hover_txt
+            })
+
+        # Calcolo del Fronte di Pareto (ordinamento per tokens crescente, teniamo i massimi di ndcg)
+        points.sort(key=lambda x: x['tokens'])
+        pareto_front = []
+        max_ndcg = -float('inf')
+
+        for p in points:
+            if p['ndcg'] > max_ndcg:
+                pareto_front.append(p)
+                max_ndcg = p['ndcg']
+
+        # Disegno del grafico
+        fig = go.Figure()
+
+        # Tracciamo una linea che unisce i punti della frontiera
+        if pareto_front:
+            fig.add_trace(go.Scatter(
+                x=[p['tokens'] for p in pareto_front],
+                y=[p['ndcg'] for p in pareto_front],
+                mode="lines",
+                line=dict(color='gray', width=2, dash='dash'),
+                name="Pareto Frontier",
+                hoverinfo="skip"
+            ))
+
+        # Tracciamo i punti divisi per modello iterando su selected_datasets
+        # Questo garantisce che l'ordine della legenda e l'assegnazione dei colori
+        # siano IDENTICI a quelli degli altri grafici!
+        for model in selected_datasets:
+            model_points = [p for p in points if p['model'] == model]
+
+            # Se un modello è stato filtrato e non ha punti, non lo aggiungiamo
+            if not model_points:
+                continue
+
+            fig.add_trace(go.Scatter(
+                x=[p['tokens'] for p in model_points],
+                y=[p['ndcg'] for p in model_points],
+                mode="markers",
+                marker=dict(size=10, line=dict(width=1, color='DarkSlateGrey')),
+                name=model,
+                text=[p['hover'] for p in model_points],
+                hoverinfo="text"
+            ))
+
+        # Applicazione degli stili (layout e font aggiornati)
+        fig.update_layout(
+            # Aggiunto il totale dei punti nel titolo calcolando la lunghezza della lista 'points'
+            title={"text": f"<b>Pareto Front (Tokens vs {metric_name}) - Totale Punti: {len(points)}</b>", "x": 0.5, "y": 0.97, "xanchor": "center", "font": {"size": font}},
+            margin={"l": 80, "r": 20, "t": 60, "b": 160},
+            height=750,
+            legend={
+                "orientation": "h",
+                "xanchor": "center",
+                "x": 0.5,
+                "yanchor": "top",
+                "y": -0.15,
+                "font": {"size": 20}
+            },
+        )
+
+        fig.update_xaxes(title_text="Avg Tokens", rangemode="tozero", tickfont={"size": tickfont}, title_font={"size": font})
+        fig.update_yaxes(title_text=f"Avg {metric_name}", rangemode="tozero", tickfont={"size": tickfont}, title_font={"size": font})
+
+        return dcc.Graph(
+            figure=fig,
+            config=get_global_config("pareto_front"),
+            # maxWidth aumentato a 1300px per dare lo spazio fisico alla legenda di distendersi
+            style={"height": "750px", "width": "100%", "maxWidth": "1300px", "margin": "0 auto"}
+        )
+
+
     # --- CALLBACK 4: Aggiorna i grafici Plotly ---
     @app.callback(
         Output({"type": "metric-graph", "metric": all_eval_fields[0]}, "figure"),
@@ -520,7 +704,15 @@ def run_dashboard(
 
                     y_aligned = [y_map.get(k) for k in all_keys]
 
-                    fig.add_trace(go.Scatter(x=x_plotly, y=y_aligned, mode="lines+markers", name=ds, connectgaps=False))
+                    fig.add_trace(go.Scatter(
+                        x=x_plotly, y=y_aligned,
+                        mode="markers", # <--- Cambiato da "lines+markers" a "markers"
+                        name=ds,
+                        marker=dict(
+                            color=GLOBAL_COLOR_MAP.get(ds, "#000000"),
+                            size=10 # <--- Aggiunto size=10 per rendere i punti belli visibili ora che non c'è la linea
+                        )
+                    ))
 
                 elif chart_type == "box":
                     ds_y = []
@@ -546,9 +738,17 @@ def run_dashboard(
                         continue
 
                     x_plot_box = [ds_x_outer, ds_x_inner] if len(x_fields) == 2 else ds_x_single
-                    fig.add_trace(go.Box(x=x_plot_box, y=ds_y, name=ds, boxpoints="outliers"))
+                    fig.add_trace(go.Box(
+                        x=x_plot_box, y=ds_y, name=ds, boxpoints="outliers",
+                        marker=dict(color=GLOBAL_COLOR_MAP.get(ds, "#000000"))   # <--- COLORE FISSO
+                    ))
 
                 elif chart_type == "heatmap":
+                    # --- ANCHE QUI IL TRUCCO SALVAVITA ---
+                    # Eseguiamo il calcolo della matrice solo al primo giro.
+                    # Evita di calcolare le correlazioni e sovrapporre la heatmap N volte!
+                    if ds != selected_datasets[0]:
+                        continue
                     z_data = []
                     y_labels = []
 
@@ -626,30 +826,117 @@ def run_dashboard(
                             colorscale='RdBu', zmin=-1, zmax=1, zmid=0,
                             text=[[f"{val:.2f}" for val in row] for row in z_data],
                             texttemplate="%{text}", hoverinfo="x+y+z",
+                            # Colorbar spostata più vicina alla matrice
+                            colorbar={"tickfont": {"size": tickfont}, "x": 1.02}
                         ))
+                elif chart_type == "bar_corr":
+                    # --- IL TRUCCO SALVAVITA ---
+                    # Eseguiamo questo blocco solo per il primo modello del ciclo esterno.
+                    # Altrimenti disegnerebbe il grafico N volte, creando barre multiple!
+                    if ds != selected_datasets[0]:
+                        continue
+                    target_field = x_fields[0]
+
+                    active_vals = set()
+                    for tds in selected_datasets:
+                        for q in filtered_by_ds[tds]:
+                            active_vals.add(get_param_value(q, target_field))
+
+                    active_vals = sorted(list(active_vals), key=safe_sort_val)
+
+                    if len(active_vals) == 2:
+                        # --- INVERSIONE VALORI ---
+                        # Di default l'ordine (alfabetico) è formula, instruct.
+                        # Assegnando active_vals[1] a val1, forziamo l'inversione
+                        # così il calcolo sarà "formula over instruct"
+                        val1, val2 = active_vals[1], active_vals[0]
+
+                        bar_data = []
+
+                        for tds in selected_datasets:
+                            tqs = filtered_by_ds[tds]
+                            if not tqs: continue
+
+                            x_vals = []
+                            y_vals = []
+                            for q in tqs:
+                                pv = get_param_value(q, target_field)
+                                mv = get_eval_value(q, metric_name)
+                                if isinstance(mv, (int, float)) and pv in (val1, val2):
+                                    x_vals.append(1 if pv == val2 else 0)
+                                    y_vals.append(float(mv))
+
+                            if len(set(x_vals)) > 1 and len(set(y_vals)) > 1:
+                                df_temp = pd.DataFrame({'x': x_vals, 'y': y_vals})
+                                corr = df_temp['x'].corr(df_temp['y'], method='spearman')
+                                if not pd.isna(corr):
+                                    bar_data.append({'model': tds, 'corr': corr})
+
+                        if bar_data:
+                            bar_data.sort(key=lambda item: item['corr'], reverse=True)
+
+                            models = [d['model'] for d in bar_data]
+                            corrs = [d['corr'] for d in bar_data]
+
+                            # RIGA ELIMINATA: colors = [GLOBAL_COLOR_MAP.get(m, "#1f77b4") for m in models]
+
+                            fig.add_trace(go.Bar(
+                                x=corrs, y=models,
+                                orientation='h',
+                                # --- COLORE UNICO SOBRIO ---
+                                # Puoi usare un grigio scuro accademico come "#5D6D7E", oppure "gray", o "black"
+                                marker=dict(color="#5D6D7E"),
+                                text=[f"{c:.2f}" for c in corrs],
+                                textposition='auto',
+                                textfont=dict(size=16),
+                                showlegend=False
+                            ))
+                            fig.add_vline(x=0, line_width=1.5, line_color="black")
 
             # --- SETUP LAYOUT FINALE ---
             layout_kwargs = {
-                "title": {"text": f"<b>{metric_name}</b>", "x": 0.5, "y": 0.97, "xanchor": "center", "font": {"size": 16}},
-                "margin": {"l": 50, "r": 20, "t": 90, "b": 90},
-                "height": 420,
-                "legend": {"orientation": "h", "y": -0.25},
+                "margin": {"l": 80, "r": 20, "t": 20, "b": 130},
+                "height": 450,
+                "legend": {
+                    "orientation": "h", "xanchor": "center", "x": 0.5,
+                    "yanchor": "top", "y": -0.22, "font": {"size": font}
+                },
             }
 
             if chart_type == "box":
                 layout_kwargs["boxmode"] = "group"
+            elif chart_type == "heatmap":
+                layout_kwargs["margin"] = {"l": 160, "r": 160, "t": 20, "b": 130}
+                # (Mantieni qui il codice dell'annotazione "effect on ndcg" che avevi prima)
+            elif chart_type == "bar_corr":
+                # Margine sinistro molto grande (250) per contenere i nomi dei modelli
+                layout_kwargs["margin"] = {"l": 280, "r": 50, "t": 60, "b": 100}
+                layout_kwargs["showlegend"] = False # Nascondiamo la legenda orizzontale
 
             fig.update_layout(**layout_kwargs)
 
-            if chart_type != "heatmap":
-                if len(x_fields) == 2:
-                    fig.update_xaxes(type="multicategory", categoryorder="trace")
+            # --- INGRANDIMENTO FONT ASSI E INSERIMENTO TITOLO Y ---
+            if chart_type == "heatmap":
+                fig.update_xaxes(type="category", tickfont={"size": tickfont}, title_font={"size": font})
+                fig.update_yaxes(title_text="", autorange="reversed", tickfont={"size": tickfont}, side="left")
+                fig.update_traces(textfont={"size": tickfont})
+            elif chart_type == "bar_corr":
+                # Aggiunto autorange="reversed" e categoryorder="trace" per rispettare l'ordine del filtro
+                fig.update_yaxes(tickfont={"size": tickfont}, autorange="reversed", categoryorder="trace")
+
+                if 'val1' in locals() and 'val2' in locals():
+                    #fig.update_layout(title={"text": f"<b>{target_field}: {val2} vs {val1}</b>", "x": 0.5, "y": 0.95, "xanchor": "center", "font": {"size": font}})
+                    fig.update_xaxes(title_text=f"{metric_name} variation: {val2} vs {val1}", tickfont={"size": tickfont}, title_font={"size": font})
                 else:
-                    fig.update_xaxes(type="category", categoryorder="trace")
-                fig.update_yaxes(rangemode="tozero")
+                    fig.update_layout(title={"text": "<b>Seleziona un parametro (X) con esattamente 2 valori</b>", "x": 0.5, "y": 0.5, "xanchor": "center"})
             else:
-                fig.update_xaxes(type="category")
-                fig.update_yaxes(autorange="reversed")
+                if len(x_fields) == 2:
+                    fig.update_xaxes(type="multicategory", categoryorder="trace", tickfont={"size": tickfont}, title_font={"size": font})
+                else:
+                    fig.update_xaxes(type="category", categoryorder="trace", tickfont={"size": tickfont}, title_font={"size": font})
+
+                # Senza grassetto come concordato!
+                fig.update_yaxes(title_text=metric_name, rangemode="tozero", tickfont={"size": tickfont}, title_font={"size": font}, side="left")
 
             figures.append(fig)
 

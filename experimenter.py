@@ -11,7 +11,7 @@ import yaml
 from pandas import DataFrame
 
 from models.model import BatchableModel
-from queries.test import Test
+from queries.test import Test, NamesLevel
 
 import models.model
 from experiments.experiment import (Experiment)
@@ -333,6 +333,18 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
             r = round(v / 0.05) * 0.05
             return round(r, 10)
         return v
+    # direct -> full
+    vecchia_chiave = "DIRECT"
+    nuova_chiave = "full"
+    vecchia_chiave_p = "PARTITIONED"
+    nuova_chiave_p = "partitioned"
+    # Iteriamo direttamente sui dizionari di secondo livello
+    for dict_secondo_livello in dicts.values():
+        # Se la chiave "DIRECT" esiste in questo sottomenù, la rinominiamo
+        if vecchia_chiave in dict_secondo_livello:
+            dict_secondo_livello[nuova_chiave] = dict_secondo_livello.pop(vecchia_chiave)
+        if vecchia_chiave_p in dict_secondo_livello:
+            dict_secondo_livello[nuova_chiave_p] = dict_secondo_livello.pop(vecchia_chiave_p)
     # run_type
     for_charts: dict[str, dict[str, list[Query]]] = {}
     for test_name, run_type_dict in dicts.items():
@@ -347,6 +359,18 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
                 for q in queries:
                     setattr(q.parameters, 'run_type', run_type)
                 for_charts[test_name][model_name].extend(queries)
+    # raggruppamento instruct+formula=punctual
+    # for test_name, model_dict in for_charts.items():
+    #     for model_name, queries in model_dict.items():
+    #         for q in queries:
+    #             if q.parameters.prompt_level != PromptLevel.generic:
+    #                 q.parameters.prompt_level = "punctual"
+    # rinomina fake/real -> real/anonymized
+    for test_name, model_dict in for_charts.items():
+        for model_name, queries in model_dict.items():
+            for q in queries:
+                if q.parameters.names_level ==NamesLevel.fake:
+                    q.parameters.names_level = "anonymized"
     # stampa i failing rates
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
@@ -376,8 +400,8 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
                 setattr(q.parameters, 'difficulty', level)
     # capabilities
     partizionabili = ('cities', 'planets', 'meters', 'smartphones')
-    anonimizzabili = ('cities', 'planets', 'smartphones')
-    generalizzabili = ('planets/esi', 'meters/spa', 'molecules/levenshtein', 'hr/rid', 'cities/global_liveability', 'purchases/customer_segmentation', 'smartphones/hw_eff_score')
+    anonimizzabili = ('cities', 'planets')
+    generalizzabili = ('planets/esi', 'meters/spa', 'molecules/levenshtein', 'hr/rid', 'cities/global_liveability', 'purchases/customer_segmentation', 'smartphones/hw_eff_score', 'goodreads/rating')
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
             for q in queries:
@@ -386,9 +410,9 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
                 setattr(q.parameters, 'generalizzabile', test_name in generalizzabili)
 
     #rinominiamo i test con nomi brevi
-    rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'Average', 'planets/dif':'DIF', 'planets/esi':'ESI',
+    rinomine = {'cities/global_liveability':'GLI', 'cities/city_free_score':'AVG', 'planets/dif':'DIF', 'planets/esi':'ESI',
                 'purchases/customer_segmentation':'RFM', 'purchases/customer_cbs':'TVA', 'molecules/levenshtein':'LEV','molecules/RWED':'RWED',
-                'hr/rid': 'RID', 'meters/spa': 'SPA', 'smartphones/hw_eff_score': 'HES'}
+                'hr/rid': 'RID', 'meters/spa': 'SPA', 'smartphones/hw_eff_score': 'HES', 'goodreads/rating':'GRR', 'goodreads/scs': 'SCS'}
     keys = tuple(for_charts.keys())
     for test_name in keys:
         if test_name in rinomine:

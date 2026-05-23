@@ -6,7 +6,7 @@ from pathlib import Path
 from experimenter import get_expr_filenames_from_args
 
 SCRIPT = Path(__file__).parent / "experimenter.py"  # the file to run
-RESTART_DELAY = 30  # seconds (optional)
+RESTART_DELAY = 300  # seconds (optional)
 
 expr = get_expr_filenames_from_args()
 expr = expr[:-5]

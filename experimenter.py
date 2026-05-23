@@ -75,16 +75,19 @@ def class_from_path(class_path: str):
     module = importlib.import_module(module_path)
     return getattr(module, class_name)
 
-def get_expr_filename_from_args() -> str:
+def get_expr_filenames_from_args() -> list[str]:
     parser = argparse.ArgumentParser()
 
     parser.add_argument(
-        "exp_file",
+        "exp_files",
         type=str,
+        nargs='+',
         help="Il nome del experiment file, senza estensione"
     )
 
-    return parser.parse_args().exp_file + '.yaml'
+    args = parser.parse_args()
+
+    return [filename + '.yaml' for filename in args.exp_files]
 
 def load_experiments_from_folder() -> list[Run]:
     results: list[Run] = []
@@ -358,7 +361,7 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
                 setattr(q.parameters, 'dataset', test_name.split('/')[0])
     # raggruppamento noti - ignoti
     noti = ('cities/global_liveability', 'planets/esi','molecules/levenshtein')
-    hard_tests = ('purchases/customer_segmentation', 'purchases/customer_cbs', 'molecules/levenshtein', 'molecules/RWED')
+    hard_tests = ('purchases/customer_segmentation', 'purchases/customer_cbs', 'molecules/levenshtein', 'molecules/RWED','goodreads/rating', 'goodreads/scs')
     easy_tests = ('cities/global_liveability', 'cities/city_free_score', 'meters/spa')
     for test_name, model_dict in for_charts.items():
         for model_name, queries in model_dict.items():
@@ -390,11 +393,26 @@ def prepare_for_charts(dicts: dict[str, dict[str, dict[str, list[Query]]]]) -> d
     for test_name in keys:
         if test_name in rinomine:
             for_charts[rinomine[test_name]] = for_charts.pop(test_name)
-    #trasforma deepseek-V3-togheter -> deepseek-V3
-    # ds_name = 'deepseek-V3-together'
-    # for test_name, model_dict in for_charts.items():
-    #     if ds_name in model_dict:
-    #         model_dict['deepseek-V3'] = model_dict.pop(ds_name)
+    # unifica i nomi di deepseek-V3
+    ds_name = 'deepseek-v3.1-OR'
+    ds_name_thinking = 'deepseek-v3.1-thinking-OR'
+    ds = 'deepseek-V3'
+    dst = 'deepseek-V3-thinking'
+    g = 'gemini-2.5-flash'
+    gt = 'gemini-2.5-flash-thinking'
+    for test_name, model_dict in for_charts.items():
+        if ds_name in model_dict:
+            model_dict['deepseek'] = model_dict.pop(ds_name)
+        if ds_name_thinking in model_dict:
+            model_dict['deepseek-thinking'] = model_dict.pop(ds_name_thinking)
+        if ds in model_dict:
+            model_dict['deepseek'] = model_dict.pop(ds)
+        if dst in model_dict:
+            model_dict['deepseek-thinking'] = model_dict.pop(dst)
+        if g in model_dict:
+            model_dict['gemini'] = model_dict.pop(g)
+        if gt in model_dict:
+            model_dict['gemini-thinking'] = model_dict.pop(gt)
     # trasforma k in percentuale
     # for test_name, model_dict in for_charts.items():
     #     for model_name, queries in model_dict.items():
@@ -430,33 +448,65 @@ def prepare_for_dashboard() -> dict[str, dict[str, dict[str, list[Query]]]]:
 
         return dizionario_pulito
 
-    run: Run = parse_expr_file(expr_folder / get_expr_filename_from_args())
-    tot_tests = 0
-    executed_tests = 0
+    def unisci_dizionari_query(dict_a: dict[str, dict[str, list[Query]]], dict_b: dict[str, dict[str, list[Query]]]) -> dict[str, dict[str, list[Query]]]:
+        risultato = {}
+        # 1. Troviamo tutte le chiavi esterne (livello 1) unendo le chiavi dei due dict
+        chiavi_esterne = set(dict_a.keys()) | set(dict_b.keys())
+        for k1 in chiavi_esterne:
+            risultato[k1] = {}
+            # Estraiamo i dizionari interni (o dizionari vuoti se la chiave non c'è in uno dei due)
+            inner_a = dict_a.get(k1, {})
+            inner_b = dict_b.get(k1, {})
+            # 2. Troviamo tutte le chiavi interne (livello 2)
+            chiavi_interne = set(inner_a.keys()) | set(inner_b.keys())
+            for k2 in chiavi_interne:
+                # 3. Estraiamo le liste (o liste vuote se la chiave non esiste)
+                lista_a = inner_a.get(k2, [])
+                lista_b = inner_b.get(k2, [])
+                # 4. Concateniamo le liste e le assegniamo al nuovo dizionario
+                # Usando l'operatore + creiamo una nuova lista, evitando riferimenti condivisi
+                risultato[k1][k2] = lista_a + lista_b
+
+        return risultato
+
     result = {}
-    for_dashboard: dict[str, dict[str, dict[str, list[Query]]]] = {}
-    for query in run.queries:
-        for_dashboard[query.name] = {}
-        for run_type_experiment in query.run_type_experiments:
-            for_dashboard[query.name][run_type_experiment.run_type.name] = {}
-            for e in run_type_experiment.experiments:
-                tot_tests += 1
-                path = e.inner_folder / 'evaluated_queries.pkl'
-                if path.exists():
-                    executed_tests += 1
-                    e.test.pickle_to_queries(path)
-                    for_dashboard[query.name][run_type_experiment.run_type.name][e.model.name_path] = e.test.queries
+    runs: list[Run] = []
+    for expr_file in get_expr_filenames_from_args():
+        runs.append(parse_expr_file(expr_folder / expr_file))
 
-    for_dashboard = rimuovi_dizionari_vuoti(for_dashboard)
+    for run in runs:
+        for_dashboard: dict[str, dict[str, dict[str, list[Query]]]] = {}
+        for query in run.queries:
+            for_dashboard[query.name] = {}
+            for run_type_experiment in query.run_type_experiments:
+                for_dashboard[query.name][run_type_experiment.run_type.name] = {}
+                for e in run_type_experiment.experiments:
+                    path = e.inner_folder / 'evaluated_queries.pkl'
+                    if path.exists():
+                        e.test.pickle_to_queries(path)
+                        for_dashboard[query.name][run_type_experiment.run_type.name][e.model.name_path] = e.test.queries
 
-    result[run.name_path] = prepare_for_charts(for_dashboard)
+        for_dashboard = rimuovi_dizionari_vuoti(for_dashboard)
 
-    print(f"showing {executed_tests}/{tot_tests} tests")
+        result[run.name_path] = prepare_for_charts(for_dashboard)
+
+    test_names = list(result.keys())
+
+    if len(test_names) > 1:
+        nuovo_nome_combinato = "+".join(test_names)
+        dizionario_unito = result[test_names[0]]
+        for nome in test_names[1:]:
+            dizionario_unito = unisci_dizionari_query(dizionario_unito, result[nome])
+        result[nuovo_nome_combinato] = dizionario_unito
+
     return result
 
 
 if __name__ == "__main__":
-    run: Run = parse_expr_file(expr_folder / get_expr_filename_from_args())
+    experiment_files = get_expr_filenames_from_args()
+    if len(experiment_files) != 1:
+        raise ValueError("Multiple experiment file execution is not supported")
+    run: Run = parse_expr_file(expr_folder / experiment_files[0])
 
     print(f"*** Running experiment: {run.name_path} ***\n")
     for query in run.queries:

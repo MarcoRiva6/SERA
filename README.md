@@ -1,3 +1,4 @@
+# SERA: Evaluating LLM-based SEmantic RAnking over Structured Tables
 Per definire una nuova famiglia di test (ovvero un nuovo dataset),
 è necessario aggiungerne la relativa cartella in `queries`. All'interno di tale
 cartella, si aggiungono poi tanti file quanti sono i test che si vogliono

@@ -18,7 +18,7 @@ import plotly.colors
 # Introspection helpers
 # ----------------------------
 
-font = 26 #30
+font = 16 #26 #30
 tickfont = font-2
 
 def safe_sort_val(v: Any) -> Tuple[int, float, str]:
@@ -895,6 +895,7 @@ def run_dashboard(
 
             # --- SETUP LAYOUT FINALE ---
             layout_kwargs = {
+                "title": {"text": f"<b>{metric_name}</b>", "x": 0.5, "y": 0.97, "xanchor": "center", "font": {"size": font}},
                 "margin": {"l": 80, "r": 20, "t": 20, "b": 130},
                 "height": 450,
                 "legend": {

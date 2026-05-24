@@ -1,4 +1,8 @@
 data/
 runs/
 playgrounds/
+experiments/
+!experiments/all.yaml
+!experiments/experiment.py
+!experiments/run_type.py
 .env

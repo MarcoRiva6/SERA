@@ -1,0 +1,5 @@
+You are given a dataset of household electricity consumptions:
+{DATAFRAME}
+Return the 5 LCLid who have the highest average peak consumptions.
+
+Your output must contain only the required list of household ids (LCLid).

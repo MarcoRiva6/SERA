@@ -1,0 +1,5 @@
+You are given a dataset of cities, with various attributes:
+{DATAFRAME}
+Return the 5 cities with the highest average of all the attributes except 'Education'.
+
+Your output must contain only the required list of cities.

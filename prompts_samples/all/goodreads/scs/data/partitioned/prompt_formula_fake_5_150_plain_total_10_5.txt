@@ -1,0 +1,16 @@
+You are given a dataset of book reviews:
+{DATAFRAME}
+Return the top 5 most loved books ('book_id') from the provided dataset using the Semantic Consensus Score (SCS).
+To calculate the Semantic Consensus Score (SCS) and rank the most loved books, execute this algorithm for the provided dataset:
+    1. Read the content of each review and assign a Semantic Polarity Score (SPS): +2 for glowing/enthusiastic, +1 for generally positive, 0 for neutral/mixed, -1 for negative, and -2 for highly negative/hated.
+    2. Identify all unique 'book_id' values in the dataset.
+    3. For each unique 'book_id', isolate all its associated reviews.
+    4. Calculate the 'Base_SCS' by summing the SPS values of all reviews belonging to that 'book_id'.
+    5. Filter the reviews of that 'book_id' to isolate only those with a positive SPS.
+    6. For this filtered subset of positive reviews, calculate the 'Validation_Weight' by taking the 'n_votes' of each positive review, adding 1 to it, and summing these values together. (If a book has no positive reviews, the Validation_Weight is 0).
+    7. Multiply the 'Base_SCS' by the 'Validation_Weight'. This final number is the SCS for that 'book_id'.
+    8. Repeat steps 4 through 7 for every unique 'book_id'.
+    9. Sort the books based on their final SCS in descending order.
+    10.To resolve ties, order books by their id in descending order.
+
+Your output must contain only the required list of book_ids.

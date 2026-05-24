@@ -1,0 +1,11 @@
+You are given a dataset of book reviews:
+{DATAFRAME}
+Return the top 5 'review_id' from the provided dataset, ranked by their predicted star rating.
+use the following algorithm to obtain the final result:
+    1. Read the 'review_text' of the current row.
+    2. Infer the hidden star rating of the review (an integer from 1 to 5, where 5 is extremely positive and 1 is extremely negative) based purely on the sentiment expressed in the text.
+    3. Record this 'predicted_rating' alongside the row's 'n_votes' and 'review_id'.
+    4. Repeat steps 1 to 3 for all rows in the dataset.
+    5. Sort all reviews in descending order based primarily on their 'predicted_rating' (highest ratings first). For any reviews that share the same 'predicted_rating', apply a secondary sort based on their 'review_id' (alphanumeric order) to completely eliminate any ties.
+
+Your output must contain only the required list of reviews_ids.

@@ -1,0 +1,36 @@
+You are given a dataset of cities, with various attributes:
+      Country             City  Stability  Healthcare  Culture & Environment  Education  Infrastructure
+  New Zealand       Wellington         95        91.7                   82.6       91.7            89.3
+       Sweden        Stockholm         95        62.5                   79.4       91.7            96.4
+      Germany        Frankfurt         90       100.0                   81.9       83.3           100.0
+        Japan            Tokyo        100       100.0                   81.9       91.7            92.9
+     Zimbabwe           Harare         40         NaN                    NaN       58.3             NaN
+       Canada         Montreal         95       100.0                   68.8       91.7            92.9
+  Switzerland           Zurich         95       100.0                   83.8       83.3            96.4
+      Vietnam Ho Chi Minh City         70        50.0                   38.2       58.3            51.8
+       Russia Saint Petersburg         70        87.5                   58.6       66.7            83.9
+United States        Lexington         85        54.2                   69.9       83.3            82.1
+       Turkey         Istanbul         50         NaN                   51.9       50.0            67.9
+      Ukraine             Kyiv         50        58.3                   51.6       66.7            46.4
+      Austria           Vienna        100       100.0                   81.0       91.7           100.0
+       Canada          Calgary        100       100.0                   76.2       91.7           100.0
+      Senegal            Dakar         50        29.2                   47.2       41.7            37.5
+        India        New Delhi         50        41.7                   35.4       66.7            58.9
+   Costa Rica         San José         75        54.2                   61.8       66.7            58.9
+    Australia            Perth         95       100.0                   70.8       91.7           100.0
+        Qatar             Doha         80        62.5                   49.8       75.0            67.9
+   Uzbekistan         Tashkent         50        58.3                   44.2       66.7            48.2
+United States    San Francisco         85        58.3                   79.2       91.7            85.7
+       Norway             Oslo         95        79.2                   76.9       83.3           100.0
+         Oman           Muscat         80        54.2                   36.3       75.0            85.7
+        Syria         Damascus         20        29.2                   33.1       25.0            32.1
+       Brazil        São Paulo         60         NaN                    NaN       58.3             NaN
+United States Washington, D.C.         75        58.3                   79.2       91.7             NaN
+         Peru             Lima         60        37.5                   53.7       83.3             NaN
+      Germany          Hamburg         90         NaN                    NaN       83.3             NaN
+     Thailand          Bangkok         55        62.5                   52.3       91.7            69.6
+       Greece           Athens         75        70.8                   68.1       66.7            76.8
+
+Return the 10 cities with the highest average of all the attributes except 'Education'.
+
+Your output must contain only the required list of cities.

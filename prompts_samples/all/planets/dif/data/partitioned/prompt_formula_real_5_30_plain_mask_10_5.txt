@@ -1,0 +1,12 @@
+You are given a dataset of planets, with various attributes:
+{DATAFRAME}
+Return the sorted list of top 5 planets having the highest 'Density-Irradiance Factor' (DIF). The DIF can be computed as follows:
+
+DIF = (M / R^3) * sqrt(S)
+
+Where:
+- 'M' is the planet's Mass;
+- 'R' is the planet's Radius;
+- 'S' is the planet's Flux.
+
+Your output must contain only the required list of planets.

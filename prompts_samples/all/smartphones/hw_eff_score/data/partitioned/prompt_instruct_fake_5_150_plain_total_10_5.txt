@@ -1,0 +1,6 @@
+You are given a dataset of smartphones specs:
+{DATAFRAME}
+Return the 5 smartphone models by 'smart_id' from the provided dataset that have the highest Hardware Efficiency Score (HES).
+To calculate the HES for each device: divide its 'Nominal Battery Capacity' by the product of its 'CPU Clock' and 'Mass'. Multiply this result by 100,000 to normalize the scale. Then, add the 'Memory Capacity' and subtract twice the value of the 'Display Diagonal'.
+Rank the smartphones in descending order based on their HES score.
+Your output must contain only the required list of smart_id.

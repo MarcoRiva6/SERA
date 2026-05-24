@@ -1,0 +1,42 @@
+you are given the following dataset of customer purchase histories:
+InvoiceNo StockCode  Quantity         InvoiceDate  UnitPrice  CustomerID  TotalPrice
+   577778     21975         1 2011-11-21 16:10:00       0.55       16549        0.55
+   551739     22169         1 2011-05-04 10:58:00       8.50       18118        8.50
+   573876     21917         2 2011-11-01 12:48:00       0.42       16360        0.84
+   550437     22698         6 2011-04-18 12:14:00       2.95       16923       17.70
+      NaN       NaN         6                 NaT       1.65       14159         NaN
+   566275     22966         4 2011-09-11 13:58:00       1.25       16549        5.00
+   537457     21080        96 2010-12-07 09:51:00       0.64       17511       61.44
+   578308     84347         1 2011-11-23 16:09:00       2.55       12748        2.55
+   551517     22904         3 2011-05-01 11:14:00       2.95       16931        8.85
+   557276     23148         6 2011-06-19 12:05:00       0.83       16931        4.98
+   543507     21054         1 2011-02-09 10:49:00       8.95       15039         NaN
+   537804     20727         1 2010-12-08 13:17:00       1.65       12748        1.65
+   575932     22360         1 2011-11-13 10:35:00       2.95       16923        2.95
+   542789     21154        10 2011-02-01 10:38:00       1.25       17511       12.50
+   558159     22423         2 2011-06-27 11:50:00      12.75       16904       25.50
+   558535     22382         2 2011-06-30 12:04:00       1.65       16904        3.30
+   556021     20718        10 2011-06-08 12:03:00       1.25       12921       12.50
+   569469     23514         5 2011-10-04 12:22:00       2.08       16360       10.40
+   538662     20725        20 2010-12-13 15:44:00       1.65       15159       33.00
+   573277     22362         1 2011-10-28 13:18:00       2.95       14606        2.95
+   568046     22066         2 2011-09-23 12:16:00       0.39       18118        0.78
+   579458     23321         3 2011-11-29 14:38:00       1.65       16549        4.95
+   556036     23049         2 2011-06-08 12:37:00       8.25       15159       16.50
+   565541     22396         2 2011-09-05 12:00:00       0.39       14159        0.78
+      NaN       NaN         2                 NaT       0.65       15555         NaN
+   537054       NaN         3                 NaT       1.95       16931        5.85
+   579001     23368         2 2011-11-27 16:19:00       0.65       15555         NaN
+      NaN       NaN         2                 NaT       1.65       16549         NaN
+   550331     22663         1 2011-04-17 13:43:00       2.08       15555        2.08
+   580669     84992        24 2011-12-05 14:25:00       0.55       15159       13.20
+
+Return the 10 customers who are most similar to customer 16904 based on their 'Customer Buying Signature' (CBS).
+    The CBS is a score based on two behavioral pillars. You must calculate the cosine similarity between customers for each pillar and then combine them with an 70% weight for the first pillar (and 30% to the second one):
+    1. Price-Tier Affinity: Compare customers based on the total volume (quantity) of items they purchase across three price segments: Budget (under 2.00), Standard (2.00 to 5.00), and Premium (over 5.00).
+    2. Behavioral Profile (TVA): Compare customers based on a normalized vector of three business metrics:
+        - Tenure: The total duration of their relationship as a customer (in days).
+        - Variety: The breadth of their product catalog interests.
+        - Average Basket: The average monetary value of their shopping carts.
+
+Your output must contain only the required list of customers.

@@ -1,0 +1,39 @@
+Your are given a dataset of employees:
+ employee_id  Age Gender             Department   EducationField  Education  TotalWorkingYears  MonthlyIncome  MonthlyRate
+         520   48   Male                  Sales        Marketing          1                 12           8120        18597
+         286   44   Male Research & Development    Life Sciences          3                 19           3161        19920
+         347   47   Male                  Sales          Medical          1                  5           2976        25751
+        1245   24   Male        Human Resources          Medical          3                  3           2145         2097
+        1153   18 Female                    NaN              NaN          2                  0           1569        18420
+         338   30 Female                  Sales        Marketing          3                 10           6118         5431
+        1430   38 Female Research & Development          Medical          3                 20          13206         3376
+        1438   23   Male                  Sales        Marketing          3                  1           1790        26956
+         466   41 Female                  Sales    Life Sciences          5                 22          16595         5626
+         536   60   Male                  Sales        Marketing          4                 10           5405        11924
+         458   40   Male                  Sales              NaN          3                 20          10932        11373
+          34   24   Male Research & Development          Medical          3                  6           2293         3020
+         637   32   Male Research & Development    Life Sciences          3                  4           2314         9148
+         113   24   Male Research & Development    Life Sciences          1                  6           2774        13257
+         352   48 Female                  Sales          Medical          1                 15          12504        23978
+         917   34 Female                  Sales        Marketing          3                  4           4538         6039
+         141   45   Male Research & Development          Medical          3                  9           3452         9752
+         319   32 Female                  Sales Technical Degree          2                 13           5228        24624
+        1066   33 Female Research & Development          Medical          4                  8           3838         8192
+        1048   34   Male                  Sales            Other          3                 15           4759        15891
+         255   25 Female Research & Development    Life Sciences          3                  5           4898         7505
+        1125   29   Male Research & Development    Life Sciences          1                  6           8853        24483
+         889   27   Male Research & Development    Life Sciences          3                  9           2235        14377
+         230   52 Female Research & Development    Life Sciences          3                  6           3212         3300
+        1422   35   Male                    NaN              NaN          4                  5           2660        20232
+         842   28 Female Research & Development              NaN          1                  1           2515        22955
+         972   18 Female Research & Development              NaN          3                  0           1611        19305
+         315   43 Female                    NaN              NaN          4                  9           2455        10675
+        1284   39   Male Research & Development          Medical          1                  9          13464         7914
+         719   47 Female                  Sales    Life Sciences          2                  9           4163         8571
+
+Return the 10 least interchangeable employees to the target employee '1422' from the provided dataset, using the Role Interchangeability Distance (RID). Calculate the RID by summing four components:
+    1.	A 10-point penalty if their 'Department' values are different.
+    2.	An education penalty: 0 if they share the same 'EducationField' OR if the target employee's 'Education' level (numeric) is strictly greater than the candidate's. Otherwise, add 10 points.
+    3.	The absolute difference in their 'TotalWorkingYears'.
+    4.	The absolute difference in their 'MonthlyIncome', divided by 1000.
+Your output must contain only the required list of employee_id.

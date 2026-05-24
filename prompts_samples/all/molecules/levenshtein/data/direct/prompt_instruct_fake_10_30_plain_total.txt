@@ -1,0 +1,36 @@
+You are given the following list of molecules represented by their SMILES strings:
+                                                  SMILES
+              Cc1c(-c2ccc3cc(CCN4CCC[C@H]4C)ccc3n2)cnn1C
+                               Cc1ccc2c(c1)N1CCNCC1NC2=O
+                                CN(C)Cc1ccc(-c2cccnc2)s1
+                                   CNCc1ccc(-c2cccnc2)s1
+        Cc1ccc2c(N3CCN(CCCc4cccc5c4OCC(=O)N5)CC3)cccc2n1
+                      Cc1cccc(NC2=NC(N)=NC3(CCCCC3)N2)c1
+                      Cc1ccc2c(c1C)N1[C@H](CNC[C@H]1C)C2
+                   NC(N)=NC(=O)c1ccc2c(c1)C(N)c1ccccc1-2
+                                 Cc1nccc2c1[nH]c1ccccc12
+              Cc1nn(C)cc1-c1ccc2cc(CCN3CCC[C@H]3C)ccc2n1
+   COc1ccc(OCC(O)CN2CCC(N(C(=O)c3ccccc3)c3ccccc3)CC2)cc1
+                   CCc1cnc2c(N3CC[C@@H](NC)C3)nc(N)nc2c1
+                   O=c1cc(N2CCOCC2)oc2c(-c3ccccc3)cccc12
+      COc1ccc(N2CCN(c3ccc(Cl)c(Cl)c3)C2=O)cc1OCCN1CCCCC1
+          Cc1nc2ncccc2cc1-c1ccc2cc(CCN3CCC[C@H]3C)ccc2n1
+                      Nc1nc(N2CCNCC2)c2ccc(C3CCCC3)cc2n1
+                      Cc1ccc(Oc2ccc(Nc3cncc(N)n3)cc2)cc1
+       COc1ccc(N2CC=C(c3ccc(F)cc3)C2=O)cc1OCCN1CCC(C)CC1
+                      Cc1ccccc1N1CCN(CCc2nnc3n2CCCC3)CC1
+ COc1ccc(OCC(O)CN2CCN(C(CNC(=O)c3ccccc3)c3ccccc3)CC2)cc1
+                             c1cncc(-c2ccc(C3SCCS3)o2)c1
+           Cc1ccc2c(OCCN3CCN(Cc4cccc5cccnc45)CC3)cccc2n1
+                  CN(c1ccc(Cl)cc1)c1ccc(Nc2nccc(N)n2)cc1
+                         C[C@H]1SC(c2ccccc2O)=N[C@@H]1CO
+                                       Cc1cscc1-c1cccnc1
+          CC(=O)Nc1cccc(CCN2CCN(c3cccc4nc(C)ccc34)CC2)c1
+                              CC(=O)SCc1ccc(-c2cccnc2)o1
+COc1ccc(OCC(O)CN2CCC(N(C(=O)c3ccccc3)c3ccc(F)cc3)CC2)cc1
+               c1ccc(-c2[nH]c3ccccc3c2C2CC3CCC(C2)N3)cc1
+                                    NCc1ccc(-c2ccccc2)o1
+
+Return the 10 most similar molecules to the target molecule 'Clc1cccc(N2CCNCC2)c1', based only on their normalized Levenshtein similarity.
+
+Your output must contain only the final ranking.

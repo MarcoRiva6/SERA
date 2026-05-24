@@ -1,0 +1,5 @@
+You are given a dataset of cities, with various attributes:
+{DATAFRAME}
+Return the 5 cities with the highest Global Liveability Index (GLI). This index can be computed with the formula GLI = ('Stability' * 0.25 + 'Healthcare' * 0.2 + 'Culture & Environment' * 0.25 + 'Education' * 0.1 + 'Infrastructure' * 0.2).
+
+Your output must contain only the required list of cities.

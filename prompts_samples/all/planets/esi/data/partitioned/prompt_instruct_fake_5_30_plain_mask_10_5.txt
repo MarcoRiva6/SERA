@@ -1,0 +1,5 @@
+You are given a dataset of planets, with various attributes:
+{DATAFRAME}
+Return the top 5 planets that are most similar to Earth, using the Earth Similarity Index (ESI) as the only criterion for similarity.
+
+Your output must contain only the required list of planets.

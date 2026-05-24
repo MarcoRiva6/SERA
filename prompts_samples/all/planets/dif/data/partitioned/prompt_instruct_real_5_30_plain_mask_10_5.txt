@@ -1,0 +1,5 @@
+You are given a dataset of planets, with various attributes:
+{DATAFRAME}
+Return the sorted list of the top 5 planets having the highest 'Density-Irradiance Factor' (DIF). This factor is computed as the planet's average density (expressed in Earth units, assuming a spherical shape) and multiplying it by the square root of the incident stellar flux.
+
+Your output must contain only the required list of planets.

@@ -1,0 +1,9 @@
+You are given a dataset of cities, with various attributes:
+{DATAFRAME}
+Using the following formula:
+
+city_score = ('Stability' + 'Healthcare' + 'Culture & Environment' + 'Infrastructure')/4
+
+return the 5 cities with the highest computed city_score(s).
+
+Your output must contain only the required list of cities.

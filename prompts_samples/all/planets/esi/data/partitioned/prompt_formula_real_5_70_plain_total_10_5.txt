@@ -1,0 +1,11 @@
+You are given a dataset of planets, with various attributes:
+{DATAFRAME}
+Provide the top 5 planets that are most similar to Earth, using only the ESI (Earth Similarity Index) score.
+The ESI score formula is explained below:
+
+The formula takes as input a planet's radius (R) and solar flux (S). It is computed as follows:
+    1. compute the solar flux ratio (SR): SR = ( (S - 1) / (S + 1) )^2
+    2. compute the radius ratio (RR): RR = ( (R - 1) / (R + 1) )^2
+    3. compute the final score: score = 1 - sqrt( 0.5 * (SR + RR) )
+
+Your output must contain only the required list of planets.

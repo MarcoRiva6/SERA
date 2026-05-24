@@ -1,0 +1,1060 @@
+You are given a dataset of book reviews:
+review_id: 4ada2e2393cb013a485a37409cfc46a7
+book_id: 4214
+n_votes: 0
+review text:
+Brilliant. Loved it.
+---
+review_id: 76fef0e392ccca7027d3f0633cc765b7
+book_id: 22628
+n_votes: 1
+review text:
+Though this book seems to be becoming more and more of a cliche, it's still an inspirational look into the life of a teenager who is just trying to figure out who he is. It's a wonderful story about friendship, and perfectly portrays what goes on in an average teenagers head. It's quite short. It's not a long drawn out novel. It's simple and to the point, but it also makes you think. Great read.
+---
+review_id: e00ab95af0bc50d46da85408069b5bfc
+book_id: 10917
+n_votes: 0
+review text:
+All of Picoult's books are good, and if this was by any other author, I'd give it 5 stars, but it's only a "middle tier" Picoult. Still an excellent read.
+---
+review_id: 9970ca940091c1185b46ac50a5dd83c1
+book_id: 16068905
+n_votes: 0
+review text:
+It was very inspiring! :D
+---
+review_id: 8f838d39eb5e01e23898a05dbe28b812
+book_id: 9969571
+n_votes: 1
+review text:
+What a great book. It could be that I grew up in the 70's and 80's and it was like a trip down memory lane, but... I have to say that I really did love this book.
+---
+review_id: aacb432e69c1962a7e6c892bcecf8544
+book_id: 18214414
+n_votes: 0
+review text:
+Very interesting
+---
+review_id: 37826720f4ba7320d8f71daf67fbd6f4
+book_id: 16101128
+n_votes: 0
+review text:
+I loved this book. It is a different take on the alien invasion and kept me wanting more. I have the second book in the series to get started on. I can't wait.
+---
+review_id: e49870ff379fe8ef8315b1c8c73cdaa7
+book_id: 1582996
+n_votes: 0
+review text:
+Los finales de Cassandra si que son unicos.
+---
+review_id: 780501d4a867c000fdd5d15a96031553
+book_id: 7937843
+n_votes: 0
+review text:
+** spoiler alert ** 
+ This book is narrated by a 5 year old. I found it to be highly annoying in the beginning, and I wasn't sure I would be able to finish the book. However, I kept reading because I wanted to find out what happened Jack & Ma. Writing from the standpoint of a 5 year old gave the author an "easy way out" by not having to address certain issues. For example, we don't ever see Ma plotting & planning the escape. It seemed to happen all very quick. One minute she was telling Jack her plan, the next minute he was off running away and poof, they were rescued. Also, we never get to learn why didn't Ma ever try to crack the code on the security lock? What was Ma thinking when she overdosed? 
+ Overall, I did find it to be a quick & easy read, and the plot held my interest.
+---
+review_id: fd90e29d00b00b35945591ecb0f20d24
+book_id: 17333223
+n_votes: 0
+review text:
+** spoiler alert ** 
+ The Goldfinch starts with an un-named man hiding out in a hotel room in Amsterdam, scanning papers about a murder. Before you can even start to wonder what is going on you are taken back 14 years to the life of Theo Decker, 13 years old and suspended from school for smoking. Early for a visit with his teacher, he and his mom stop off at Metropolitan Museum; his mom loves art and there is a piece she really wants to see - The Goldfinch of the title. Once there, they are separated. It is then the bomb goes off. In the confusion that follows, Theo makes it out - with the painting. His mom doesn't. Nothing really seems to go right for him after that. 
+ First he finds himself being put up by friends, the flown to Vegas by his absentee father, where he is completely ignored by everyone but his only friend Boris, before ending back up in New York at the door of an art-restorer who also lost someone in the bombing. Through all of this, the painting stays with; something that makes him afraid because it is stolen, but something he can't let go of because it connects him to his mother. It is his anchor as his life unravels until a chance (or not so chance) meeting with his childhood friend Boris. 
+ The Goldfinch is a hard book to describe because it covers so many topics. More than anything, it is a book about loss and grief. Theo is a lost soul that I felt for terribly. But it is not a sad book. There are some funny moments, some scary moments, so exciting moments as the books comes full circle to the opening chapter and just who is in the hotel room in Amsterdam. It is also a book that builds slowly. Somewhere along the line, I found I was staying up later and later to finish it.
+---
+review_id: a428e9335d98c7f211d241e0fb83d186
+book_id: 18214414
+n_votes: 0
+review text:
+I think its as good as the first book if not better. I'm really liking this avatar of rowling. the plot takes you through the natural unfoldings of the incidents, and one person is as good a suspect as another, and also as innocent. Since facts repeat themselves, you start to pay them less attention, but that's where it gets tricky. If only you'd looked harder, you think, as you come to the ending.. A crime of passion, yet a deliberate one, and a gut-wrenching ride to uncovering it. One star less for the length. Could have done with a 100 pages less.
+---
+review_id: f6fbdda6862db14e48d8d411646b9aac
+book_id: 9969571
+n_votes: 0
+review text:
+In short, Cline is a genius. A sick sick genius, but a genius nonetheless. He's taken hardcore 80's nostalgia porn and turned it on its ear to become a pretty solid adventure yarn. And while I also have a soft squishy spot for Reagan/Atari/John Hughes era America, this thing is just sopping wet full of it. It was almost too much. 
+ But not quite. 
+ Because it paid deep, sweet homage to Atari's ADVENTURE. And I adored that game. A moving square and dragons that looked like pixelated seahorses. What could be better? 
+ Apparently this is already underway as a film over at Warners. I have no idea how they are going to pull that off (though if they hired any director other than Edgar Wright, they'd be fools.)
+---
+review_id: 68a2422e90bc22c7d1920786d0b80282
+book_id: 16096824
+n_votes: 1
+review text:
+That moment when you finish a book and desperately begin to seek out its sequel, only to find that it hasn't been released yet... gahhhh! 
+ I picked this book up on the recommendation that it is equal parts Beauty and the Beast and Game of Thrones. Yep, sold. I'd mostly like to throw The Hunger Games into that mix, as Feyre shares many traits with Katniss Everdeen; a braid-wearing, bow-wielding heroine. She also loves to paint (Peeta, anyone?). I loved that she is an artist and found that relatable, but she spends a lot more time talking about painting than she does actually painting. This sub-plot carried no real weight for me other than serving as an attempt to mirror Belle's love of books. After the 5,000th time she pondered whether or not she'd be able to paint something, and then never attempted, I kind of wanted to punch her in the face. PAINT, WOMAN! 
+ Without giving anything away, I had a few qualms with Feyre's sudden and irrevocable relationship with Tamlin, but their romance mostly swept me up. I tend to judge a book on my inability to put it down, and if I had the time I would've read this in one sitting. This is the first novel I've read by Sarah J. Maas, and seeing as I'll have to wait until May for A Court of Mist and Fury, I'll be investigating some of her other books in the meantime!
+---
+review_id: 8b040cc1bfc27d5bae16258ec378ad83
+book_id: 10964
+n_votes: 0
+review text:
+Very, very slow to start, but did improve as it went. The love story seemed rather forced, the reader never seems to know exactly why these 2 people are attracted to each other. I will say it is an original story and had some very entertaining parts. Definitely not great literature though....
+---
+review_id: f08b09d1275cb5487cbb816059bd6efe
+book_id: 4214
+n_votes: 0
+review text:
+This book was wonderful. Everybody should read this. This book teaches to appreciate life.
+---
+review_id: 7f6f1877b38b835013e2333a082fb0b2
+book_id: 7445
+n_votes: 0
+review text:
+One of the best memoirs I have ever read. It is one of those books that no matter how many times you read it it will always bring foreward new emotions, from exasperation to empathy this book will always have your attention.
+---
+review_id: 4b214af969c58dafa3c4f75ee3b53f94
+book_id: 1582996
+n_votes: 0
+review text:
+getting into this fast paced series, its full of action and excitement!! at times the action gets repetitive but the story is unfolding nicely and there are quite a few surprises too!!
+---
+review_id: 702334b26409f7591b22d9ab34d5566c
+book_id: 16248068
+n_votes: 1
+review text:
+Just as great as the first...ooooooh yeah...and I read it in a night...I had to...because I had to find out who America chooses. It's an amazing story...now I am sad...because the next one won't be out for a whole year...I need to know e ending NOW!!!
+---
+review_id: e13981af78777816c1bcfaab0b4b4adc
+book_id: 1217100
+n_votes: 0
+review text:
+This broke my heart.
+---
+review_id: e8d1ef8cb76114180dcd5b0aa542b023
+book_id: 8490112
+n_votes: 0
+review text:
+Reviewed here: http://ladybusiness.dreamwidth.org/34...
+---
+review_id: 2a2685281a0dce353f92763008604166
+book_id: 16096824
+n_votes: 2
+review text:
+HOLY MOTHER OF GOD I LOVED THIS BOOK! I can't say I liked it better than Throne of Glass, I think I love it just as much. Magnificent writing, no surprise there, awfully interesting characters with unique personalities, again no surprise, compelling plot with unexpected twists. 
+ I can't wait, I'm so excited for this new series of Miss Maas, one year feels like a lifetime away.
+---
+review_id: ac868a318229b8f76199d08a2d2251f0
+book_id: 8490112
+n_votes: 1
+review text:
+5 stars 
+ This is one of the best written young adult books I've read in... EVER! The prose and words intricately weave themselves into a story of love, betrayal, and hope. The pace of the book was slower than I expected but that's not to say you don't get immersed into the story and its characters. I honestly could say, with every descriptions of the characters, the settings, the scenes, I was able to picture everything. If I could paint well, there were definitely certain scenes I would love to put down onto canvas. This is a book NOT to be missed by ANYONE. And now I have 2 more to read without the agony of waiting time!
+---
+review_id: 2ee2b5555c5b06b1e2851af4c6e03f85
+book_id: 1885
+n_votes: 0
+review text:
+When I first read Austen's novels, I found them very similar and hard to differentiate between. Mind you, I was about 16. Older and wiser, and at the prompting of a friend, I am re-reading. To my surprise, I greatly enjoyed this novel, and am looking forward to her others. I love the stinging (and oft overlooked) comments made by Elizabeth and Mr. Darcy. While the cultural differences are a little difficult to follow, the book was quite enjoyable.
+---
+review_id: 54be53fef980fd61c3275485a7141b56
+book_id: 11735983
+n_votes: 0
+review text:
+{Yawn} The movie was way better, and I rarely say that about the books I read. Tris is really starting to get on my nerves and I don't get why Four is still in love with her.
+---
+review_id: 6c596d1829540a736263e8dcf1cf2b6c
+book_id: 17333223
+n_votes: 0
+review text:
+I marked this book to read because (ok, yes, you will shake your head)....I love "To Kill a Mockingbird" and the title and the cover made me think of that book....right. It's ok. I agree...not the case. When I grabbed the book, I did NOT realize it was close to 800 pages...and even though I am/was abroad without a tv, I did not realize it would take some time to get through it. 
+ The book tells the story of a boy who grows to be a man with one secret...he has a painting. He loses his mother and keeps this painting in fear of the police...and the book weaves and winds its way around his life until he is an adult...not a good role model, but an interesting character. I enjoyed the book and reading the 800 pages was not a chore. The author was quite clever. 
+ Read....read if you enjoy art history...and want to hear the FAKE story of a piece of art that disappeared.
+---
+review_id: b7d170d5601d6d99f934a1f03d4874d3
+book_id: 1217100
+n_votes: 0
+review text:
+This book has an interesting premise, but the story just didn't deliver. Hannah seemed way too sensitive about most of the things that happened to her (most, not all). But it did have its moments, namely the end and Hannah's visit to Mr. Porter. Overall though, she just seemed like a whiny kid who decided to end her life.
+---
+review_id: a645ce422062d8a5dde118553e814a4a
+book_id: 38447
+n_votes: 0
+review text:
+This was fantastic. I havr begun to cringe when a reader immediately does "voices" for every character rather than reading a story. Sometimes a book just needs read. Claire Danes did a f#&$ing awesome job. She read with feeling and unlike many readers she didn't confuse the story by trying to act out a string of characters. Well done.
+---
+review_id: b2dd104debb16438b10dc38a2aa5c7ef
+book_id: 6
+n_votes: 0
+review text:
+I noticed a change in the reading level in this book and began to enjoy the series more. The first 3 were pretty quick reads.
+---
+review_id: cbba288a8fa84a92eb3a7495e4bd5351
+book_id: 1582996
+n_votes: 0
+review text:
+A significant improvement over the first book. In general, it is a much more entertaining novel. The suspense, pacing, and plot are all masterfully pulled off this time. Also, there is less overwhelming world building and more character development, turning the fish out of water story of the first installment into a compelling ensemble piece. Just so much more exciting and enjoyable this time around.
+---
+review_id: f1a461e2c40bcbb16205f35025c59119
+book_id: 3153910
+n_votes: 0
+review text:
+This is one of the best books I've read in a long time. The book is narrated by Enzo, and told from his perspective. Oh, did I mention that Enzo is a dog! He tells the story of his life, well actually he tells the story of Denny's life while he was in it. From puppyhood, to Denny meeting Eve, marrying her, them having Zoey, and all that follows...I can't tell you more without spoilers! Just trust me, you want to read this book!!
+---
+review_id: f0738778c702e7f72e7081ed797d3bd5
+book_id: 11505797
+n_votes: 2
+review text:
+I totally loved this book not because I'm a teenager, which many reviewers wrote, I'm not with 26, but of the way the book is written. By accident I saw this book at Target and thank god I got curious. After reading 50Shades and the the Crossfire triology (which doesn't release its last book in May :-( ) I was desperate to find a book to read. As it turned out 'beautiful disaster' was a great choice. It is filled with everything: romance,funny parts, sadness and trouble. 
+ It's easy to read and entertaining. I've read it in 1day and am sad I'm already done :-/ 
+ Yes Travis is violent and no not every teenager should take this relationship as a good example but come on guys, which book is that??!!?? It's fiction and some critics are pretty harsh about the characters which i think don't deserve this kind of critc. 
+ I really loved this book and can't wait until May to read the second book. I know many won't agree with my review but hey, everyone is entitled to their own opinion right ;-)
+---
+review_id: c0d3dc6d1fa57c96f47afe8b1755d8d5
+book_id: 8306857
+n_votes: 0
+review text:
+Hey! No pointless love triangle? YES PLEASE! :D
+---
+review_id: 856209efd2279ac2cae585b5327e2827
+book_id: 1217100
+n_votes: 2
+review text:
+I'm having a very hard time figuring out what my opinion of this book is, what I'd like to say about it. I think I'm going to stew on it a day or two before I really put any thoughts down.
+---
+review_id: a7df9510f52551661b602aadc9d098cb
+book_id: 6288
+n_votes: 0
+review text:
+I was profoundly traumatized by this book.
+---
+review_id: db4f40635087cd2be0b0b79b3e701bc5
+book_id: 22628
+n_votes: 1
+review text:
+I really honestly loved this book. 
+ I haven't found a book in quite awhile that got my attention right off the bat, and I was honestly completely surprised when this did. I couldn't put this down, I Just had to know more about this boy "Charlie" and all of the things that happen to him. 
+ I feel that right away you can tell that there is something deeper, something psychological, going on with him. He's obviously incredibly intelligent, but has had a trauma in his past that changed who he was and would grow to be. Uncovering what exactly this was was shocking and I might have just held a blind eye to it, but I don't know how i didn't see it coming. All the signs were there, and I think that was what I loved most about this book. Even with the right information right in front of me, I was still able to be completely taken back, and that's not an easy feat.
+---
+review_id: 7b43ec03c2bc8ff957e46bda6b9c6930
+book_id: 11505797
+n_votes: 1
+review text:
+This book took me a couple of tries to get into it. It kind of takes off right from the beginning and I had a hard time following at first because so much was going on. However, once I got past the first few chapters I couldn't stop reading this book. It took me about 2 days to finish once I got going. I highly recommend this, and am patiently awaiting the 2nd book in this series.
+---
+review_id: 38664472e805586ac169f8406ac3d38c
+book_id: 28187
+n_votes: 0
+review text:
+Readable
+---
+review_id: 63579a9c2346c7dcb1eb60610a00d6a4
+book_id: 17333223
+n_votes: 0
+review text:
+This is disappointing. I was reading this book with another Tartt book, The Secret History. At the time, I was really enjoying The Goldfinch. The story was simple: 13 year old Theodore Decker and his mother, Audrey, are hanging at MoMA to get away from the torrential rain storm. Audrey is enamoured with a painting by Fabricitus called The Goldfinch. Theo's not really listening. He is too enamoured himself with a red haired girl and her hunchback grandfather. 
+ Theo's world is rocked when a bomb denotates in the museum, killing Audrey, and fatally wounding the red hair girl's grandfather. He gives Theo two tasks in his shuffling of this mortal coil delirium: to take the ring he has on and give it his business partner, Hobart, and to take the painting of The Goldfinch. It's this last act that will have everlasting consequences for Theo. 
+ Or at least that's how Tartt wants to be. It doesn't succeed though. I liked my experience to reading The Goldfinch like this: I started out on a visible road. Suddenly, I was in the desert, wandering for days, months, possibly years. Then, when I believe all hope is lost, I fall down a man-sized rabbit hole where I continue to fall for so long I get bored. Finally, I hit the ground on the same road I started on. 
+ I wonder to myself: What the hell was point of that? 
+ What the hell was the point of The Goldfinch? Because I am still trying to figure out. 
+ I was feeling bad for Theo, he was certainly dealt a bad hand, but dear God, he got so annoying. I was begging for Tartt to kill him off, which I think was the deal with that whole stream of consciousness that monopolized about 50 pages towards the end of the book. He was debating to kill him himself after the 70 or so pages that were Theo's and Boris' Russian drug mob action movie sequence. 
+ I wholeheartedly believe that Tartt cannot write likeable characters to save her life. It still sounded pretentious. It wasn't as bad as The Secret History but was pretty glaring. I assume she takes a decade to write each book because Tartt wants to put every painstakingly minute detail she's ever learned in those 10 years in her novel. The end result is dense drivel akin to someone's brain turning to mush but they keep on talking and talking. 
+ It is still amazing to me how much The Goldfinch deteriorated for me. It was like when the most popular kid promises to be your friend then beats you up and steals your lunch money.
+---
+review_id: a181c59164c3e57437417b8d8c85e8c8
+book_id: 10964
+n_votes: 0
+review text:
+After hearing all the hype surrounding this series I thought I had to try it out. The story is compelling and the characters interesting. I couldn't guess the plot twists, which is always refreshing. Full disclosure, this book contains a dose of smut. So. Now you know.
+---
+review_id: 0a2ad0e943b0f2d73a5b191043beea3b
+book_id: 18774964
+n_votes: 2
+review text:
+Simply wonderful
+---
+review_id: 67d2e89fcaca236c198a374cd1294074
+book_id: 16101128
+n_votes: 0
+review text:
+I liked the book for the most part. I thought the concept was cool, but it was a little long. The book is told in alternating view points between Cassie and Ben. There were two other viewpoints that I didn't think needed to be in the book since it was the only time they appear. The twists were kind of cool. I liked Ben and Ringer out of all of the characters. 
+ The one thing that annoyed me about the book was that Cassie seemed like a take charge kick-ass girl in the beginning and then she meets Evan. It's instant love. I didn't think that was necessary and it ruined the flow for me. I'll probably read the next one in the series.
+---
+review_id: 639866ee86786c6b47c898a6745a7c9b
+book_id: 16068905
+n_votes: 0
+review text:
+Fangirl wasn't what I expected. For the most part, I liked the overall story. The coming of age/learning to be grown-up part was fantastic. Cath learns a lot of life lessons during her first year at college. It brought back fond memories of my first year at school. I also loved the romance. IT was slow, sweet and had all the elements that a first love should have. I loved Levi! 
+ The parts that I didn't love were the fan fiction parts. I could understand the portions in the beginning of each chapter. Those made sense. But, the long portions of Cath's own fan fiction got boring really fast. I really didn't think they were necessary and I skimmed over them. They just seemed like filler to me and could have been ;left out without taking away from the story. 
+ I should say that I really don't understand the world of fan fiction. Maybe I have never been a fan of anything enough to get it. But I guess, to each his own.
+---
+review_id: 10f0147de8a1ac4b07d3eb9bea5d33b7
+book_id: 16101128
+n_votes: 0
+review text:
+I read a review that said this was a Twilight Sci-Fi book. Yep, it is and I like both so I liked this book very much. Movie coming out soon.
+---
+review_id: b769e524355009a23e5949d3f1024545
+book_id: 17333223
+n_votes: 0
+review text:
+For some reason I couldn't get past the first 10% or so. Maybe it was the scene in the museum, on audiobook seeming to take up days of my time. Fast forward a year or so, and I'm very glad I decided to try it again!! Not that I don't have my quibbles, mostly with the secondary characters, but all in all a much more exciting book that I thought it would be.
+---
+review_id: b0da97cb25691606db95546e71905487
+book_id: 11505797
+n_votes: 0
+review text:
+An emotional rollercoaster from begging to end. Travis and Abby's crazy relationship reminds me of the movie "the notebook"
+---
+review_id: bb07d15fc6d959cb34d5660f12afe2e1
+book_id: 9969571
+n_votes: 0
+review text:
+Geekaliciously awesome!
+---
+review_id: 5126c974031be42e12adfb740175d20f
+book_id: 16101128
+n_votes: 0
+review text:
+I started this book because I didn't want to go see the movie without having read the novel first. I wasn't exactly sure what to expect, but had heard many good things about it. I ended up not wanting to put the book down! It's very action packed and keeps you guessing. The novel switches between perspectives in a way that got a little frustrating at times, just because I wanted to see what was coming next in one person's storyline, but was quickly redirected to someone else's. In the end, though, you get to see where everyone's story lines lead and I, at least, enjoyed the journey. I would recommend this story for readers who like to have action in their stories and who are intrigued by the possibility of an alien attack on Earth. I'm anxiously awaiting the 2nd novel being delivered to my home so I can continue the saga.
+---
+review_id: 71edf64dd166e0ddfb8618f2b171c29e
+book_id: 10964
+n_votes: 0
+review text:
+WOW! Most amazing book I've read in years. Certainly not my typical genre. Mysteries are my normal but this series came highly recommended by friends, so I decided to give it a try. 
+ Looking forward to the second book in the series.
+---
+review_id: efee7a3f620ed640366226caa7b138f0
+book_id: 2429135
+n_votes: 13
+review text:
+I haven't stayed up until 5am to finish a book in a while - it felt good. This was a great murder-mystery thriller, and more interesting as it's set in Sweden and deals with journalists, corporations, and hackers. Good stuff!
+---
+review_id: 05038f66df8b39a838cd2d017a4833ba
+book_id: 10917
+n_votes: 0
+review text:
+No bueno.
+---
+review_id: 3c17c6e23691970a8ea6af2a070f3076
+book_id: 16096824
+n_votes: 0
+review text:
+I really wanted to give this book a five star review, but the last bit of the book kind of killed that. I hate hate hate hate love triangles with every fiber of my being. Things were looking so good for Feyre and Tamlin until Ryhs was reintroduced during the last bit. I love him, but I can't stand love triangles, so that takes his awesomeness down as well as the over all rating for the book. I'll give the next book a shot but I'm a bit skeptical.
+---
+review_id: bba96c85720402a3050b64b148ad616a
+book_id: 16101128
+n_votes: 0
+review text:
+I read this book with my husband because he wanted us to read one together and for some reason, this is the one we chose. We took turns reading aloud to each other, so we were able to sensor the foul language. :) I have mixed feelings about this book. It had such potential but it just fell flat. I liked some parts but not others. The writing! Ah, his writing was so annoying! Broken sentences. Run-on sentences for pages (ok, maybe a paragraph). A lot of it was redundant and when it finally ended, we thought, "that's it?!" It was fun to read a book together, but we'll have to be pickier in our choice next time.
+---
+review_id: baf6fbd61e06e076e790d4d5d9539763
+book_id: 8490112
+n_votes: 0
+review text:
+This book was just awesome. Beautiful writing, unique and well developed mythology and world building, interesting and complex characters, moral complexity and nuance, a plausible romance (I usually hate love at first sight story lines, this might be the only book I have ever read that actually pulled one off). I just loved this one. Can't wait to read the second.
+---
+review_id: 14f5bfa2f6e82f1b2f06fdce97e629ba
+book_id: 3
+n_votes: 0
+review text:
+I just can't describe how delighted I was when I first read this book! Unique, totally new, some of the best characters ever created, and a fresh delight on every page. I wish it had been around when I was a child.
+---
+review_id: 9907e8f47678d21c86ce8d2cc380f01f
+book_id: 18214414
+n_votes: 0
+review text:
+Loved this book almost asuch as the first one. So excited to read #3!
+---
+review_id: 72a2f01ab5ce5a360f931a79669fc1df
+book_id: 4214
+n_votes: 1
+review text:
+Definitely re-read material.
+---
+review_id: e0dc31faf4d2588ad3d6bcb13673a3d5
+book_id: 10917
+n_votes: 0
+review text:
+This was my first trip into a Jodi Picoult book. Not bad. I've read worse. I get what she was trying to do, and I'm not too cranky to just give her credit for it. 
+ The story is interesting and thought provoking. It's the ending (which I won't go into detail about) that gets you. I should have seen it coming but the starry-eyed girl and the overly-optimistic mother in me didn't want to consider it. I broke one of my own rules and looked at some other reader reviews of it. It seems that some people really hated it. Hm. I was bothered more by the editing errors I saw than the poor plot progression in places and the inconsistency of a character or two. 
+ Would I read another one of Picoult's books? Maybe. I won't seek them out, but if I come across one I might give it a shot.
+---
+review_id: 9af820121f265ddec4dfba14474dfe2e
+book_id: 8306857
+n_votes: 0
+review text:
+I listened to this book and I was hooked! I didn't want to listen to music in the car just this book.
+---
+review_id: f01ee9f625bb1160849a408fe79f2a72
+book_id: 10917
+n_votes: 0
+review text:
+well-written, with a twist.
+---
+review_id: 3e7002859ca01a4c9d256d71b75708c8
+book_id: 7937843
+n_votes: 0
+review text:
+A novelization of the real-life happening in Austria (the man who imprisoned the woman and her child for years).
+---
+review_id: 021b4510b00ac4144b03b2f012551a72
+book_id: 8490112
+n_votes: 0
+review text:
+** spoiler alert ** 
+ Well i loved it, tiene una historia muy original y esta bellamente narrada. Hay que felicitar a Laini por idear un mundo que no estuviera cargado con los tipicos personajes de fantasia, se ocupo de crear un mundo muy real y diferente, con personajes pintorescos y cargados de personalidad. 
+ El romance entre Akira y Karou fue precioso, de estos que te hacen pensar que esas cosas no suceden en la realidad, una relacion destinada, cargada de pasion y sentimiento. 
+ Hubo un momento en que la autora me perdio, me parecio que al final del libro hubieron demasiados recuerdos de golpe pero supongo que es simplemente para obtener la reaccion que ella queria de nosotros, sin embargo la narracion durante todo el libro fue bastante fluida y atrapante. 
+ Estoy bastante intrigada por saber que nos traera la secuela y como seguira la historia, este libro definitivamente vale la pena, es una lectura muy entretenida.
+---
+review_id: 2a444d55573da2e7f0ce1ecedbb8164c
+book_id: 16068905
+n_votes: 1
+review text:
+I rarely read books that make me, through the whole thing, feel cheery. Even when heartbreaking things happened in this book, it was written such a way that I was always confident that things would turn around for Cath. And, in the end, the book was wrapped up perfectly, with a Simon Snow bow. ;) 
+ I started out really disliking Cath, but as the story went on, I grew to truly love her. She grew up. She became less annoying. She truly developed as a character in a way that wasn't a complete change, but she changed just enough to make sense for who she was and how she felt. 
+ I've seen negative reviews saying that the book didn't focus enough on the fandom aspects of the story. I think fandom was wonderfully portrayed without becoming an obnoxious joke, which this story could have easily been. It respects fandom and the culture that thrives on it. It acknowledges the way people view fandom and those within a fan community. And, let's be real for a minute... We all read the "excerpts" from the Simon Snow books wishing we could read the full story. I mean, I'm now obsessed with the idea of Simon and Baz, and the series doesn't even exist. I think Rainbow Rowell needs to consider writing under the name Gemma T. Leslie and churning out some Simon Snow epicness, because I want it. Who cares if it is basically Harry Potter. I'd read it in a heartbeat. 
+ I highly recommend this book if you're a hardcore shipping fangirl or even if you just want something lighthearted to read. It is magical.
+---
+review_id: 201450dd39a5f4c27d505b9b5997a72c
+book_id: 7937843
+n_votes: 0
+review text:
+Edited (Oct, 2016) : Room was my first crush to Donoghue's works and I love it so much. I first heard about this book in 2010 but being able to found it in nearest bookstore in 2012, and since then, I'm really really obsessed in finding Donoghue's other works. 
+ Mungkin saya subjektif dalam memberikan penilaian tentang Room. Isu yang diangkat merupakan isu-isu yang sangat saya perhatikan; hubungan antara orangtua (terutama Ibu) dan anak, kekerasan (termasuk kekerasan seksual), serta kecemasan (mencakup juga fobia). Emma menggambarkan tema cerita yang menarik serta sensitif. 
+ Saya tidak merasakan ada kelemahan di dalam kisah Room dan Emma Donoghue juga merupakan salah satu penulis yang saya senangi karya-karyanya. 
+ Room merupakan a must read book yang pasti saya rekomendasikan kepada siapapun, terutama yang concern dengan tema dan isu yang diangkat. Kisah Room bukan sekedar menceritakan tentang korban yang kemudian menjadi survivor. Bagi yang menyukai storytelling dan ingin menjadi seorang storyteller, buku ini layak menjadi panduan karena Room merupakan kisah fiksi yang memiliki kekuatan cerita dan kekuatan bertutur. Bagi yang mendalami isu tentang hubungan orangtua-anak dan ingin mengetahui tentang how motherhood should be, serta ingin mempelajari tentang cinta tulus orangtua ke anak dan juga sebaliknya, maka Room sangat layak untuk dibaca. 
+ Selengkapnya di http://www.niafajriyani.com/2013/10/j...
+---
+review_id: c466f703a0ce89074566cb3a95faf470
+book_id: 22628
+n_votes: 0
+review text:
+More like 4.5.
+---
+review_id: 31e77554f6af6909a40266a84dba950d
+book_id: 3
+n_votes: 0
+review text:
+just as good 15 years after I first read it.
+---
+review_id: db5dc609623176c04243532e0b68ea4e
+book_id: 18214414
+n_votes: 0
+review text:
+goooood
+---
+review_id: 9f1e8fab729619b7f9456cc0876a51b2
+book_id: 9969571
+n_votes: 16
+review text:
+This book was just so much FUN. The concept is brilliant and plays well into everyone's nostalgia for classic video games, right down to the quest narrative of the story. The sci-fi/virtual reality bits are actually designed and explained really well, and the pacing is on point and it never get's boring in the slightest. 
+ Does it have it's issues? Sure. The 80's references can be a little one too many, the corrupt society a little too simple, but overall though it's just so fun that it pretty much gets a pass on these things. 
+ Bring on the movie. 4.5 stars ****
+---
+review_id: 1e665379b7514f56c0dc90a811f8086b
+book_id: 7937843
+n_votes: 0
+review text:
+Just try and forget this book once you're done reading it.
+---
+review_id: 047403e6271707f5c03435739120b0d5
+book_id: 18214414
+n_votes: 0
+review text:
+I love Cormoran Strike!
+---
+review_id: ffa9d36861f8208a4f7f9978f65732e3
+book_id: 7937843
+n_votes: 0
+review text:
+Extremely thought provoking and immensely well written, particularly considering that much of the setting takes place in a sole room - no easy feat for the author, but Emma Donoghue has mastered it beautifully. I found the child's tone which the narrative is constructed from a little difficult to get into initially (it irritated me on the first few pages, and then I found it perfect - guess it took me a few pages to adapt!). Some of the observations Jack made made me giggle, others were heart breaking, but either way I couldn't put this down. 
+ A difficult subject to write about (let alone with the tone used) but extremely readable and enchanting, albeit it in a mainly gut wrenching way. 
+ I'd love to see a film of this, though I don't have a clue how they would tackle it! 
+ 4.5 stars.
+---
+review_id: 43ab774a62c5cfa98f1d73ae954c2711
+book_id: 1217100
+n_votes: 0
+review text:
+Creative, interesting, unique.
+---
+review_id: 951d351877ca8fb296517b5aa4c6049a
+book_id: 1885
+n_votes: 2
+review text:
+I thoroughly enjoyed the banter between the members of the Bennett family, and between Elizabeth Bennett and her nemesis/admirer William Darcy. I especially got a kick out of Mr. Bennett's amused sarcasm toward his wife and daughters (with the exception of 'Lizzie', his favorite). 
+ I guess it's a guy thing because my wife thinks Mr. Bennett's behavior is disgraceful.
+---
+review_id: a255098db7d864db5185e0594db13caa
+book_id: 6
+n_votes: 0
+review text:
+Let me start by saying that Harry Potter is truly a work of (pun intended) magic. I love every book in the series and its one of the few book series that get better with each book...but I have to admit The Goblet of Fire is my least favorite. I like the movie way more then the book. I know fans always say the movie sucked but I dont agree. The fourth book just had too many side stories for my liking. She would build you up and then stall you for eight chapters before picking up again. Yes it all does come around but I feel like the movie just kept it simple cut to the chase and kept the focus on what was important. Yeah as a huge fan of the world Rowling created we want to know everything but I just felt it went too far. But I did love the suspense and how this book was the start of the dark more adult side of the world. The conflicts and scary themes were amazing. All in all Harry Potter is just in one word amazing.
+---
+review_id: dd7ce764e8d4b701f047fe616d357288
+book_id: 8306857
+n_votes: 0
+review text:
+//GASP! I didn't make a review of this? 
+ OKAY SO I READ THIS LAST SUMMER 2012. (APRIL - MAY 2012) 
+ THIS BOOK IS THE BOMB. 
+ If you love bad boys, this book has it. 
+ If you love different relationships other than the main one, this book has it. 
+ If you love insane boys (dfgnfdsfPETERaasdfsd) this book has it. 
+ If you love bad ass blondes, this book has it. 
+ If you love the dystopia fiction, this book has it (no duh) 
+ If you love tattoos, this book has it. 
+ If you love to fangirl because of how hot the makeout sessions are, this book has it. 
+ PLEASE PLEASE PLEASE 
+ I DO NOT WANT ALEXANDER LUDWIG TO BE FOUR 
+ PLEEEEEEEEEASE 
+ ALSO 
+ I LOVE PETER 
+ THAT IS ALL.
+---
+review_id: 858a30b3dc4cfe748f735ebb96cf452e
+book_id: 24817626
+n_votes: 2
+review text:
+MY PERSONAL REVIEW: Class Review Below This... 
+ Here we go. As you know, my favorite book is To Kill a Mockingbird. Isaac's middle name was almost Atticus. I believe the Harper Lee has hit on the most important themes in all of literature in the novel: walking around in a person's skin, trying even when you know you're licked, don't hurt things that only have done good. 
+ So, I was bit excited for this book. I know I told some of you that I did not have high hopes...but that was a bit of a lie. 
+ I was disappointed with the beginning of the novel. There was a lot of description. Now, Mockingbird begins with description. It sets the historic tone and gives parallel background to set the reader to who this Finch family is and where they live. So, I forgive Lee for that. 
+ There were discrepancies between the two books. They were not significant to the plots of the story, but they were there. I attributed this to the fact that Lee probably didn't know she would even publish this book, and my guess is that she isn't the one who did the final editing of this new novel. So, again, I forgive her. 
+ A few things I found disappointing, but I understand. What happens to Jem--which I won't say for all of you who haven't read yet--and a lack of Dill. But again, I forgive. 
+ And then Atticus. It's all I'll say about that. 
+ I didn't think I liked the book when I was 3/4 of the way through. I was angry and I was upset, and I wanted things to be like they were. I was having an internal hissy-fit. And then...oh, darn you Lee, you showed me that I was Scout. I wanted things to be the way they were when I first experienced it. I didn't want things to change. Oh, but wait. I did, but on my terms. And once I realized that I was Scout. And, I think I was Scout by design, I thought, "Oh, you, Lee. You did it again. You made me love a book." 
+ Categories/Genres for this class fulfilled by this book: YA 
+ Estimate of age level of interest: Grades 9-12 
+ Estimate of reading level: Grade 9 
+ Brief description: 
+ In this sequel to To Kill a Mockingbird, Scout comes back to Maycomb as an adult. While there, she discovers that everything has changed. Especially distressing is how Atticus has changed. This novel brings you to a specific time in the south when race relations were still very strained, and desegregation was beginning to be enforced. 
+ Identify at least 2 characteristics of this genre and subgenre and discuss how they appear in your book: 
+ This novel is a piece of historic YA fiction because accurately shows a time in the south in the United States when we were beginning to enforce desegregation laws. The NAACP is mentioned as both a positive thing and a negative thing, depending on the point of view of the person. The Supreme Court's decision (surrounding desegregation) is mentioned, but it is not explicit. 
+ It is also a good piece of historic fiction because it gets the language and the mannorisms of the characters accurate. Scout uses the word Negro and she also smokes, both things that would have been appropriate for the time period. Admittedly, I was a bit shaken by my Scout smoking, but it was how girls of her time behaved. 
+ In what ways and how well does the book as a whole serve its intended audience?: 
+ The novel does a nice job of getting toward the idea of perception of parents. Scout believes something about her father that is simply not true. This idea of parents not being what you think is something that most YA readers haven't thought about. I think that some kids will be bored with the long description that is at the beginning of the novel; it does take a bit to get into it. 
+ Awards if any: 
+ Links to published reviews from professional sources:
+---
+review_id: 827adf561e141f648b20801f50704c98
+book_id: 7445
+n_votes: 0
+review text:
+This is a pretty astonishing tale about a dysfunctional family, product of a charismatic, alcoholic Dad and a Mum who is a true free-spirit. Three of the four siblings are spurred on by their desperately poor, itinerant lifestyle into self-sufficient achievement, which seems almost impossible to credit given their desperate travails as children. The writing is excellent, vivid and economical.
+---
+review_id: 42730b33f360cf92ad9f2516ffbbd1b7
+book_id: 11735983
+n_votes: 0
+review text:
+I love the main characters and I guess I have a thing for second books in a series but I loved this. I could not put it down and now I'm dying for the third one. Gyah!
+---
+review_id: 11f2639ea2e371aa6f86fbeca1660290
+book_id: 1885
+n_votes: 0
+review text:
+Just re-read. As perfectly, excellently delightful as ever.
+---
+review_id: 7699a9b1d3c1d7effc9bee0228f13180
+book_id: 10917
+n_votes: 0
+review text:
+This was my first Jodi Piccoult novel. I love how she takes a difficult topic and makes you literally feel both sides of the story. In this one she also writes from multiple characters giving you even more perspectives on the whole issue. When I finish a Jodi Piccoult novel I always have a strong reaction. Sometimes thats extreme sadness, uneasiness, anger, contentment. This would be a great one to start with...
+---
+review_id: e4d9d3dfc213c40dd695a397ee66ae07
+book_id: 3
+n_votes: 0
+review text:
+The only HP I have ever read!
+---
+review_id: c63aa4a5babadd99ae964b06dde7cd1a
+book_id: 38447
+n_votes: 9
+review text:
+Along with her The Blind Assassin, this is one of the most convoluted and elaborate novels I have ever read. The story is too cloudy to understand that it requires your powers of concentration, especially if you are not analytical enough to grasp its complexity, the style I have proven Atwood bears the hallmark of. 
+ Instead of analyzing it in a broader literary context with intellectual bravado since everyone can turn to Wikipedia, I'd rather review it in a manner of what I found out in her writing styles: I'm envious of her skilled mastery for turning into beautiful prose her train of thoughts or whatsoever plays in the figment of her imagination. Furthermore, she is an unfathomable female writer who can be as genius as any writers mostly celebrated in world literature. 
+ This novel from the first pages to the last is strewn with vivid, beautiful, elegant, graceful, sumptuous sentences which I enjoyed reading rather than gripping its main idea. The sentences are so lyrical that I chanted them again and again. They melt in my tongue like sweet, dark chocolate, or smell good like a garden, full of a variety of colorful flowers hovered above by a swarm of butterflies. 
+ Under an unlikely scenario, if there were still such a world that men were superior to women over skills in writing stories or any literacy pieces, and Atwood were into such a literary show-off ,surrounded by supercilious writers looking down on her feminism, I bet my life that Atwood could dominate or catch up with them at any cost of literary bouts. Don't dare her write one because this her The Handmaid's Tale has proved me wrong that there is something Atwood could make her rather genius. Her novels may appear complex, much more if she writes a simpler or more intricate one. In other words, there is nothing to find fault with her more; it's crystal clear that she is an extraordinary writer. Roll down the red carpet and pay homage to Her Majesty. 
+ Now, I freely acknowledge that reading another Atwood's books could be challenging since I have now the clearest idea of her writing style. Sometime in the future, if I have a great deal of time, perhaps when I reach my mid-life , no longer preoccupied with how to embellish my life with youthful experiences, hers would be one of those books I want to read again and again.As American musician and filmmaker, Frank Zappa put it , so many books, so little time to read.There are still thousands of books in the world I haven't read yet. 
+ Also, the best course of technique I should use when I happen to read Atwood's other books and others books which have little resemblance to her style would be a matter of full concentration ( regardless of how poor my reading comprehension skill is .) Then, I will seat myself at a coffee table with a voluminous dictionary and colorful highlighters scattered around , par for the course in my reading repose. Ho-ho! 
+ P.S . It is now being adapted for a TV series broadcast live on Hulu.
+---
+review_id: 48bba4d3833417808baea4ad466aaef0
+book_id: 8490112
+n_votes: 5
+review text:
+Karou e Akiva ,,,una volta un angelo si innamoro di un demone,,,,,non fini bene 
+ Fantasmagorico,sorprendente con una protagonista indipendente,curiosa e con il dono del'arte nelle vene! 
+ Sotto il cielo di Praga e tra i vicoli di Marrakesh si rivela la storia di un grande antico amore,,,,,,che sopravvive con la magia
+---
+review_id: 0f0640d1f1d57112611d3e9e0712314b
+book_id: 10917
+n_votes: 0
+review text:
+Picoult does it again--makes every side compelling and believable and every character fully human and understandable. The suspense makes it very hard to put down for a moment. Loved it!
+---
+review_id: aa13a7cdc3811c5fddf76fafc2afe540
+book_id: 16068905
+n_votes: 2
+review text:
+Between this and 'Simon vs. the Homo-Sapiens,' I'm beginning to like YA contemporary!
+---
+review_id: 560333ccc2045d72317b15e63a624fdb
+book_id: 10964
+n_votes: 0
+review text:
+Interesting. I did watch the series fro Starz and it helped visualize the book better.
+---
+review_id: e9af8b7f61ed016df4d4307c03dc7771
+book_id: 7445
+n_votes: 0
+review text:
+Wonderful book and very uplifting to know 3 of the 4 children have successful and happy lives.
+---
+review_id: c9600b3240e48d30de6078550920fd20
+book_id: 16101128
+n_votes: 0
+review text:
+I was surprised at how much I liked this book because I don't usually gravitate towards science fiction. It wasn't perfect, but I did overall really enjoy it! I was pleasantly surprised in the fact that for a male writer, Yancey writes in the female perspective very well--and he writes some pretty kick ass female characters, so if you appreciate that as much as I do, check this book out. The only thing I didn't like about it was the fact that a lot of the characters were so emotionally detached. None of the feelings seemed genuine, and the characters barely mourned at all over the deaths of their loved ones. It was mostly about action--a lot of times in an in your face and blunt way--not so much about feelings.
+---
+review_id: c97e36637b42ddf346a012640f1cc09f
+book_id: 7171637
+n_votes: 0
+review text:
+It's a must read. If you're the type of person who wasn't compelled to finish the Mortal Instruments, this book will bring justice.
+---
+review_id: 374ca8b79bc982c3c839af7d90b0994d
+book_id: 11505797
+n_votes: 2
+review text:
+Omg I loved it. I. Loved. It. It took me so long to read this book and it took me even longer to get my hands on it but it was so worth the wait. Every page, every emotion, every volatile fight. I loved. This book is written with such a fire and romance that I fell in love with Travis just as quickly as Abby did. There is something about their relationship that is reminiscent to some of the others I read but just...better. 
+ I felt the emotions as I read the book, maybe I'm just a sucker for devastated bad boys but I just felt this story and connected with this story like I'm not able to most. The characters were emotionally charged and it made the story come to life. I know that a lot off people disliked the book for the very reasons I liked it, because of the incessant arguing but it was real to me. There was a realness to their arguments and they all seem warranted even if unnecessary. The dynamics between characters created the arguments and I loved and hated every minute. 
+ I'm trying to calm myself before I start the second but I'm so excited. McGuire just created a Travis Maddox fanatic in me with little effort. Two thumbs up.
+---
+review_id: 0bbde1b2d01f5989991c2b79a1373368
+book_id: 17333223
+n_votes: 0
+review text:
+"The Goldfinch" is about a thirteen-year-old boy, Theo Decker, who is in the Metropolitan Museum of Art in New York when a bomb explodes during a terrorist attack. His mother is killed. While escaping the chaos and destruction, he steals a priceless painting, The Goldfinch, by the Dutch master and student of Rembrandt, Carel Fabritius. Throughout the book, and throughout the early part of his life, Theo ruminates about his mother and her death. He is also guilt-ridden and tortured by the stolen painting, which he hides as he moves to different cities. For three-fourths of the book, it was a page tuner, especially the early adventures of Theo and his Russian, drug-addicted friend Boris - a charismatic bad boy. Theo also has a drug/alcohol problem. Then the novel began to bore me. I left it for a while to read another book, and when I got back to it, it still bored me. The novel contains too much: too many descriptions, too many situations (some of which seemed unnecessary), too many diversion, and too many characters, though some of the characters are involving. One thing I liked about the novel was Donna Tartt's creative word choice: cicatrix, columbarium, etc . This book, however, could use some editing. Yet it is immensely popular, and has been on the LA Times and the NY Times best seller lists for months.
+---
+review_id: bd02d46f5a4d7c510c1d507fc3fc20de
+book_id: 7445
+n_votes: 0
+review text:
+I couldn't get enough of this. It was heartbreaking and fascinating, and totally opened my eyes to how some people live - and how I need to be thankful for the roof over my head, the food on my table, and healthy relationships. I loved the different layers in each page - tragedy, strength, humor and warmth. It is such a good read and one that will make you think differently about your own life and family and your abounding blessings, no doubt.
+---
+review_id: a10e24e1ddd178cc31a2bf98c108a9f4
+book_id: 8306857
+n_votes: 0
+review text:
+One of the best books I have read in my life. Definitely a page turner
+---
+review_id: 9c5b8447ba753950d88baf80621c4ef9
+book_id: 1885
+n_votes: 0
+review text:
+Seems weird that I haven't read PNP before now. I did enjoy it, and am anxious to read some others
+---
+review_id: 8d25a386da31635204faa0ffbaeb721b
+book_id: 18774964
+n_votes: 1
+review text:
+I loved Ove before I finished the first chapter. He is the very definition of curmudgeon. I adore his strict moral code and ideas about the way things should be. People insist on mistaking his actions as caring when it is just the way he does things. :) He can't believe the way the world is. 
+ "An entire society where no one knows how to back up with a trailer. Then they come telling him that HE'S not needed anymore." 
+ He is also a man who feels such deep feelings that he can't really deal with them. 
+ "He was a man of black and white. And she was color. All the color he had."
+---
+review_id: cc5586be30ac96252563fddd170b9d5d
+book_id: 8490112
+n_votes: 1
+review text:
+This book was amazing! The plotting was impeccable. I wasn't expecting something with so many layers. The first half of the book is so different than the second half but the author fits them perfectly together. 
+ Beware, there is some language and some sexual content (More implied than actual scenes). 
+ I wouldn't let my teenagers read it, but I would recommend it to adult friends.
+---
+review_id: b07c73f869ef68a9d2dab27cb35ff2f9
+book_id: 22628
+n_votes: 0
+review text:
+charlie is such a cutie.
+---
+review_id: b7b0d957a1362210cbb1566dd7f38e39
+book_id: 3
+n_votes: 0
+review text:
+It's the beginning of a journey. It's the complexity of growing up and Harry is an excellent hero. So many people have said it better than I can. It's not just a children's book! Read it and get hooked!
+---
+review_id: a9a604234f4f48dd7334499588685433
+book_id: 6
+n_votes: 0
+review text:
+This book is on the bibliography of books challenged, restricted, removed or banned in 2007-2008 put out by Robert P. Doyle and the American Library Association. More info at http://www.ila.org/pdf/2008banned.pdf
+---
+review_id: 8a09ccd439001cd434019f2292dc99c6
+book_id: 18214414
+n_votes: 0
+review text:
+I enjoyed this second book following Strike and Robin solve a missing person turned murder. Strike is not very likable but I like the fact that he doesn't care that he doesn't take the time to visit his godson. He is apologetically himself but that is refreshing and also kinda sad. He could push himself to do more and let more people in and he might find some more happiness but I don't think he really cares. He is smart and he does care about his clients and Robin. I'm going to continue to read any books that come out in the series and see where they go.
+---
+review_id: 947756fe9e1b5877521ce84cb73ce60f
+book_id: 11505797
+n_votes: 0
+review text:
+I really enjoyed this book. The first half was amazing for me and while I wish the characters were a little less messed up, I still loved them all. Maybe it's because I have never been in any kind of situation like this but I think that it was still entertaining.
+---
+review_id: b0f3eb5d0a2862472e08b7a3b8d982a9
+book_id: 10917
+n_votes: 0
+review text:
+Super sad
+---
+review_id: 7909136cfb7641294b78a7a9cd10f5af
+book_id: 28187
+n_votes: 0
+review text:
+This was both my son's favorite book and (2 years later) my daughter's favorite book, so I read it. A great modernization of the Greek myths. I love that, after reading this series, my daughter is a mythology buff.
+---
+review_id: 6476472b44a179b3c4c73815acc7aa6e
+book_id: 17333223
+n_votes: 0
+review text:
+As ambitious as this novel was (read: LONG), and as much as I liked it, I'm probably not going to invest the time to reread it if it ever gets selected for Book Group. At the beginning, when Theo is in the museum after the blast, I felt like I was in his head, as the narration went on for pages and pages, describing the aftermath. The mood of the book reminded me of Incredibly Loud, Impossibly Close, or whatever the name of that was. Both books captured the horror of the two events. When Theo first meets Hobie, it doesn't ring true to me. There's too much left unsaid. Theo's a kid, I get that, but Hobie didn't act like an adult. Although told from Theo's perspective, the observations are sometimes way too mature, even for a gifted teenager. Theo and Kitsey are all wrong for each other, and why the engagement is still on after his year of travel doesn't make sense to me. Somewhere near the end, the writing became tedious to me, long sentences, all the same, lists of things. Very much like the last sentence I wrote. However, in spite of all that, I did love the book. I couldn't put it down, reading well into the wee hours. Some of the observations about life and beauty and the meaning of it all at the very end brought me to tears. Thank goodness I read most of it during a snowstorm when there were few distractions.
+---
+review_id: c22075142e3429c029ebc3470e267216
+book_id: 4214
+n_votes: 0
+review text:
+Amazing book. Easy to read, but no simpliest. Beatiful story... I thought it wold be more about god and less about human nature, but it is more about human nature. I loved it.
+---
+review_id: df8c2ab963b72c6363eae8971b4a1d32
+book_id: 16101128
+n_votes: 0
+review text:
+After I finished THE FIFTH WAVE, I spent several days recounting the book in my head, unable to read anything else. I had heard great things about Rick Yancey, but I had never read anything by him. Let me tell ya, I will be one of the first to pre-order #2 when it is announced! 
+ Full Review: http://chickloveslit.com/2013/04/revi...
+---
+review_id: 19169abdb03ab1809c1b9b76a1345fe6
+book_id: 4214
+n_votes: 0
+review text:
+Bravo Bravo Yann Martel.
+---
+review_id: 7e8c22e8e050efaed3ded5b5ef292cc3
+book_id: 9969571
+n_votes: 0
+review text:
+Such a good book! Couldn't put it down!
+---
+review_id: cd4a648427f915e8aaef89b4890eeb94
+book_id: 7445
+n_votes: 0
+review text:
+Sad book but very inspiring.
+---
+review_id: e01ea97eb86fa6c1403f69277339ede0
+book_id: 1582996
+n_votes: 2
+review text:
+Puo rivelarsi un fantasy cosi superlativo???? 
+ certamente se a scriverlo e una donna che rende quasi reale un mondo completamente immaginario!
+---
+review_id: 9836952102129c96de4cfc2ff6aebf88
+book_id: 3
+n_votes: 1
+review text:
+I came into this book series late -- I was nearly an adult when I cracked open the cover of this book. Reading it, though, made me feel like a child again. This is one of the few book series I hate to put down as I read at night. I will literally keep going until my eyes droop, no matter how late it is. 
+ Reading this book after finishing the series, I can see where Rowling lays the groundwork for everything to follow. Some of it is less than obvious, such as Harry's observations that there are times he suspects Snape might be a mind-reader. Even the Sorting Hat's attempt to place him into Slytherin takes on an entirely new meaning after the final book. 
+ My encouragement is -- if you've read this series only once, read it again. If you've never read it, read it. Get lost in it. Laugh over it. Cry with it. Rowling is a best-seller, and one of the greatest childrens' authors of our time for a reason. 
+ If you're a Christian and hesitant about "the magic," toss your reservations out the window. You'll be dumbfounded at the Narnia-esque symbolism spread throughout the books. (There's a reason J.K. Rowling can't resist picking up a Lewis book, and she pays homage to him here in a multitude of little ways only those familiar with Narnia will understand.)
+---
+review_id: bd35fb501ed7ee123ee7fcecef624c84
+book_id: 8490112
+n_votes: 0
+review text:
+Loved. Loved. Loved. When is the next book coming out???
+---
+review_id: 5555afe5ad55e6042408c818e33caf50
+book_id: 22628
+n_votes: 0
+review text:
+in one word: brilliant!
+---
+review_id: 7341d8cd102744f0bc72c49c30722d1e
+book_id: 16068905
+n_votes: 0
+review text:
+This was a fun and easy read, but I wasn't as impressed with it as I wanted to be. It was fun to relate to Cath over her love of certain series of books about a young wizard. I loved Levi, but he was a little too perfect. Cath was borderline neurotic, but in ways that were relatable. That said, I'm not crazy about the pacing. This is a pretty long book. It covers nearly a full year, so I know that a lot happens, but it could have been cut down a bit and that would have been OK.
+---
+review_id: c3fd0070dce4f553dfdae1edac0ae41d
+book_id: 22628
+n_votes: 2
+review text:
+A pesar de que ya vi la peli, fue una sorpresa grata leer muchos detalles de la vida de Charlie, cosas que terminan de unir el rompecabezas y entender que le pasaba, y por que era tan "especial". Una historia de descubrimientos propios de la edad de los personajes, cargada de fuertes experiencias, sin duda lo recomiendo para adolescentes.
+---
+review_id: 7ef6e393973bbe38960933cf6095fade
+book_id: 7171637
+n_votes: 0
+review text:
+No disappointments here! Will is such an ass, don't you think? (of course you will just have to read it to know what i mean)Tessa Gray is a young warlock (maybe), though she does not yet know it, all she knows is that a visit to her brother is long overdue. She is then thrust into the shadow world, without a leg to stand on. The poor girl is so lost and she is found by shadowhunters, and rescued from almost certain misery. It is not until reading a book in the institute library that miss Gray shall learn at least a piece of the truth; but first she shall be half frightened to death by a Silent Brother. DUN, DUN, DUUUUUN! absolutely stunning imagery. 9/10 clockwork angels.
+---
+review_id: ff3735d0b6e299e91bbe92d63a6a259f
+book_id: 3
+n_votes: 0
+review text:
+I didn't think I would love a children's book so much but this book was so good. It had me hooked for all the rest of them.
+---
+review_id: 51be4f59f09768155e4ead4af2acb059
+book_id: 16248068
+n_votes: 0
+review text:
+Elite, the second book in The Selection trilogy, was not as good as the first book.The main character,America, drove me nuts throughout the majority of the book. It seemed as if characters like Macon changed quit a bit. The ending was probably the best part of the book because America was put back into her place and didn't constantly make stupid mistakes or just was making ridiculous decisions. As I said in my first review about the first book that this is like the bachelor but with a twist and not as much drama well the second book had a lot of drama. Even though I didn't like this book as much I'll more then likely read the last book to see what all happens but if u don't like characters driving off the wall don't read this book.
+---
+review_id: e6d45e970bc1049afd601e5d29d2ba4a
+book_id: 11505797
+n_votes: 0
+review text:
+More like 4.5
+---
+review_id: 62ae6c36b2bc51d87d1f3df396c5dff4
+book_id: 18214414
+n_votes: 0
+review text:
+The "ick" factor in this book is really high. The book within the book really made me feel sick when parts were exposed to the reader. I really like Cormoran and Robin, though, so I kept on reading.
+---
+review_id: 26ce091ddcb92b27c99be30031ee8b96
+book_id: 2429135
+n_votes: 0
+review text:
+Great book! Everyone's right, it starts a bit slow, but it wasn't a boring beginning by any means. Now onto the second one!
+---
+review_id: e15a22939d489ca5440913486ae9d545
+book_id: 24817626
+n_votes: 0
+review text:
+I've just finished this, but I'm still trying to get my head around how I actually feel about it. I'm attempting to treat this as a completely separate entity to To Kill a Mockingbird. I think I'll have to sleep on it to decide how I feel I should rate it.
+---
+review_id: a413ea43fe4710d44b1970d627e3bbee
+book_id: 3153910
+n_votes: 0
+review text:
+Great book!
+---
+review_id: 88180c57895d0690cb010239d66c0800
+book_id: 16248068
+n_votes: 0
+review text:
+Things heat up as contestants go home and the field narrows. Teen Bachelor drama to satisfy those who seek it. As an additional twist, it looks like the king and queen are not what they seem on the surface.
+---
+review_id: f54a45681d70823322cbf2f153ada7af
+book_id: 28187
+n_votes: 0
+review text:
+2013 - Listened to this on the road trip from Colorado to Oregon. Great travel book. All the kids really enjoyed it. 
+ 2008 - What a fun way to review your greek mythology - or to learn it. 
+ My 9 year-old loves these books, and I quite enjoyed them too.
+---
+review_id: 598a27d8443982b47e213783dd105203
+book_id: 6288
+n_votes: 0
+review text:
+Can a story be depressing in a good way? Apparently it can.
+---
+review_id: 6a1add0a552f66a091cbf483866d457f
+book_id: 16248068
+n_votes: 0
+review text:
+The Elite continue and 6 ladies remain to become the Princess of Illea. As for America Singer, she still confused and need times to think whether she want or capable to be the Princess of Illea. 
+ There's a lot of conflict between Maxon and America and I'm quite annoyed when America need more time to think because she confused from Maxon's behaviour which he suddenly became closed to Kriss and the incident between him and Celeste. 
+ I like this book despite it was kinda annoying storyline. I do really hope that the last book will be a good ending for this trilogy :)
+---
+review_id: 6b7de5281d0252d3c58923039be25939
+book_id: 18774964
+n_votes: 0
+review text:
+In the hands of a less competent writer, this could have been a really tacky book. But it wasn't. It was true. Maybe I could relate to the narrowness of Ove's psyche. Maybe his decency allowed me to look beyond his anger. Whatever the reason, I loved spending time with these characters. Having just attended the wake of a friend whose sudden death rocked my husband and me, the portrayal of grief in the book seemed very real. Ove, thinking of his wife, "And one Monday she was no longer there." Only for us, it was one Sunday he was no longer there. Scary.
+---
+review_id: 2def406dbf8cc4fff5f089729d3b30b7
+book_id: 7445
+n_votes: 0
+review text:
+4.5 stars. Fascinating, highly readable dysfunctional family memoir.
+---
+review_id: fdc8f9729410d7df82a5dec244bc3b46
+book_id: 8306857
+n_votes: 0
+review text:
+BLEW ME AWAY!!!! EASILY ONE OF THE BEST BOOKS I'VE READ IN A LONG TIME :) but oh dear God the guys who created twilight are doing the film adaptation of this. THEY BETTER NOT SCREW THIS UP OR THE ANGRY MOTHERFUCKERS OF THE DAUNTLESS WILL KICK THEIR ASS.
+---
+review_id: 4be89c2d8e737befe92bb80f1d22aff8
+book_id: 16096824
+n_votes: 0
+review text:
+Wow.. During the first two chapters of this book I thought I was never going to finish it and then Tamlin appeared and I was not able to put it down. Lucien is by far my favorite, Lucien is too good for this world, too pure. However, I am also fond of both Tamlin and Rhys. Actually all of the characters have such depts and backstories, I love each and every one of them. 
+ What an emotional rollercoaster this was. I have Court of Mist and Fury laying next to me so I can continue right away but I actually think I am going to wait until tomorrow with it to let it all sink and process in my mind because this was one hell of a ride and one I certainly enjoyed a lot. I am just a little mad about how super easy the riddle was to solve and that it took Feyre forever but considering I loved the rest of the book, I will forgive it.
+---
+review_id: 90f8183053f0237378c68d38fd03a1de
+book_id: 38447
+n_votes: 1
+review text:
+Excuse me? That ending? What do I make of that?!? So many questions. 
+ Basically the book's premise was greAt, just I had issues getting into the book as I don't exactly like Atwood's writing style and how much she jumped about. But after getting into it, it got better. 
+ but, SO MANY QUESTIONS!!
+---
+review_id: 6708d6affcd763d68f62f7f465329019
+book_id: 10964
+n_votes: 1
+review text:
+Probably my all time favorite book. I can't remember how many times I've read it!! 
+ The first time I read Outlander was back in 2003. I was working in Kansas City at a Medical school bookstore, and during the slow time of the day, I could be found reading miscellaneous novels. I will never forget the day one of the med-students came up to the counter and told me she had a really good book for me to read...(I believe she brought it in the next day) My life has never been the same since... 
+ I could not put the book down, and over the course of time, found the rest of Diana's series. Outlander is so much more than a romance book. It is about true love, devotion, selflessness, courage, bravery and raw emotion. The characters are SO realistic (and this carries on throughout the whole series) that occasionally I'd find myself thinking about Jamie and Claire during the times I was NOT reading, and I'd wonder how they were doing! 
+ The description of Scotland is so detailed, that I'd find myself wishing I could visit every single place Diana mentioned, and I know that many of her readers have actually gone there after reading her books too, so I am not alone in this idea. 
+ I don't even know how many times I've read Outlander, but I know whatever that number is, it will not be the last. No matter who asks the question, I will always say this is my all time favorite novel. 
+ Read it...you WILL agree. Everyone I've ever recommended the book to, has felt the same way. And now that I'm thinking about it, I believe it's almost time to re-read it again. 
+ If I could find that gal who recommended Outlander to me,(I think her name is Lynn) I would give her a huge hug and thank her!
+---
+review_id: 95f5af66d91932ca9fe21dbbd59fa37b
+book_id: 1217100
+n_votes: 0
+review text:
+When I first read the description of this book I was pretty skeptical. I found it available through my library via ebook so I thought I would just read it. I dislike reading about suicide but I don't feel that was the topic of this book. It was more about how our actions and words towards others really matter, good or bad. Sometimes we don't really realize what we say about other people or even to them, how much it really hurts. I think we could all learn something from reading this, including myself. I still believe that Hannah should not of taking her life no matter how bad it seems. Why she never talked to her parents? Or when she sought advice from the school counselor she seemed to not even listen and get the help she needed. Clay really cared for her and I think if she just gave him the chance she would see how much he did. My heart just breaks for him.
+---
+review_id: d16f2229ca2fa3e8921d1a64d9b4c76c
+book_id: 3153910
+n_votes: 0
+review text:
+This book really tugged at my heartstrings. If you love dogs, you might also love this book. I enjoyed hearing the story from the dog's point of view. An interesting technique: it makes you emotionally invested but leaves you feeling as powerless as Enzo as you watch owner Denny go through his struggles. 
+ I didn't find Stein's interpretation of a dog's mind to be particularly realistic, but it didn't make the book less enjoyable for me.
+---
+review_id: 49124de7e375201dc39a5b09f74e064e
+book_id: 6
+n_votes: 0
+review text:
+This is THE best Harry Potter in my opinion!!
+---
+review_id: 31eb21f08772e6255240fbc289050449
+book_id: 7171637
+n_votes: 0
+review text:
+There were definitely a lot of twists in the story. Definitely unexpected ones. I can't wait to read the rest of the series! Don't want to say too much for fear of spoiling it for ya'll.
+---
+review_id: c45ded3f13c3f26c1ed3ff17fdeda92a
+book_id: 10964
+n_votes: 0
+review text:
+I was slow to start this book because it's not a topic I'm interested in but I really enjoyed it. 
+ Excellent! I should have been born in another era!
+---
+review_id: eabe09c08b90b9694a8a23b4b2b6ee39
+book_id: 1885
+n_votes: 0
+review text:
+It made me want to live in the olden times! Like Mr. Bennett, Lizzy is my favorite. I think every woman must read this. The last volume brought many instances of my eyes watering. This book is now very close to my heart, certainly!
+---
+review_id: ee420f661949f9d0530f7bd47851633f
+book_id: 3153910
+n_votes: 0
+review text:
+Very endearing characters. Contrived ending.
+---
+review_id: f90d489a3a71bc27e2310d2dd415a2e7
+book_id: 7171637
+n_votes: 0
+review text:
+...this book is magnificent... 
+ It held me tightly with each word...with each swing of a sword made by Will and Jem... 
+ ...I had not idea who the Magister was...and that is what is sooooo wonderful!!!.... 
+ Now I am on to the next in the series...
+---
+review_id: 4b86d9dc6f71fc5c79ef5b356afad0a9
+book_id: 6288
+n_votes: 0
+review text:
+The Book that Changed People's Lives 
+ Consider, if you will, the following: 
+ Blogs of People Who Loved The Road 
+ Conduit 
+ dewey 
+ Gautami 
+ Comments Inspired by The Road 
+ "I had this book sitting untouched for several weeks , once I opened the book a whole new scary world opened up to me. My thoughts are still running wild after having finished the book. My heart still aches. No other book has left such an impact in my soul as this one. This book is very thought provoking, and dismal but leaves the reader with a glimpse of hope." 
+ Reviews of The Road 
+ "[B]eyond the inherent technical difficulties of concocting the unthinkable, McCarthy has rendered a greater and more subtle story that makes The Road riveting." Boston Globe 
+ "[O]nly now, with his devastating 10th novel, has [McCarthy] found the landscape perfectly matched to his cosmically bleak vision....[E]xtraordinarily lovely and sad...[a] masterpiece... (Grade: A)" Entertainment Weekl 
+ "The setup may be simple, but the writing throughout is magnificent....McCarthy may have created a world where things are reduced to their essence, but he continually surprises by finding a way to strip them further." Chicago Sun-Times 
+ And finally, 
+ A synopsis from an ardent admirer of The Road (the editor, I think): 
+ "A man and his young son traverse a blasted American landscape, covered with "the ashes of the late world." The man can still remember the time before. The boy knows only this time. There is nothing for them but survival -- they are "each other's world entire" -- and the precious last vestiges of their own humanity. At once brutal and tender, despairing and rashly hopeful, spare of language and profoundly moving, The Road is a fierce and haunting meditation on the tenuous divide between civilization and savagery, and the essential, sometimes terrifying power of filial love. It is a masterpiece." 
+ Well. 
+ On to my own review: 
+ I found this book ridiculously boring. Before you accuse me of being a brainless action-addict, know that one of my favorite books is Moby Dick, and that I could read endlessly about the whiteness of the whale. I'm also a fantasy/sci fi/speculative fiction nerd, so the possible future McCarthy paints doesn't frighten me. 
+ I finished this book because it won a Pulitzer. I kept thinking I would discover the reason it did. After finishing it, I'm pretty skeptical about the qualifications of the Pulitzer committee. It's akin to Zen and the Art of Motorcyle Maintenance, set in the book of Revelation in the Bible. Yawn. 
+ But let me be honest. I haven't given it much thought since. I can't remember much except that the commas and apostrophes must have been on a Punctuation Guild strike, and that fully stocked bunkers after the apocalypse are awfully convenient. 
+ My point is, there may be much of literary value to The Road, but I don't really care what it is. Trust me, for a truly fantastic story about a dystopian future, do yourself a favor and read instead Oryx and Crake by Margaret Atwood.
+---
+review_id: 80f54e726c6de0d1ac9cca84e28bcf01
+book_id: 1217100
+n_votes: 0
+review text:
+Honestly this book was just pick up on a whim type of book but after reading it I felt like I was apart of the story! Suicide and Bullying is a large issue in the US right now and I feel this book should be a required reading for students! This book made me cry and realize that there are people out there who we effect without even realizing it. This book made me want to be more observant of teens out there that show the signs of depression and wanting to commit suicide! I'm going to get this book on tape and listen to it as if I received the tapes and hear her voice... This is a MUST READ for everyone!! Don't take people for granted and treat people with RESPECT this book teaches us a lot while opening our eyes to how rumors can really hurt a person!
+---
+review_id: cc99ee36ae786c80d899866ffae622ad
+book_id: 28187
+n_votes: 1
+review text:
+I saw on TV about all the hype surrounding the last book of the series as it was being released, and decided to give it a try. This series is written for children, middle school children. 
+ I really enjoyed it. Of course, the reading level was way below me, but Riordan is a clever writer. He includes jokes for all ages. They're subtle and remind me how fun it can be to read fantasy/adventure novels. I also got a kick out of all the mythological allusions, testing myself as I read. I think I might need to brush up on it before I get too much farther in the series! 
+ I'm finishing the series. I'm enjoying these books and am reminded of the way I felt as I read the Harry Potter series for the first time.
+---
+review_id: a1377a59682bbdd97a3e31daa3daf8b5
+book_id: 18214414
+n_votes: 0
+review text:
+I liked the development of the relationships between Strike and Robin, and seeing more of the elusive Matthew. I did not like the mystery at all. EWWWW. Way to gruesome for me.
+---
+review_id: 176457484f9d980a992ec28ae6c4fc42
+book_id: 8490112
+n_votes: 0
+review text:
+I have mixed feelings about this book. The writing is good and I was totally engaged. I like the Karou/Zuzana relationship and banter. There is this mysterious guy Karou runs errands for and she can't tell Zuzana about him and isn't supposed to ask questions. I like the tough Karou who moves between her two lives smoothly, but with curiosity. Then this gorgeous avenging angel shows up and boom! Instant connection. Love! Suddenly I felt like maybe I had read this book before. Think Fallen, City of Bones, Evermore just to name a few. I can also feel the lurking potential for a love triangle, which, as you know, is a concept that I feel has been thoroughly and exhaustively explored. The setting is an interesting idea, a world with Chimaera and angels in eternal warfare with portals into the human world. I will read the second one and see.
+---
+review_id: 2cb3e87a3709111123eaecd269ae87d3
+book_id: 7171637
+n_votes: 0
+review text:
+I really enjoyed this book. I loved Tessa's character. She had quite a bit of spunk and the relationship that exists between her and Will is heartbreaking. I am definitely a Tessa/Will shipper. I also liked how everything in this world was introduced in a fashion that didn't just feel like it was canned and then handed out. It felt real and grimey and as though you were right there with the characters, walking the roads of London or exploring the institute. I also think that the villain, The Magister, is fantastic. Cassandra Clare weaves a story that is so easy to be drawn into and love that I will read this trilogy over and over and love it every time.
+---
+review_id: 9ae1084d21c3d4a942183175aca7b8de
+book_id: 11735983
+n_votes: 1
+review text:
+**2nd time reading 
+ I found that I enjoyed both Divergent and this book so much more the second time around. I'm not quite sure why. I love rereading books I love, because the second time you pick up on little details you didn't catch the first time. I really am in love with Four's character. And though the Tris-Four relationship was exhausting at times, and very frustrating, I had to picture myself as a girl whose world is crumbling around her, with family and friends being killed and never knowing who to trust. Then the relationship fits in a lot better. To want to curl up in Four's arms and disappear is not that unnatural of a thought, even in the midst of a crisis, because the poor girl is only sixteen years old! I would want to do the same thing. I loved it even more this time around, and I can't wait to read the third book and the short stories about Four! 
+ **Original Review 
+ This book is a roller coaster ride with twists you can't see coming! I didn't think I would be able to find a book (in the modern era... not talking about classics here) that could match my love for The Hunger Games. I'm still hesitant to say it does. But it is at least worthy of the 5 star rating. 
+ Divergent was good. Great even. It started off a little too YA for me, but soon developed, "grew up" if you will, into the dystopian novel I wanted to read. 
+ Insurgent was action packed. It had twists in it. You didn't expect certain things to happen. And they were things that were well done. Not just twists tossed in to throw you off, but twists that made sense. 
+ The underlying themes are not new, but they are still powerful. Dystopian lovers read this genre for a reason. Not for the teenage romance, not for the happy ending.... but for thought provoking situations in a world gone terribly wrong. There are situations that make you weigh decisions in ethics and morals and inspire you to consider human nature and power and peace and war. 
+ I loved Divergent, but this second one in the series really captured me. I'm finally able to stop thinking about Katniss and Panem and those thought provoking scenes. I have a new series, thanks to this amazing debut from the author, to also ponder on. 
+ There will be those who criticize it and hate it for what it is, but I guarantee there will be so many more who love it!
+---
+review_id: 07bdcda8ddebf48f4f1308c7749a219d
+book_id: 8490112
+n_votes: 0
+review text:
+The book starts off a little slow, building the characters and the worlds. Once the true story starts it is wonderful. Very unique story line. Loved it!
+---
+review_id: 7392f546bbf15107c38316a215cab481
+book_id: 38447
+n_votes: 1
+review text:
+Okay, so here's time number three through. And maybe I'm getting...I don't know...but I lowered my score on this one from "it was amazing" to "it was okay". Why? I'm not quite sure. I just was a bit too disturbed by it. I didn't like what was happening to Offred. Don't get me wrong, I was rivited to the story, but I didn't like the story. Maybe that's the point, but I'm still lowering the score. So there.
+---
+review_id: 88e7adf0c1c74d79ef7f606c3b375867
+book_id: 28187
+n_votes: 0
+review text:
+*Listened to the audiobook, but was able to pay attention. 
+ This was such a cute read/listen! Unexpectedly full of humor and little one-liners. 
+ Made my daily commute so much better.
+---
+
+Return the top 5 most loved books ('book_id') from the provided dataset using the Semantic Consensus Score (SCS).
+To calculate the SCS for a book: first, analyze the content of each review and assign it a Semantic Polarity Score (SPS) ranging from -2 (highly negative) to +2 (highly positive). Next, group the reviews by book and sum the SPS values for each book. Finally, multiply this base sum by the total sum of (n_votes + 1), but only counting the votes from reviews that received a positive SPS (+1 or +2). Rank the books in descending order based on their final SCS.
+To resolve ties, order books by their id in descending order.
+
+Your output must contain only the required list of book_ids.

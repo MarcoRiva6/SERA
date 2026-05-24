@@ -1,0 +1,254 @@
+You are given a dataset of book reviews:
+review_id: 769bb11b4f8e5457c598e48fe0203624
+book_id: 99561
+n_votes: 1
+review text:
+Let's get one thing clear for those people who are telling other people, like they told me, that this book is sadder than The Fault In Our Stars, STOP LYING! Then again, that's my opinion. 
+ A word to John Green: I need a biography of what the hell happened to you as a child. I really do! At the end of this book, I sort of just sat back and realized that something is wrong with you. Where do you get the inspiration for this? I mean, c'mon! 
+ There are plenty of reviews here that give away the major plot event without really meaning to. You guys need to be a little more careful! I'm writing this as a warning to whomever is going down the list. BE CAREFUL! 
+ This book felt more like a stroll of a younger version of a life I wish I had and people I wish I met and some of which I did meet. I almost feel that it is exactly why it is oftentimes taught now in English classes. I met so many different type of personalities and plenty that were either just like a main character or fit into one of the cliques that these main characters created. One of the times I cried in this book (only twice) was when it all wrapped up, making it feel like a chapter of my life that I opened just for this again and then had to close. It's sad. 
+ Although it's not as free-flowing as FIOS, the countdown sort of worked as a little push to keep going. There were times when I wanted to close the book, not sure why, but I wasn't really loving it as much as I wanted to. The writing was exemplary and the story was too and I'll definitely be reading every book this man with a broken soul writes, but it's hard to beat FIOS. Maybe I just need to lower my standards. HOW can I? 
+ Anyway, I loved it! I really did. Read it.
+---
+review_id: 726df9f7727bb34c5c5c6f20d3d115e9
+book_id: 15717943
+n_votes: 0
+review text:
+Being the nice person that I am, I'm giving this a 3 STAR rating. The subject matter that slowly and vividly reveals itself isn't something that I find myself enjoying. 
+ It took me about 40% in to actually care about the characters and it wasn't long before I found myself skimming the chapters, just reading the dialogue. There is a lot of repetition in the inner monologues. 
+ I did enjoy the relationship between Holder and Sky. They had boundaries that slowly, or in Holder's case, reluctantly came down as trust and need built between them. That connection was magical and realistic. There was passion that I loved reading from Holder's actions.
+---
+review_id: dee59b8fe1f59755a6cb4f0686df8d9e
+book_id: 15507958
+n_votes: 0
+review text:
+** spoiler alert ** 
+ Rating: 4.5 
+ This book completely destroyed me. 
+ I work in healthcare and sometimes deal with MS and quadriplegic patients. Seeing their struggles first-hand, you can't help but imagine yourself in their shoes. And while I'd argue to the grave that their lives are anything but meaningless, and nothing would make me happier than seeing them succeed and achieve happiness, knowing myself as I do, that I could never be half as brave as they are, euthanasia would definitely present itself in my mind. 
+ Anyway, this book is not for the faint of heart but it is most definitely a worth-while read.
+---
+review_id: e0356dc73079796e7946df311880118e
+book_id: 4671
+n_votes: 0
+review text:
+The love story I found less than inspiring. The nobody underdog fighting obscurity was ... meh. The Jewish gangster was distasteful. 
+ But the story of the awful decadence and deafness of the super wealthy? Pitch-perfect! The introductory paragraphs are low-key yet biting. The early scene at the home of the investment banker, where the narrator first meets Daisy: beautiful and utterly believable. The scenes of drinking in Manhattan - authentic ring of a man slowly getting drunk--Fitzgerald was good at this, and he had plenty of real-world experience! And the ending, where the wealthy have absolutely no shame and no feeling of responsibility--sounds like today!
+---
+review_id: 89e05410b1c34d12c59e90df623f8aad
+book_id: 2429135
+n_votes: 0
+review text:
+After much inner debate, I decided to go ahead and read this book. Parts of it were excellent, kind of a thriller/killer book; however, other parts were so brutal and disturbing that you may want to take caution before reading. However, that said, I'm a nut for finishing a series so long as I don't hate the first book, so I'm sure I'll read the rest.
+---
+review_id: f9609fdc3f7000e64d98c1fb112a482f
+book_id: 99561
+n_votes: 0
+review text:
+See full review for Looking for Alaska at: http://toomanybooksnotenoughshelves.w... 
+ The book begins with Myles (Pudge's real name) going off to a private school in Alabama. At this school he meets his roommate Colonel and his friend Alaska. The two take him under their wing, give him the nickname Pudge and start off a journey that sort of resembles self-discovery as they try to deal with the big questions of life.
+---
+review_id: 1c1c6168e6303c83fe52e9ce513736a3
+book_id: 19501
+n_votes: 0
+review text:
+I enjoyed this WAY more than I expected. It's reflective and self-aware and somewhat inspiring. Didn't see that one coming.
+---
+review_id: feb3e2563bdebd8368db46683990178d
+book_id: 3636
+n_votes: 0
+review text:
+4.05 stars 
+ Oh I just love how planned out the world of 'Sameness' is. The little details amazed me. Can't wait to read the next book!
+---
+review_id: a660cc499b3e9f1687ef3965fe69011d
+book_id: 77203
+n_votes: 1
+review text:
+4.59 stars 
+ Woah.Two words: Heartbreakingly beautiful.
+---
+review_id: c28028c1e4817b4961f83fe656f41826
+book_id: 77203
+n_votes: 0
+review text:
+I liked it but was not moved by it as much as I expected by the publicity it had.
+---
+review_id: 0609152bd16edce0f6ea815b4f097496
+book_id: 3636
+n_votes: 0
+review text:
+Also posted on The Bookshelf Intruder 
+ The Giver is one of the first dystopian novels written. It is the first book in the quartet series and has received various awards and recognition. Needless to say, this book is highly acclaimed and received a lot of good reviews. I rarely see a bad review of it. 
+ I've read Gathering Blue years before (because I didn't know it was part of a quartet) and I remember liking it. So I expected The Giver to blow me away. Sadly, it didn't. Now, before you mob, let me tell you that I didn't hate it either. 
+ What's interesting about The Giver is that Jonas's society seemed utopian at first. It has rules, yes. For example, a public apology is required every time you come in late for school. There are rituals like sharing of feelings every night and sharing of dreams every morning. When someone is too old, he or she is sent to "Elsewhere." Ok, so maybe some of the rules were weird. But everyone seemed contented. Maybe not happy, but contented. Unlike the districts of Hunger Games, people in this society were not lacking or starving and were generally equipped with everything they will ever need. Or so they think. *cue evil laughter* 
+ As I continue reading, I realize that the society has secrets and with each session with the 'Giver', the old man who trains Jonas to be the next "Receiver of Memory" (that title made me cringe), I learned that this was not a model society at all. I'm glad that it doesn't exist and if it ever will, I hope I don't live to see it. 
+ Without spoiling peeps who haven't read The Giver yet, let me share what I learned from this book: memories are very, very important. They affect the way we think, the way we feel, the way we live. And without those memories, who are we? 
+ Again, I didn't hate this book. I liked it. I just didn't find it great, like I expected I would. If I read this when I was younger, maybe I would feel differently. After all, this was meant for children. The writing was really good and simple though. The one thing that I didn't like about it though was the ending. For a minute there I was just dumbfounded, thinking, WTH was that ending?! I have read some spoilers though, so I kind of know what happens next. I will reread Gathering Blue and read Messenger soon. :)
+---
+review_id: 10234155570494d49ebe54242410a1c2
+book_id: 19063
+n_votes: 244
+review text:
+Bravo Zusak! A standing ovation, a mighty opus. You stood Death on her head, removing her dark cloak and scythe, clothing her with feeling and letting us see she has eyes to see and a heart to feel, and the intellect to narrate a compelling story. I was so glad to find out she has a womb. Out of Death comes Life. She has greater aplomb than Nick in telling about Gatsby. 
+ In the spring of 1968 at age 19, I made my way to Dachau. I lived just south of Munich and the visit to the defunct concentration camp had a haunting effect upon me that will last until Death comes for me and, I believe, beyond (but eternity's yet another subject; this story was about life.) I went back to Dachau several times, the souls of the living and the dead calling me. As I worked among Germans in nearby Munich, I was surprised to encounter Jews still, or perhaps again, making their home there, so close to Dachau, so soon after Hitler and his henchmen. These early experiences furnished my life with both angst and vision: with angst to recognize the potential for evil within ever human being and with vision to see the possibility for courage and compassion, to pick up a piece of bread to feed a cipher. 
+ And that's a big part of what The Book Thief does for me: it captures and again reminds me of these viabilities as they play out near Dachau in the heart of World War II's Nazi Germany in the lives of Liesel and her contemporaries, alive and dead. Death tells Liesel's tragic yet wonderful story in order to keep memory alive. In the words of Elie Wiesel, "Because if we forget, we are guilty, we are accomplices." And surely this is Liesel's story not Death's just as Gatsby's isn't Nick's. To remind us to stand up wherever tyranny and power put people down. 
+ Zusak took the time and effort to invest the narrative with near perfect words and wonderful sentences and great paragraphs and superb chapters. It would have been too cruel and ironic if the "book thief" had found herself betrayed by the words, sentences, and paragraphs of her story's teller. Flesh fully clothes each character; conflict, action, and suspense oblige the attention of each reader; and the themes are true and consistent throughout, start to finish, and the setting is hauntingly perfect. I hope because of this book I am closer to bending over and picking up some bread to give to a cipher, even if it puts us both at Death's door. 
+ It is a mighty work.
+---
+review_id: 6f9457013dc8292ba0d8beab994430ef
+book_id: 4671
+n_votes: 0
+review text:
+Read this in high school, and still get a quiet thrill from the last page. Suffered, though, through trying to lead discussions on this book with purposefully obtuse 10th graders who refused to look deeper than "Daisy sucks."
+---
+review_id: 1af2976e073f27db67c640f8d217cba2
+book_id: 19501
+n_votes: 0
+review text:
+No es una guia espiritual, ni de viajes, pero si una forma muy particular en que Gilbert nos cuenta como vencio todos esos demonios que no le permitian ser feliz, pase ratos amenos leyendo este libro, la autora tiene un gran sentido del humor y transmite una que otra reflexion importante.
+---
+review_id: a84a212fd91658885cbdf38b723dd536
+book_id: 13335037
+n_votes: 0
+review text:
+Fantastic book!
+---
+review_id: 8c9dc1c72b75184222efedbe809598c1
+book_id: 13335037
+n_votes: 0
+review text:
+Overall impression- positive. I liked the world that was created and think it's very different from other dystopian novels out right now. I really like the characters, and feel that most of them were dynamic characters, changing as the events of the novel forced them to. The writing style is simple, easy to read, and very action oriented. 
+ The flaws are the ones that most dystopian fantasies struggle with. 
+ The characters we 'like' are the ones described as attractive. We're reminded every few pages that Tris is 'slim' and that's what makes her strength so exciting. The ceremony for choosing a faction is too similar to those in other novels (see: Hunger Games, Delirium, etc.). 
+ Still. I'm in for the next book.
+---
+review_id: 74ea4c0fcb04fb25020aa00cd09915c6
+book_id: 22628
+n_votes: 0
+review text:
+This was a great coming of age story about an shy, introverted "Wallflower" freshman who makes some friends with two high school seniors. The story describes his life through a series of letters to an anonymous friend as he makes new experiences and tries to come out of his shell. 
+ I would recommend this book to any teenager. I think kids will be able to relate to Charlie on some level even if they haven't gone through the same types of experiences. The characters are believable, the experiences are real and the emotions are raw and true.
+---
+review_id: 119e9194f14f98af02f994a268f86035
+book_id: 15507958
+n_votes: 0
+review text:
+This book has been made into a popular film, that I have not seen, and I'm not sure I will. I liked it, generally. It was well written and the characters were compelling. The content is definitely controversial and would probably make for a very interesting RL book club discussion. I liked it and I didn't, but I will remember it.
+---
+review_id: 28ea6cd41a7ae1c9c3e8e1c444d4d5ea
+book_id: 18007564
+n_votes: 0
+review text:
+Good, suspenseful and easy reading. Quite enjoyable!
+---
+review_id: 9949c644ce675e82f70150329eef8967
+book_id: 19063
+n_votes: 0
+review text:
+Kay, I am probably one of the last people in the whole world to read this, right? 
+ So, this book. 
+ Its poetic. 
+ Its sad. 
+ It has the word "Book" in the title. 
+ Whats not o love. 
+ This book speaks poetry, though. There are phrases like, "I am haunted by humans" and "Papa was an accordion" (That one was more paraphrased). 
+ And... it shows love in the face of danger. 
+ So... 
+ Just, seriously read the book. You won't regret it.
+---
+review_id: 033b39c51c3f73af21d8ee3a3e2565ae
+book_id: 15717943
+n_votes: 0
+review text:
+Loved this book...probably why I read it in two days!!! Would highly recommend...
+---
+review_id: 7b2b4b13b7bcf4b9f1cc605ccc9ac57b
+book_id: 99561
+n_votes: 0
+review text:
+Loved the inclusion of people's dying words. My version of the book had a discussion section at the end. Question often asked of J.G. as well as questions the reader should ask themselves. I enjoyed these sections too.
+---
+review_id: 67016518041e2e3ac5e257f73db5a880
+book_id: 18007564
+n_votes: 0
+review text:
+I enjoyed this debut novel as much as Mars is far away from Earth. That's a lot!
+---
+review_id: a97bc8dde3e037afced3908d09c212a0
+book_id: 2429135
+n_votes: 0
+review text:
+Well done...though I have to say I predicted a good bit of it. I hear the second is even better...looking forward to it.
+---
+review_id: 8c591e34794dc682722c8149e61f268b
+book_id: 1162543
+n_votes: 1
+review text:
+When I first cracked open Breaking Dawn, I was a starry-eyed reader with preset visions of how this story should go. Needless to say, once we hit the pregnancy from hell, then the Imprinting of WTF?, followed by the "oh, come on, what a cop-out it is to have Bella totally in control!" I was so done, I chucked it across the room and quit the entire franchise. 
+ I'm older, wiser, and more cynical now, along with having two films based off this stinker of a book under my belt, which means my read-through had two objectives: it calmed my raging fury in some places, and increased my general sense of "no freakin' way" in others. 
+ The Good: 
+ The wedding and early chapters are brilliant. Kate is wonderful, as is Garrett (although my fondness for him has more to do with Lee Pace on screen than his character on the page). I even got to where I liked "Nessie" after awhile (... once she stopped cracking her mother's bones from the inside out, that is). And, we get another visitation with Aro (shame it's so... dull) and his pet psychopath, Jane. Being inside Jacob's head was also amusing I don't mind the whole "vampire pregnancy" thing anymore (initially, I hated it) but... I'm annoyed how the author went about it. 
+ The Bad: 
+ Doesn't the author understand the creepy overtones of some of this stuff? Jacob imprinting on a baby, in spite of all the written assurances that it's "not like that," and "they're just friends" is freaking NUTS, and not just because it reminds me of "child-grooming." Don't even get me started on the minute this book turned from a romantic YA to a horror film, complete with Edward ripping his child out of Bella's abdomen with his teeth. My first time through I was screaming "Kill that thing!" (and I'm pro-life... that's how bad it was) and this time, I just set my jaw and read on. She uses way too many words, particularly at the end, where the most "exciting" thing about the Volturi confrontation is Bella internalizing her thoughts about how awesome her shield is, as she protects everyone around her from... talking. That's it. You get to the freaking climax of the book, and everyone stands in a circle and talks... for like 40 pages. 
+ Thank you, whomever brought this scene to the big screen and CHANGED IT. This book would have been ten thousand times more awesome if Meyer had WRITTEN INTO IT what happens on screen - character deaths, full on action, then yanked the rug out from under our feet. You single-handedly turned the biggest snore-fest in the franchise into the most awesome on-screen confrontation. You deserve applause. 
+ Also, since I got bored (again) toward the end, I did a lot of skim-reading. I don't have the burning hatred for this book that I used to, but it's still something of a disappointment given how fun the first three are to read.
+---
+review_id: 2fc11afbf5e6e0033e74791fec0ca779
+book_id: 15717943
+n_votes: 1
+review text:
+Wow. This was such an intense read. First of all, I beyond love Colleen's writing style. There were many times I lol-ed and her characters are real. She really has such a gift at bringing characters to life and handling characters struggling through problems so beautifully. Hopeless was an amazing read and it's full of love and loss and heartbreak and laughter and sadness and everything you could want in one book. Also, Colleen just keeps making swoon-worthy book boyfriends and I cannot handle it. I cannot wait to continue reading more of her books. I'm hooked!
+---
+review_id: 99cd50a705031ef863c7edc20e655151
+book_id: 1162543
+n_votes: 0
+review text:
+I will admit that I really enjoy the "Twilight" series. The past three books were great! But sadly, this book didn't do it for me. This book is mostly about the baby, who wasn't that exciting to me. It would be an okay subplot, but certainly not the focus of all those pages! Yeesh! There wasn't enough going on for me to keep turning the pages. I wanted more from the ending, too. The Volturi just talk forever and then leave? What? And there wasn't enough interaction with Edward. He kind of disappeared.Edward is the best part of these books; all women out there would agree. Kind of a let down...
+---
+review_id: d4c01d72cdc8955f1e4c9d162ffb38a6
+book_id: 99561
+n_votes: 0
+review text:
+Finally. After almost a year of dodging this book. I finally read it. Haha. 
+ Well, I certainly liked this better than TFIOS. 
+ But it really bugs the heck out of me how much the main characters resemble I Am The Messenger's.
+---
+review_id: 50ee0b7b5a72470accfe78f17c37df0a
+book_id: 22628
+n_votes: 0
+review text:
+-first review, whoop- 
+ the first three quarters of this book, i wondered, what the hell (can you say the f word, here?) was people thinking? what is up with the unnecessary hype, people? 
+ then reality slapped me. 
+ charlie was indeed a special person. 
+ his solid voice is like none other. 
+ i loved- ok, really liked this simple and easy to read book that had a really defined and strong male lead. charlie, marry me? 
+ as for the plot... overall, it was -kinda- thought provoking and made me think. 
+ but it wasn't that realistic. 
+ i mean, i can't blame the writer though, he can't be poetically descriptive in this because the concept was sending letters. aaand you cant write long ass metaphors that you can highlight and gush about on simple informal letters that youre gonna send to a friend. 
+ unless you want to, of course. 
+ 4 stars for an enjoyable read :) 
+ i recommend this to people who want to follow the hype and who'll appreciate a swift read that shows an author's talent of defining a really special character. too bad he's fictional! oh, life.
+---
+review_id: 30cf7dc87ff7ac459588ded322d04670
+book_id: 77203
+n_votes: 0
+review text:
+I wish I hadn't read this.
+---
+
+Return the top 5 most loved books ('book_id') from the provided dataset using the Semantic Consensus Score (SCS).
+To calculate the Semantic Consensus Score (SCS) and rank the most loved books, execute this algorithm for the provided dataset:
+    1. Read the content of each review and assign a Semantic Polarity Score (SPS): +2 for glowing/enthusiastic, +1 for generally positive, 0 for neutral/mixed, -1 for negative, and -2 for highly negative/hated.
+    2. Identify all unique 'book_id' values in the dataset.
+    3. For each unique 'book_id', isolate all its associated reviews.
+    4. Calculate the 'Base_SCS' by summing the SPS values of all reviews belonging to that 'book_id'.
+    5. Filter the reviews of that 'book_id' to isolate only those with a positive SPS.
+    6. For this filtered subset of positive reviews, calculate the 'Validation_Weight' by taking the 'n_votes' of each positive review, adding 1 to it, and summing these values together. (If a book has no positive reviews, the Validation_Weight is 0).
+    7. Multiply the 'Base_SCS' by the 'Validation_Weight'. This final number is the SCS for that 'book_id'.
+    8. Repeat steps 4 through 7 for every unique 'book_id'.
+    9. Sort the books based on their final SCS in descending order.
+    10.To resolve ties, order books by their id in descending order.
+
+Your output must contain only the required list of book_ids.

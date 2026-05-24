@@ -1,0 +1,4 @@
+You are given a dataset of smartphones specs:
+{DATAFRAME}
+Return the top 5 smartphones models by 'smart_id' from the provided dataset rewarding those who have high battery and memory capacities, and penalizing those who are heavy or have an high energy consumption processor.
+Your output must contain only the required list of smart_id.

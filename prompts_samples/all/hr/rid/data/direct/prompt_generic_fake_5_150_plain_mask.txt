@@ -1,0 +1,155 @@
+Your are given a dataset of employees:
+ employee_id  Age Gender             Department   EducationField  Education  TotalWorkingYears  MonthlyIncome  MonthlyRate
+        1038   48   Male                  Sales        Marketing          3                 15           5486        24795
+         474   24   Male Research & Development          Medical          3                  6           2725        21630
+        1073   28   Male Research & Development    Life Sciences          1                  8           6549         3173
+        1167   35   Male                  Sales          Medical          2                  7           5440        22098
+         607   49 Female                  Sales        Marketing          3                  9           7654         5860
+         247   34   Male Research & Development    Life Sciences          4                 13           5957        23687
+         954   42   Male Research & Development    Life Sciences          1                 21          17861        26582
+        1379   27 Female        Human Resources  Human Resources          3                  1           2863        19555
+         692   32 Female Research & Development          Medical          4                  8           6725        13554
+         870   35   Male                  Sales    Life Sciences          4                 15           8966        21026
+         886   30   Male Research & Development          Medical          3                 12           3579         9369
+         710   33   Male                  Sales    Life Sciences          3                 10          17444        20489
+        1198   33 Female                  Sales    Life Sciences          3                  7           5368        16130
+         326   39   Male Research & Development          Medical          2                 21          19272        21141
+           8   38   Male                    NaN              NaN          3                 10           9526         8787
+          62   50 Female                    NaN          Medical          2                 29          18740        16701
+        1402   31 Female Research & Development          Medical          1                  1           1129        17536
+        1121   36 Female                  Sales              NaN          4                 15           6815        21447
+         735   48   Male Research & Development    Life Sciences          3                 19           4240        13119
+        1345   35 Female Research & Development              NaN          2                  4           4788        25388
+         636   35 Female Research & Development              NaN          4                 10           2022        16612
+         689   20   Male Research & Development Technical Degree          3                  1           2973        13008
+         951   41   Male                  Sales          Medical          2                 19           6151        22074
+         813   39   Male Research & Development    Life Sciences          3                 21          12169        13547
+         966   58 Female Research & Development          Medical          4                 31          10008        12023
+         869   46   Male Research & Development    Life Sciences          2                 25          19081        10849
+        1063   29   Male                  Sales    Life Sciences          3                 10           8620        23757
+         257   40   Male Research & Development          Medical          2                 22          19436         5949
+         767   37 Female Research & Development              NaN          3                  8           4107        13848
+        1236   36   Male                  Sales        Marketing          5                 16           6134         8658
+         919   59   Male Research & Development          Medical          4                 25          10512        20002
+         655   33   Male        Human Resources  Human Resources          2                  7           2277        22650
+         708   36   Male                  Sales Technical Degree          4                 12           5079        25952
+         497   44   Male Research & Development            Other          4                 26          19513         9358
+         156   51   Male                    NaN              NaN          4                 10           6132        13983
+         896   31 Female                    NaN              NaN          3                 10           6812        17198
+         304   39   Male Research & Development          Medical          3                 19           9613        10942
+          67   45   Male Research & Development    Life Sciences          3                 25           9724        18787
+        1132   40 Female                  Sales    Life Sciences          2                  5           4639        11262
+         730   30 Female Research & Development    Life Sciences          2                  9          11416        17802
+         368   40   Male                  Sales        Marketing          2                  8           6380         6110
+         201   49   Male Research & Development    Life Sciences          4                  7           6804        23793
+         962   51   Male        Human Resources    Life Sciences          3                 33          14026        17588
+         645   29 Female                  Sales          Medical          3                  5           2800        23522
+         179   38 Female                    NaN              NaN          2                  2           2288         6319
+        1216   43   Male                  Sales          Medical          3                 10           7847         6069
+         487   20 Female Research & Development    Life Sciences          3                  1           2836        11757
+        1436   21   Male                  Sales          Medical          1                  2           2380        25479
+         415   34 Female                  Sales        Marketing          2                  3           2351        12253
+         768   40   Male                  Sales        Marketing          3                  8           8396        22217
+         458   40   Male                  Sales            Other          3                 20          10932        11373
+         388   42 Female Research & Development    Life Sciences          4                  8           2576        20490
+         246   33 Female Research & Development    Life Sciences          4                  2           2911        14776
+        1398   33   Male Research & Development    Life Sciences          2                  9           5968        18079
+          63   59 Female                  Sales    Life Sciences          3                 28           7637         2354
+         466   41 Female                  Sales    Life Sciences          5                 22          16595         5626
+        1280   37   Male        Human Resources            Other          2                 19           4071        12832
+           7   30   Male Research & Development    Life Sciences          1                  1           2693        13335
+         583   34 Female                    NaN              NaN          2                  6           6500        13305
+         116   34 Female Research & Development          Medical          3                 14          11631         5615
+           4   27   Male Research & Development          Medical          1                  6           3468        16632
+         613   34   Male        Human Resources  Human Resources          2                  4           3737         2243
+         508   35   Male Research & Development    Life Sciences          4                 17           6646        19368
+         958   34   Male Research & Development    Life Sciences          3                 10           8500         5494
+         400   39   Male Research & Development    Life Sciences          1                 21          19197         8213
+         436   33   Male Research & Development          Medical          1                  8           3408         6705
+         805   45 Female                  Sales    Life Sciences          4                 15           5593        17970
+         196   35 Female Research & Development          Medical          3                 10           4425        15986
+         207   36 Female Research & Development          Medical          1                  8           2153         7703
+        1148   39   Male Research & Development          Medical          5                 10           5377         3835
+         285   37 Female Research & Development    Life Sciences          3                 17           2115        15881
+        1286   40 Female                    NaN    Life Sciences          2                  7           3377        25605
+        1407   24   Male Research & Development    Life Sciences          2                  4           4617        14120
+        1145   36 Female Research & Development    Life Sciences          4                  7           4663        12421
+         658   44   Male Research & Development    Life Sciences          2                  8           2559         7508
+         875   44   Male Research & Development            Other          4                 20           4541         7744
+        1282   33   Male                    NaN              NaN          4                 14           3143         6076
+        1218   41   Male                  Sales        Marketing          3                 10           9241        15869
+        1451   38 Female                  Sales    Life Sciences          2                 10           5343         5982
+         681   38 Female Research & Development Technical Degree          3                 15          13582        16292
+         450   31   Male                  Sales    Life Sciences          1                 10           6582         8346
+         288   26   Male                    NaN          Medical          4                  5           2373        14180
+         533   40   Male                    NaN    Life Sciences          4                 20          10475        23772
+         788   28 Female Research & Development              NaN          3                 10           3660         7909
+         164   27   Male                    NaN              NaN          3                  1           2566        25326
+        1404   42   Male Research & Development    Life Sciences          2                 20           4332        14811
+         244   45   Male Research & Development            Other          3                 25          19202        15970
+         194   45   Male Research & Development          Medical          2                 22          16792        20462
+         252   29   Male Research & Development              NaN          3                  6           2340        22673
+         821   49   Male                  Sales Technical Degree          4                 22          13120        11879
+         484   31   Male                  Sales          Medical          4                 13           5460         6219
+        1214   44 Female                    NaN              NaN          3                  9           7879        14810
+           6   59 Female                    NaN              NaN          3                 12           2670         9964
+         917   34 Female                  Sales        Marketing          3                  4           4538         6039
+         548   43   Male                  Sales    Life Sciences          3                  7           6804        23683
+         429   46   Male Research & Development    Life Sciences          3                 26          17861         2288
+        1018   36   Male Research & Development    Life Sciences          4                 10           5810        22604
+         105   59 Female                    NaN              NaN          4                 30          18844        21922
+        1005   29   Male        Human Resources            Other          3                 10           7988         9769
+         905   29 Female Research & Development    Life Sciences          3                  9          16124         3423
+         327   39 Female                  Sales          Medical          2                 12           5238        17778
+         313   33 Female Research & Development    Life Sciences          4                 12          11878        23364
+         726   31 Female Research & Development    Life Sciences          1                  4           4148        11275
+        1382   31   Male Research & Development          Medical          2                  4           3065         3995
+         425   50   Male                    NaN              NaN          4                 28          17046         9314
+         666   22 Female                    NaN    Life Sciences          1                  4           4171        10022
+        1014   31 Female Research & Development    Life Sciences          5                  9          16422         8847
+         346   41   Male                    NaN              NaN          3                  8           6032        10110
+         279   50   Male Research & Development    Life Sciences          1                 28          19144        15815
+         239   32   Male Research & Development    Life Sciences          3                  4           3730         9571
+         577   37 Female Research & Development    Life Sciences          1                  6           2782        19905
+         281   42   Male                  Sales    Life Sciences          1                 20           4907        24532
+        1143   45   Male                  Sales        Marketing          3                 10           4385        24162
+         990   33   Male                  Sales    Life Sciences          1                  8           9998        19293
+        1070   28   Male                  Sales    Life Sciences          3                  5           4898        11827
+         253   42 Female Research & Development    Life Sciences          2                 10           6545        23016
+         298   36   Male Research & Development    Life Sciences          4                  4           3688         7122
+         322   32 Female Research & Development          Medical          4                 10           5055        10557
+         912   26   Male Research & Development    Life Sciences          2                  8           2875         9973
+        1342   34   Male                  Sales    Life Sciences          3                  9           9713        24444
+         119   43   Male                    NaN    Life Sciences          2                 25          16959        19494
+         798   33   Male Research & Development          Medical          3                  5           2313         2993
+         721   50   Male Research & Development    Life Sciences          3                 22          13973         4161
+        1170   27   Male                    NaN          Medical          3                  6           2580         6297
+         640   24   Male Research & Development    Life Sciences          1                  6           3162        10778
+        1461   50   Male                  Sales        Marketing          3                 20          10854        16586
+        1183   36   Male Research & Development    Life Sciences          2                 13           6842        26308
+        1276   37   Male                  Sales              NaN          2                  5           4189         8800
+         422   19   Male        Human Resources Technical Degree          2                  1           2564        18437
+         939   32   Male Research & Development    Life Sciences          2                 10           4883        22845
+         572   29 Female                    NaN              NaN          3                 11           4335        25549
+        1150   35   Male Research & Development    Life Sciences          5                 16           5208        26312
+        1422   35   Male Research & Development          Medical          4                  5           2660        20232
+        1031   46   Male                  Sales        Marketing          3                 28          10096        15986
+        1460   29 Female Research & Development          Medical          4                  5           3785         8489
+         174   45 Female                    NaN              NaN          2                  9           5006         6319
+         269   36   Male Research & Development    Life Sciences          3                 16           3210        20251
+        1263   42   Male Research & Development          Medical          3                  7           2766         8952
+        1318   29   Male Research & Development          Medical          1                 11           3812         7003
+        1370   47   Male Research & Development Technical Degree          4                 16           5467         2125
+        1271   21   Male                  Sales        Marketing          1                  1           2679         4567
+        1393   27   Male                  Sales        Marketing          3                  7           4105         5099
+        1176   49 Female Research & Development            Other          4                 27          16413         3498
+        1444   56   Male Research & Development Technical Degree          2                 14           2339         3666
+         341   38   Male Research & Development              NaN          2                 12          11510        15682
+        1021   25   Male                  Sales    Life Sciences          2                  6           4400        15182
+          93   46   Male Research & Development          Medical          3                 21          10673         3142
+        1443   42   Male Research & Development    Life Sciences          3                 24          18880        17312
+         733   26   Male Research & Development          Medical          2                  8           5472         3334
+         374   28   Male                    NaN              NaN          4                  7           5253        20750
+
+Return the 5 least interchangeable employees to the target employee '269', considering their department, education field and level, years of employment and income.
+Your output must contain only the required list of employee_id.

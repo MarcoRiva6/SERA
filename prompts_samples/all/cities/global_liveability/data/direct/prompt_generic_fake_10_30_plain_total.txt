@@ -1,0 +1,36 @@
+You are given a dataset of cities, with various attributes:
+   City  Stability  Healthcare  Culture & Environment  Education  Infrastructure
+ City 1         90       100.0                   81.9       83.3            89.3
+ City 2         85        87.5                   58.3       91.7            96.4
+ City 3         85       100.0                   81.9       83.3           100.0
+ City 4        100       100.0                   81.9       91.7            92.9
+ City 5         35         NaN                    NaN        NaN             NaN
+ City 6         95       100.0                   58.3       91.7           100.0
+ City 7         95        95.8                   86.1       91.7            92.9
+ City 8         35        45.8                   59.3       58.3            64.3
+ City 9         85        66.7                   53.2       58.3            85.7
+City 10         75        70.8                   68.1       66.7            76.8
+City 11         65        41.7                   49.3       50.0             NaN
+City 12         45        41.7                   56.7       58.3            50.0
+City 13        100       100.0                   81.0       91.7           100.0
+City 14         95       100.0                   83.8       83.3            96.4
+City 15         50        45.8                   43.8       41.7            53.6
+City 16         60        37.5                   41.0       50.0            50.0
+City 17         75        66.7                   42.1       58.3            60.7
+City 18         95        91.7                   82.6       91.7            89.3
+City 19         55        62.5                   52.3       91.7            69.6
+City 20         50        41.7                   35.4       66.7            58.9
+City 21         75        83.3                   72.5       75.0            78.6
+City 22         95        95.8                   71.5       83.3            85.7
+City 23         65        70.8                   47.2       66.7            58.9
+City 24         20        37.5                   39.1       25.0            46.4
+City 25         70         NaN                    NaN        NaN             NaN
+City 26         95         NaN                    NaN       91.7           100.0
+City 27         40        66.7                   65.7       66.7             NaN
+City 28         95         NaN                    NaN        NaN             NaN
+City 29         75        25.0                   54.4       75.0            64.3
+City 30         80        62.5                   52.3       83.3            80.4
+
+Return the 10 best cities, based only on the provided data.
+
+Your output must contain only the required list of cities.

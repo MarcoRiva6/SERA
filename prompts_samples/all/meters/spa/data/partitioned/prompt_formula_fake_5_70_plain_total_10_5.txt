@@ -1,0 +1,9 @@
+You are given a dataset of household electricity consumptions:
+{DATAFRAME}
+Return the 5 LCLid who have the highest Sustained Peak Average (SPA) from the provided dataset.
+The Sustained Peak Average (SPA) score for a household can be computed as follows:
+    1. Initialize an empty list called 'daily_averages'.
+    2. for each of the household's rows, append the arithmetic mean of the 3 highest values of the array contained in the '3h_intervals' column to the 'daily_averages' list.
+    3. Compute the arithmetic mean of all values within the 'daily_averages' list: this value is the final SPA score for the household.
+
+Your output must contain only the required list of household ids (LCLid).

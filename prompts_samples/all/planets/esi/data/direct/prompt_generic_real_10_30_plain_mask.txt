@@ -1,0 +1,36 @@
+You are given a dataset of planets, with various attributes:
+            Planet               Type Detection Method  Mass (Me)  Radius (Re)  Flux (Se)  Tsurf (K)  Period (days)  Distance (ly)  Age (Gy)
+      Kepler-440 b K Warm Superterran          Transit      4.120        1.860   1.435638 307.806931     101.111410     981.827407      1.30
+          GJ 180 d M Warm Superterran  Radial Velocity      7.560        2.660   0.260244 204.720567     106.300000      38.945309       NaN
+      Kepler-442 b      K Warm Terran          Transit      2.360        1.340   0.699683 263.039166     112.305300    1193.616805      2.90
+          GJ 273 b      M Warm Terran  Radial Velocity      2.890        1.510   1.064477 291.670019      18.649800      12.348462       NaN
+          GJ 433 d M Warm Superterran  Radial Velocity      5.223          NaN        NaN 291.630098      36.059000      29.564606       NaN
+          GJ 682 b M Warm Superterran  Radial Velocity      4.400        1.930   0.313483 215.008938      17.478000      16.329685       NaN
+      Kepler-186 f      M Warm Terran          Transit      1.710        1.170   0.294700 211.904510     129.944100     579.233487      4.00
+         GJ 1002 b      M Warm Terran  Radial Velocity      1.080        1.030   0.673236 260.595805      10.346500      15.814228       NaN
+        LHS 1140 b M Warm Superterran          Transit      5.600        1.730   0.425226 232.236106      24.737230      48.878064      5.00
+      Kepler-296 f M Warm Superterran          Transit      3.890        1.800   0.439498 229.276521      63.336270     544.680520      4.20
+       HD 216520 c K Warm Superterran  Radial Velocity      9.440        3.030        NaN 304.941260     154.430000      63.770021      6.00
+         GJ 3293 d M Warm Superterran  Radial Velocity      7.600        2.670   0.588593 251.304031      48.134500      65.851875       NaN
+           K2-18 b M Warm Superterran          Transit      8.920        2.370   1.264154 302.734505      32.939623     124.026037       NaN
+      Kepler-155 c M Warm Superterran          Transit      5.650        2.240   1.052857 291.418983      52.661793     957.264598      2.90
+          GJ 163 c M Warm Superterran  Radial Velocity      6.800        2.500   1.251825 303.745620      25.630580      49.342510      6.00
+      Kepler-443 b K Warm Superterran          Transit      6.040        2.330   0.890088 278.800421     177.669300    2616.655003      3.20
+     Kepler-1540 b K Warm Superterran          Transit      6.760        2.490   0.776206 270.034850     125.413118     798.951738      2.51
+          K2-332 b M Warm Superterran          Transit      5.480        2.200   1.166542 298.985869      17.706320     401.830715       NaN
+        Ross 508 b M Warm Superterran  Radial Velocity      4.000        1.830   1.320491 301.859146      10.770000      36.563066       NaN
+       Kepler-62 e K Warm Superterran          Transit     36.000        1.610   1.151183 297.996788     122.387400     981.318603      7.00
+         GJ 1061 d      M Warm Terran  Radial Velocity      1.640        1.160   0.686780 246.575633      13.031000      11.978992      7.00
+     Kepler-1653 b K Warm Superterran          Transit      5.350        2.170   1.043990 290.803453     140.252400    2462.477800      7.70
+     Kepler-1649 c      M Warm Terran          Transit      1.200        1.060   1.226057 302.728405      19.535270     300.687456       NaN
+      Kepler-296 e      M Warm Terran          Transit      2.960        1.530   1.000607 281.634803      34.142110     544.680520      4.20
+        GJ 667 C f      M Warm Terran  Radial Velocity      2.700          NaN        NaN 249.223383      39.026000      23.626610      2.00
+        GJ 667 C e      M Warm Terran  Radial Velocity      2.700        1.450        NaN 213.292145      62.240000      23.626610      2.00
+      TRAPPIST-1 e      M Warm Terran          Transit      0.692        0.920        NaN 257.995351       6.101013      40.540828      0.50
+Teegarden's Star c      M Warm Terran  Radial Velocity      1.050          NaN        NaN 221.119159      11.416000      12.494319      8.00
+     Kepler-1652 b      M Warm Terran          Transit      3.190        1.600   0.841258 275.522943      38.097220     821.913120      3.20
+        LP 890-9 c      M Warm Terran          Transit     25.300        1.367   0.908576 280.876792       8.457463     105.771738      7.20
+
+Return the top 10 planets that are most similar to Earth.
+
+Your output must contain only the required list of planets.

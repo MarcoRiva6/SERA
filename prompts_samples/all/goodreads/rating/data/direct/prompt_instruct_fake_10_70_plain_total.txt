@@ -1,0 +1,506 @@
+You are given a dataset of book reviews:
+review_id: 82e08a545bff641e48ebf0c8a9d0c12c
+book_id: 9969571
+n_votes: 0
+review text:
+The idea of this book is brilliant! The execution is...tedious. If you speak video game lingo, then this will be right up your alley, but I was looking for plot. In order for the plot to proceed, the author must STOP interrupting every 2-3 pages (I kid you not) to explain some new element of this new world his characters are a part of. OMG! Get to the story! This is especially frustrating when (I'm spitballing here) 60% of the details provided about the Oasis, Avatars, and the competition for a vast fortune (which is the catalyst for the story) are unnecessary to understanding the events. There just there...to be...there. To quote a cliche: less is more. 
+ In this novel, two competing ideas are at play: a virtual world and of course, the real world, which is, predictably, shitty. Why wouldn't it be? The imagined world of the Oasis knows no limits and is subject only to one's imagination. 
+ The onset of the book establishes that in this futuristic society, everything has gone to hell. There is no one looking out for "the little guy," so people enmesh themselves in the Oasis. The Oasis has anything and everything to make you FEEL like it's real...but it's not. The problem with this premise is that it's imbalanced; the author has a few throw-away lines at the end about the virtues of reality, but NOTHING about reality is made to seem as great as the Oasis. Yes, there's a love-interest and jacking off in the Oasis isn't as good as the real thing, but nonetheless, the amount of time spent on the development of personal relationships pales in comparison to the time and space the author spends outlining, describing, and carrying out the story in the surreal-and frankly-super cool world of the Oasis. 
+ The author is obviously passionate about his topics (video games, the 80's)...and knowledgeable, but he's also obsessed with himself. He really likes to hear himself talk....er, uh...read himself write. Well...whatever it is...his lengthy and unnecessary detours were distracting and predicable. You don't need to source every 80's pop culture reference. The overabundance of 80's jargon, pop culture, and obscure detail led to me wonder if this was an authentic and organic passion. Like Shakespeare, I wondered, "the [author] doth protest too much, methinks." If the hubris expressed by the author's style wasn't enough, the main character, Wade, is a super-human video-gamer who comes from nothing and goes on to (spoiler-alert) win the billion dollar prize...which he promises to "use for good." Yawn. Are we done yet. Wade has no real weaknesses. Boring! Who wants to read about a protagonist who, by sheer lack of lazy writing, has little obstacles to overcome. And therein lies the problem with the text: because the author chose to spend such inordinate amounts of time and space detailing his gaming world...there is little room left over for plot or character development. 
+ If technology is your primary obsession and people come in a distant second or third...this is probably the book for you.
+---
+review_id: 25e0b47f9ffc56dc2f4aca1c125d3dff
+book_id: 13335037
+n_votes: 1
+review text:
+Good YA post apocalypto. Not as good as the first Hunger Games, but definitely more violent, in my opinion. Interesting to see where the second book goes ...
+---
+review_id: 454eeac8c5ed48fc0bed74d09e2caa60
+book_id: 24817626
+n_votes: 0
+review text:
+3.5 stars. The last thirty pages and the intermittent childhood recollections of Scout were my redemption from sad disappointment. I don't know if I was just too eager to know what happened to get to the end of the book to be confused in a lot of pages. I don't love Harper any less though. It just solidified my love for To Kill a Mockingbird even more. Somewhere in Chapter IV, I was honestly thinking about rereading Go Set a Watchman. But now that I'm done, maybe I should reread To Kill a Mockingbird first.
+---
+review_id: 72ac27d2011bae1e9b6731ddc589157a
+book_id: 13335037
+n_votes: 0
+review text:
+YA dystopian fiction hasn't been pumping out anything particularly original lately, but I will say I enjoyed this book despite its similarities to other books in its genre. I also think I took to Divergent well because I was in a little of a book rut. This is a nice, quick read when you need something easy. I didn't like this book as much as Hunger Games, but if you're looking for something similar to HG this is a good place to start. 
+ I was most intrigued by the initiation process and want to know more about the other factions. I plan on reading the other books in the trilogy to see what pans out.
+---
+review_id: b32c028ff4eb832d4dec09067b76e135
+book_id: 6288
+n_votes: 0
+review text:
+Wow.
+---
+review_id: 9bfab81ab2040aee677946c7bc5667ed
+book_id: 15745753
+n_votes: 0
+review text:
+This was my first Rowell book and I heard so much about it I had to read it. To be honest I liked the book but it wasn't what I was expecting. The positives...I liked how the relationship is realistic. No over used gooey corny lines. It was relatable. I liked that you really got to see the flaws each character possessed. The humor was great as well. Rowell was also able to really capture the tension between Eleanor and her home life in a way I could relate to. The cons...for me personally...I found it hard to really relate to the character's...especially Eleanor. And even though I enjoyed reading a book just about people without all the fluff I felt disconnected. The last few sentences I did feel that "awwww" moment but it seemed so un-climactic. With that said I liked the writing style and it was a cute story about love life and ordinary people which is a nice change from what I usually read.
+---
+review_id: 044124a9681e367e94f2a17914467618
+book_id: 12232938
+n_votes: 0
+review text:
+I read this knowing I was going to have a fairly easy read but seriously, this could have been so much better. Ultimately the pithy 'ghost' (movie) scene with the ex-interest was the final nail in the coffin for me and I barely had the patience to finish (actually why did I bother). Sebold hit upon a topic that could have been interesting but managed to make it superficial and banal.
+---
+review_id: 350520d03a8971162d144efee90d685c
+book_id: 5886881
+n_votes: 1
+review text:
+Having read books like The Silence of the Lambs, Rats, Da Vinci Code over the years I hadn't read a book like this in ages! 
+ The sheer horror of the situation, the foul characters, the whodunit buildup, etc made me want to read it to find out the outcome. I thought in the end it worked. This is fiction after all. The character I most admired was the mother - can you imagine how you would feel if you felt your little boy was going to end up in trouble? A desperate situation where she felt cornered. Ironic, that the person she was trying to save was lost already - love can do crazy things. 
+ Think of real life occasions where couples have killed. Where they pressured into it? Was it some warped act of empowerment? There was a lot more going on in this book than meets the eye. It was not really about Diondra - she was a lost, freak! It was the effect she had on others, and the sad events that came about in the end that made me go WOW! 
+ A 5 from me - I read it in a day when I should be doing other stuff! Any book that takes me away from my life like this deserves the high rating...
+---
+review_id: 85c8838028040c19199f0d8ba3b00340
+book_id: 19063
+n_votes: 0
+review text:
+This book packs a punch it may take some time to recover from. I found the writing awkward at times and even puzzling at others. But over all it is a remarkable book, well worth reading. Historical fiction about WWII, but from the German side for a change, and from the point of view of children for the most part, although the narrator is Death. Quite an accomplishment. Read it!
+---
+review_id: fd3e4842dae91a9b872bfd9d29ea19a4
+book_id: 13497818
+n_votes: 2
+review text:
+I would drop my current reads and pick this book up right now if it wasn't so goddamn expensive. 
+ $17 for an e-book? No-thanks, I'll wait a bit till the price drops.
+---
+review_id: 71003094bb7f60865b3167051c325825
+book_id: 10818853
+n_votes: 0
+review text:
+I did not make it past page 80 since I think it is the worst thing ever! First off all the sex scenes! That is not how your first time goes :S 
+ The girl seems to have no self control, own opinion or a voice. 
+ + whats with the fucking lip she keeps biting? Is she hungry? 
+ I did like the start but at one point it just lost it all and you were left with random and unnecessary fucking . 
+ Not my thing!
+---
+review_id: 57fb0d1b570bd1858e1b909e9f4d606e
+book_id: 16068905
+n_votes: 0
+review text:
+Effing fantastic. Brilliant. Read it.
+---
+review_id: f3c0db59d87e90951d6dea0c3baa4648
+book_id: 6288
+n_votes: 0
+review text:
+Eh. Took me about a month to read this. Honestly, I was sort of uninterested. It MIGHT have been because I'd just finish playing the Last of Us. Quite frankly, I think that the story works better in video game form.
+---
+review_id: 0c8ba20c52ddd245be558c82d0f4fe98
+book_id: 13496
+n_votes: 1
+review text:
+Rich world. Engaging characters. Ready for the next one.
+---
+review_id: 63ff74279e46b247cb1754313b160006
+book_id: 15507958
+n_votes: 0
+review text:
+I finished reading this days ago and cant get this out of my head. It is heart wrenching to see myself in a situation like this.
+---
+review_id: f87a6eea148c196b58917096a2a31b57
+book_id: 11870085
+n_votes: 0
+review text:
+This book says so much about life from the cancer diagnostic teens eyes'. I was 17 when i read this book so the romance the rebels and the whole teenagers life situation in this book is a lot bigger than what i experienced in my life that time of course. so after i read it. it left some understanding on my mind about this questionable life we're living.
+---
+review_id: 1412beb98c12a2f8eae0dbddc5b1a00e
+book_id: 5886881
+n_votes: 0
+review text:
+Gilian Flynn is one of my new favorite authors!! Another great thing about the Kindle is that T and I can read the same book at the same time...and talk about it. This one was dark and creepy and I had no idea where it would all end up. I was pretty sure I had it all figured out with the whole Ben and Diondra thing, but I was WRONG. I want to re-read this at some point to see if I should have been more clueful!
+---
+review_id: f6ce31b6645e1d871a4957618a73ab79
+book_id: 13496
+n_votes: 0
+review text:
+A friend lent me this. "You'll like it. It's like what you write, only different." 
+ With that, I began. 
+ The book is very well-written; the political intrigue is some of the best I've ever read, and characterization is generally very credible and complete. Martin also does a nice job of balancing a large cast of characters and several locations in a way that does not require the reader to keep notes or a scoresheet. 
+ Martin is (in)famous for his character-killing ways, and so I was cautious about forming too many attachments. Good thing, too. (Incidentally, I wonder if that's an obstacle for the author, if the reader knows to distance herself from the story?) Still, the plot twisted in a couple of wraps that I didn't see coming, and I was roused to anger more than once. 
+ Not my all-time favorite high fantasy, but probably some of the best, technically speaking. The world is very well-realized (though I have a personal preference for shading it a bit more away from our real world inspirations, so that it's harder for me to recognize historic English events and other ethnic groups) and the characters very real. 
+ I've decided that original recommendation -- "it's like what you write, only different" -- was a real compliment!
+---
+review_id: 8ad49883dd5a24bd66975a6d0ee06b7e
+book_id: 2728527
+n_votes: 0
+review text:
+A must-read! I loved this book!!
+---
+review_id: 6e441ec3a5b100af4ad166f150919a3f
+book_id: 19063
+n_votes: 1
+review text:
+Life changing. That is all. Made me emotional!
+---
+review_id: d3aa3f7d947fa52664fbaa3ed95d5268
+book_id: 8442457
+n_votes: 0
+review text:
+I loved the writing, I thought the story line was compelling - I didn't like the ending at all. No closure or resolution to a climax that didn't seem to really happen.
+---
+review_id: 6d62a7db25152c5d01f98c97d2418fda
+book_id: 8442457
+n_votes: 0
+review text:
+UGH, MEH...
+---
+review_id: 22024ddab670d7aeaf815c5445659368
+book_id: 8442457
+n_votes: 0
+review text:
+I really really really enjoyed this book until I hit about 70%. The ending ruined this book for me. I was expecting something more climatic in line with how the rest of the book was written. But it wasn't and I didn't like it... at all. Disappointing!
+---
+review_id: ccaec914caf897d2a33d404d4464c3aa
+book_id: 5886881
+n_votes: 0
+review text:
+It was not a bad book. I couldn't stop reading it and I liked the protaganist. I just didn't like the authors world view and felt bad after reading it like the yuckiness of that world was still on me.
+---
+review_id: 08ac838fae4a57ff1d84926f1b88ee7e
+book_id: 10818853
+n_votes: 20
+review text:
+I read it. 
+ My wife did not recommend the book. She did not ask me to read it. She simply asked whether I wanted to. 
+ I should have said no. 
+ Fifty Shades of Grey is a poorly written romance that uses bondage, domination, and sadomasochism as props. 
+ Christian Grey is much more of a dickweed than I had ever imagined. Anastasia Steele is a dim-witted naif who takes enormous risks to be the pegboard of a young, handsome billionaire with "impressive length." 
+ The stars must have just lined up right for E.L. James with this one. 
+ There are better romances, erotica, and other novels featuring BDSM. 
+ Try them instead. 
+ ***** 
+ February 21, 2015 
+ The movie is out. I won't see it. 
+ Preopening ticket sales were highest in these states in this order: Mississippi, Arkansas, West Virginia, and Alabama. http://www.washingtonpost.com/blogs/w... 
+ This blogger writes the movie isn't a BDSM film but an average stalker-thriller. http://www.huffingtonpost.com/2015/02...
+---
+review_id: 6460eafb5e17773d9f3e756f35d6f100
+book_id: 8442457
+n_votes: 0
+review text:
+As this isn't my usual pick - I stepped away from YA for just a book but I'll be glad to get back to YA. While I liked the book, loved the plot twists, loved to despise the characters...I just got tired of all the foul language. Now it's not like I'm a prude and don't cuss myself (the dollar jar the kids monitor is full) however we get it already these characters are awful people. The cussing just got old to me. But the plot twists are what kept me reading. I didn't really see any of it coming so literally yelled NO WAY out loud in my car as I listened to the audio version.
+---
+review_id: e8a689fcdeb02bca3f6e63985861280b
+book_id: 6288
+n_votes: 0
+review text:
+Did not enjoy it. Part of my PP task list.
+---
+review_id: 35738668d10c1b7cd4ecf3e825b522b7
+book_id: 13497818
+n_votes: 0
+review text:
+Had some good moments toward the latter part of the book but overall not worth it...
+---
+review_id: c072f969b8f179211aaa781bc437d946
+book_id: 24817626
+n_votes: 3
+review text:
+*****SPOILERS APLENTY.***** 
+ Yes, I was disappointed by this novel, but not for the reasons that I expected to be. I had read several reviews, and heard a few more, before I got my copy, so I knew that Atticus was going to be brought down to earth in this novel. That wasn't a surprise. Katie Guest Rose Pryal articulates nicely the reasons why Atticus is a lackluster hero in this piece: http://katieroseguestpryal.com/2015/0... 
+ I was disappointed in the pacing; the first 100 pages lagged. I was disappointed because this book needed a bit of editing - not a lot, to be sure, but some! - and it evidently did not receive any. I take no position on Ms. Lee's capacity to give consent to publish this book, nor on the multiple explanations for how this book came about. I can't know the truth there, so I'm not even trying. Selfishly, I'm grateful for even a little more to read by Harper Lee. Selfish, but I already said that. 
+ I was disappointed because grown up Scout, now known as Jean Louise, had done precious little growing up. She ran away, she took a geographic cure, but that hasn't helped her introspection. Her second coming of age, if that is what you can call it, was heavy handed. Despite oblique dialogue with her uncle, Jean Louise did not wrestle with the changes in Maycomb, and I am not sure she ever wrestled with how those changes were reflected back up in New York. The closest she gets to sitting with the tensions the reality presents is in her visit to Calpurnia's house, where she realizes she is getting her "company manners," but that, to my mind, falls short. The complex interplay of race and class in the deep south doesn't get the treatment it deserves. 
+ Harper Lee's prose remains delightful, and when she is good, she is oh so very good - she can do one-liners so well, but (perhaps because of the lack of editing?) it isn't enough to carry this book. Still, I'm glad to have had the opportunity to read it. I would love to see someone write a follow up, perhaps 20 years in the future, sort of in the style of fan fiction. That would be interesting.
+---
+review_id: 26976a82a60a6c48800490588d569cf0
+book_id: 11870085
+n_votes: 0
+review text:
+This book was very beautiful,yet very tragic.It gave me alot of feels,but I really enjoyed it,I loved it and Iam now a new John Green fan
+---
+review_id: 47032ed22963ba284eee69635eedeb5a
+book_id: 6936382
+n_votes: 0
+review text:
+This book was cute and heart-warming and Anna is quite relatable. She was funny, witty and her chemistry with Etienne was off charts. I loved the whole boarding school idea and the fact that it was in Paris just made it a lot cuter. I enjoyed it a lot and I'm excited to start Lola and the Boy Next Door!
+---
+review_id: 2ba440194d7f4331ec3159b861fb8b64
+book_id: 2728527
+n_votes: 1
+review text:
+Adorable read written in letters between characters. Like many books, I wanted to invite the characters over for tea or something so we could continue our discussions. I'll miss having them around. Thanks to my friend Luanne for bringing this book to my attention.
+---
+review_id: 46b24e6ffd1ab99d8097740ea1c9b64d
+book_id: 13497818
+n_votes: 0
+review text:
+Rating is actually 3.5, but GoodReads doesn't allow for half stars. 
+ This is an abridged review. You can read the full version here on my blog. 
+ This is a book with some seriously stellar qualities, studded with little `irk factors' that detract from the overall product. 
+ On the stellar side, Rowling's characters are palpable, her world is vivid, and if her prose is accomplished but not outstanding, her storytelling is none the worse for it. I whizzed through this book, kept picking it up when I should have been doing useful things like making dinner, and found myself thinking about the characters - as real people - long after I'd put it down. 
+ It's also to Rowling's great credit that she turns the seemingly mundane opening on a local council into a story that is both gripping and moving. She has a great ability to humanise issues. 
+ The very "adult" world of Pagford is certainly a far cry from Hogwarts, and it doesn't only prove that Rowling can write for adults. If you were tempted by the old-world charm of Harry Potter to see her as a unworldly, The Casual Vacancy shows she's nothing of the sort. 
+ Some of her characters swear like sailors. Some steal. They're on Facebook. They hack computers. They smoke. They truant. They shoot up. They have sex. Setting her child and adult books side by side, you realise there's very little Rowling doesn't know - and couldn't write - about. 
+ The Casual Vacancy is many things, but "dull" is not one of them. In fact, its very "non-dullness" has a curious effect: it's the kind of book you don't realise has flaws until you put it down. 
+ So it was that I was already halfway through, and enjoying it very much, when I first became aware of what I think is the book's chief problem. This is a very skilful book that was weakened by Rowling's evident desire to put so much into it. 
+ At its core this is a book about a girl struggling for a better life against the shackles of poverty, drug dependence, bureaucracy and society's judgments. Into this mix Rowling throws bullying, rape, teenage angst, self-harm, theft, domestic violence, sexuality, infidelity, ageing, parenting, mental illness... and added to all this, no less than 17 different people from whose perspective we variously see the action. 
+ The result is a tug o' war for the reader's attention - and affections. It doesn't make the novel less interesting, but it does lessen its impact. 
+ Then there is the convenience of Barry Fairbrother. Other characters are constantly thinking to themselves 'gee it's a shame Barry's gone, he was great with [insert random problem here].' That there would only be one person, even in a town of Pagford's size, who was any good at anything, seemed contrived. The fact that he was good at everything, and the absence of redeeming qualities in the others, didn't make the characters unrealistic in isolation, but didn't ring entirely true when I considered them as a whole. 
+ The result was a book I found enjoyable and engaging right to the final word, but which I failed to find as devastating as Rowling intended me to. The bleakness is felt, but not to your core. In Harry Potter, I bawled when Dumbledore died in Book 6, but while Rowling got sorrow from me at the end of this novel, she didn't draw actual tears, and I think after 500 pages she probably should have. 
+ Read more of my reviews at http://deliciouslyfictitious.com.
+---
+review_id: 1fcd69fb994164ac314df0bf95b36e6c
+book_id: 13335037
+n_votes: 0
+review text:
+Flew through this just b/c I was waiting and waiting for them to fall in love. Wasn't necessary in love with the rest of the story. Not sure I'll read two and three but it was fun while it lasted.
+---
+review_id: 88f52a84aa2c6574bd016824eb79ffba
+book_id: 10818853
+n_votes: 0
+review text:
+WHAT THE BLOODY FCUK IS THIS??????? I thought this book would be all deep and boring but this sadistic shit is worst. If u like it, u have a serious problem and like to be spanked. Credit to the author for trying to be all honest and straightforward in the themes of sexuality, but seriously, try to have a little more depth. Or sanity. This book was educational and enriching in all the wrong ways and highly sexist. Don't bother with it.
+---
+review_id: aa2e87da311ada95813736e1bc0795d5
+book_id: 15745753
+n_votes: 0
+review text:
+No, no. You've got it all wrong. Life doesn't sound like this.
+---
+review_id: 923ff6eea97d4e55b6f9deac7338c16d
+book_id: 10818853
+n_votes: 0
+review text:
+The sex comes across as very shocking and is fun; the actual writing is down right awful most of the time though. Still a fun little book.
+---
+review_id: ce79659c6c1111ed530f08e150523a1f
+book_id: 15745753
+n_votes: 0
+review text:
+My heart! GAH! Thank you library for having this in finally
+---
+review_id: a9d02b7301fd2b78d3f1a452a83ccd8d
+book_id: 6288
+n_votes: 0
+review text:
+Endlessly bleak. But lucid, sparse prose.
+---
+review_id: 379a8fa18a1bc951bc4b38dca9393170
+book_id: 16068905
+n_votes: 0
+review text:
+I loved how realistic the characters were, it was a very enjoyable book. I am excited to read Rowell's other works!
+---
+review_id: 96d9f0a3729d5c7fa249927b45b0065d
+book_id: 8442457
+n_votes: 0
+review text:
+** spoiler alert ** 
+ What a great book. So many twists and turns, it really was not predictible. I was unsure of how I felt about the ending. It just seemed to end. I hate when authors do that. The beginning was slow going, but once it picked up, it went.... right up until the end!
+---
+review_id: 5454dd0e11b6f67817b2dbae672f7854
+book_id: 6936382
+n_votes: 0
+review text:
+4.5 stars, definitely. I loved each character and the descriptions of the scenery and everything. This book was very well-written and I thoroughly enjoyed it. I would recommend it for anyone's who's looking for a good YA read. 
+ *SPOILER PORTION* 
+ The build-up and conflicts of Anna and Etienne's relationship was awesome. I predicted the thing with Bridge and Toph right off the bat though. Also, I loved the ending but I guess I wanted to know more, ya know? I wanted to know how Anna and Bridge were when they sat down and talked and if things would have ever been the same. Also, I'd love for Anna to have met Etienne's mother and I suppose vice versa with her parents. I also wanted to see the hinting of Josh and Isla to get together, and Amanda seeing them together and being all pissy about it, because Anna was good enough for him. She's the best. But, I guess, even though the book was heavily focused on the hormonal aspect of things.. sex WAS mentioned.. and since Anna explicitly said she was a virgin.. I kind of wanted to read about her sharing her first real intimate moment with Etienne.. especially since they were in France! I still loved each moment, and I can't wait to read her second book. Also, I'm definitely going to read her second book and look out for her third.. which I just realized has "Isla" in it... so... HMMMMM..... I just excited. :3
+---
+review_id: eb23f02a6ac87bf24f466f7c57674f8b
+book_id: 49041
+n_votes: 0
+review text:
+Why.
+---
+review_id: 3457b2f54064dd5654aec5738b88ffcf
+book_id: 15745753
+n_votes: 1
+review text:
+This book utterly crushed my soul and sent all my feels sailing away on a faraway voyage, only to take a detour and slam back into my heart at full force. 
+ It was so painful to finish the book. It was deliberately slow at the start then heart racingly fast then shit you not an open ending that left me completely unsatisfied. But because this book completely disintegrated me the way Park's touch disintegrated Eleanor-into a pile of gobbledygook- I am in no position to argue with the fairly disappointing and heartbreaking ending. 
+ Park is five star quality boy material, hands down. Best part was his Asian-ism because it felt totally relatable to me for once to imagine myself kissing Park instead of some blonde haired six pack guy ( I am Asian too after all and have a soft spot for Korean boys with taekwondo moves and eyeliner smokey stares and fantastic manners and romantic actions and brilliant music taste. Ugh please kill me because i cannot.) 
+ I'm quite neutral about Eleanor because I did enjoy her sad dysfunctional story and also largely because she described Park like a saint. It was awesome. 
+ After finishing the book I sat there in silence , sad Korean ballads playing in my ears and contemplating if it was possible to marry a book. I loved this heart wrenching book so much it was worth wrestling through the book store to find this book hidden in a corner and then spending my voucher on it. So worth it. 
+ Half an hour later and I was still playing a game I like to call "flip randomly to one page and find your favorite quote" game. I swear this book is a freaking gold mine. Every word is pure gold. Actually almost priceless. I couldn't find a page that left me awed ( except scenes of Richie the bad boy). 
+ Roughly two hours later I decided to reread the ending and tears were gathering in my eyes like they did the first time. This time the liquid increased in quantity by like double. But my cousins were watching so I had to suck it up which totally sucked. 
+ Park is officially my second fictional husband along with Etienne St Clair. Nuff said.
+---
+review_id: afe8dbbedb8719ed1c4aa5222776f1b5
+book_id: 15507958
+n_votes: 2
+review text:
+So beautiful and eloquent. Will stick with you for a long time. I enjoyed the various chapters written from other characters' perspectives. As somebody who has a limited life that's only bound to get worse with age, it hit a cord and am thankful that this subject matter was handled so eloquently.
+---
+review_id: 30aa34fe0a5a83b4eb7821442b8c6930
+book_id: 8442457
+n_votes: 3
+review text:
+4 W-T-F stars 
+ I didn't know how to rate his book but I went with 4 stars due to Flynn's storytelling. 
+ "You two are the most fucked-up people I have ever met, and I specialize in fucked-up people." 
+ A-fricking-men, Tanner! 
+ The two main characters top the list as the least likeable people I've ever read. Neither of them were redeemable in their actions. Yet they are so wrong that they're right for each other, which is quite twisted. You can't judge a book by its cover, and that also goes for people. This book sent chills down my spine as events unfolded. I love it when a book evoke any sort of emotions out of me, good and bad. Most of the emotions I felt were frustrations, disbelief, and at times speechless (when I'm not yelling at the characters). 
+ The secondary characters also added layers and dimensions to give another perspective into Amy and Nick. Heck, I liked them more than the MC! This was a gripping read, it may also be the only book where I wanted to finish even though I didn't like the MC. 
+ I went to see the movie adaptation and it was brilliantly done. It stayed true to the book, the characters were portrayed really well. Probably due to Flynn's involvement in the screenplay. It's nice when the author gives input into tv/movie adaptations. There were some slight differences and changes but it didn't affect the major events in any way. I think I left the theater aghast even though I knew what to expect.
+---
+review_id: a2dfb689eb632864b760a8fec4ca2992
+book_id: 6936382
+n_votes: 0
+review text:
+It was cute, fun to read. This book just proves that you just can't wait and stand by. You have to climb the stairs (lol) and make the first move. If not, nothing is ever going to happen.
+---
+review_id: 422978d4ae54acdbee873d93540081b0
+book_id: 24817626
+n_votes: 1
+review text:
+I thoroughly enjoyed this sequel to To Kill a Mockingbird. I listened to the audio version which was 
+ narrated by Reese Witherspoon and was just perfect. Scout at 25 is so idealistic and so full of great childhood memories. Her issues with her home town and Atticus when she comes back to visit from NYC are right on the money. My only criticism would be that the editing could have been better.
+---
+review_id: aa13a7cdc3811c5fddf76fafc2afe540
+book_id: 16068905
+n_votes: 2
+review text:
+Between this and 'Simon vs. the Homo-Sapiens,' I'm beginning to like YA contemporary!
+---
+review_id: 2243c5bbedb17f69e066094d7bed0126
+book_id: 8442457
+n_votes: 1
+review text:
+I am frequently disappointed when I read a book after hearing a lot of hype about it. This certainly was not the case with Gone Girl. This is a gripping psychological thriller that keeps you guessing to the very end and beyond. It is the story of a wife who disappears from home on her fifth anniversary. More importantly, it is a study of a dysfunctional family and a sociopath. I thoroughly enjoyed this book and recommend it as one that suspense fans should not miss!
+---
+review_id: 3da4552a56da6a66bfe866651d1bd234
+book_id: 13335037
+n_votes: 0
+review text:
+Fast-paced and gripping, Divergence made for a great read that kept me up reading all night. 
+ The novel followed the story of a 16-year-old girl who must choose which path she will follow - the life of her parents or a path of her own. Unlike most conventional teen choices, however, Beatrice - or Tris, as she becomes known, is selecting a completely different society to live in. Along the way, she finds that forces are united to destroy her, etc. 
+ The story itself was of great interest. I had a more difficult time with the writing, because it was done purely in the present tense. Usually this completely distracts me from the story at hand, but this time, it turned out that it was more of a slight grating whose reason I didn't account for until I had finished the novel, that's how powerful the story was. And outside of the intentional tense selection, the writing was done quite well, drawing me into the characters and their lives and leaving me to assume that such a choice was deliberately made to be grating, rendering the entire societal concepts even more undesirable. 
+ Overall, great read.
+---
+review_id: d1e055fba25cad68786b2b90d709a6d4
+book_id: 15507958
+n_votes: 0
+review text:
+This one definitely goes on my shelf of "books that made me cry". I just kept hoping for some miracle to occur and of course, it couldn't. I know that I will be thinking about this book for quite some time.
+---
+review_id: 49c58d7f02ceb9646a43b51e3a7e3a68
+book_id: 13335037
+n_votes: 0
+review text:
+I did enjoy this book -- I may dare say that it is better than Hunger Games. I was a little disappointed by the sappy love interest -- but the lead character is only 16. Overall, very good book and I will read the others in the trilogy. If anyone likes Hunger Games - then this is a must read.
+---
+review_id: 55f85f1c401af406d73bbb64b11bc2a3
+book_id: 16068905
+n_votes: 0
+review text:
+Great book. I love Rainbow Rowell. She had me at the most accurate description of why eating in a cafeteria can be complicated.
+---
+review_id: 51fc0727a55aeaf490b6f99d92e18196
+book_id: 19063
+n_votes: 0
+review text:
+I loved this book. A beautiful, poignant, sad, funny story written in a creative and fascinating style.
+---
+review_id: 25ea31155e28ddf5ce16209a7850c69a
+book_id: 9969571
+n_votes: 0
+review text:
+Whoo, I stayed up till the crack of dawn reading this one and damn was it worth it, awesome book with a great protagonist, who goes from wimpy kid to sick hacker and one of the most feared men in the OASIS cool.
+---
+review_id: bdae761678549dd979929f0c1e0d3bbf
+book_id: 13496
+n_votes: 0
+review text:
+Listened to this during a car trip to Santa Fe, 16 hours there and 16 hours back!
+---
+review_id: e15a22939d489ca5440913486ae9d545
+book_id: 24817626
+n_votes: 0
+review text:
+I've just finished this, but I'm still trying to get my head around how I actually feel about it. I'm attempting to treat this as a completely separate entity to To Kill a Mockingbird. I think I'll have to sleep on it to decide how I feel I should rate it.
+---
+review_id: 7341d8cd102744f0bc72c49c30722d1e
+book_id: 16068905
+n_votes: 0
+review text:
+This was a fun and easy read, but I wasn't as impressed with it as I wanted to be. It was fun to relate to Cath over her love of certain series of books about a young wizard. I loved Levi, but he was a little too perfect. Cath was borderline neurotic, but in ways that were relatable. That said, I'm not crazy about the pacing. This is a pretty long book. It covers nearly a full year, so I know that a lot happens, but it could have been cut down a bit and that would have been OK.
+---
+review_id: c27d7d30684d9edbbceeb5031da7b07c
+book_id: 2728527
+n_votes: 0
+review text:
+Goodreads kept recommending this book to me, but I was resistant because it seemed too light. Then, when I finally decided to read it, the (male) librarian who checked it out to me told me how wonderful it was and that I wouldn't be sorry! Normally, when someone at a video store or library says that to me, it's a sure sign I'll hate whatever they're talking about, so that made me even more wary. 
+ I'm glad to say that all my worries were for naught, as this was a very delightful book. It certainly was a quick read, but there was just the right amount of emotion in it, as it neither glazed over the surface of things too much nor descended into melodrama. And I've been having dreams about WWII ever since I started reading it!
+---
+review_id: 37fe93f3897b6fe9ddbf8dcc4ba09f8f
+book_id: 16068905
+n_votes: 0
+review text:
+En tant que grande liseuse de fanfiction, j'ai senti que ce livre etait ecrit pour moi. 
+ Mon premier Rainbow Rowell et surement pas mon dernier ! :)
+---
+review_id: bb07d15fc6d959cb34d5660f12afe2e1
+book_id: 9969571
+n_votes: 0
+review text:
+Geekaliciously awesome!
+---
+review_id: 7d6c7f973ddbf6b13d19db41e00d8bcc
+book_id: 15745753
+n_votes: 0
+review text:
+I was completely hooked from page one. Rainbow Rowell has this style of writing which makes the story that much more intimate to us. I could relate to every single situation in the book. Eleanor & Park are my new favourite literary couple and I still cannot get over this amazing book and I can't wait to read more of Rainbow Rowell's work.
+---
+review_id: e68c782717b2e884bc33e1585abc8088
+book_id: 12232938
+n_votes: 0
+review text:
+can't wait to see the movie!
+---
+review_id: 92f32439e35044af008d0c56b3d9feab
+book_id: 16068905
+n_votes: 0
+review text:
+This is a fun, interesting story about a girl involved in the fanfiction scene for a made up (but soon to be real) book sort of similar to Harry Potter. Cath and her twin sister go to college and have very different reactions to their new life. I appreciated the pressure and difficulty that college creates, especially for anxious, introverted people like Cath. Her roommates/friends are great additions to the story and I really liked how her family story was interwoven into the college student narrative. I didn't actually feel much interest with the fanfic parts and don't really care that Rowell is actually writing "Carry On." It's great that this subculture is getting representation in books, but it didn't actually add much to the story for me (except for the fact that it IS what the story is about, in a way, so...yea). Also, loved the slow growth and unfurling of Cath as a young woman. 
+ For more in the podcast: 
+ http://thebookmarkplace.com/2015/05/1...
+---
+review_id: 821b7bfcfe3eac3309cf361feb6945ff
+book_id: 10818853
+n_votes: 0
+review text:
+This book was passed to me because I have been making so much fun of it...and one needs to know what they are making fun of. :) Four stars??? Before you start shaking your head---know that I was so surprised at how much better the book was than the reviews I read...that I believed the book deserved more stars. 
+ 1) I am sex positive. I have little issues talking about sex----and hearing about different fetishes/styles....etc. 
+ 2) I listen to Dan Savage's podcast "Savage Love".....so I am not a 60s housewife giggling and blushing over every time I hear the word sex. 
+ 3) I am single---and not married or in a vanilla, long-term (godhelp me) boring relationship... 
+ One of my colleagues put it best....this book is for people who are looking to add a bit more spice into their 20+ marriage... 
+ I enjoyed the book---for what it is. Is it realistic? No. Is it silly? Yes......does it scream "Twilight"? yes. But---is it abusive and anti-feminist? NO. Ana definitely has an ACTIVE role in her relationship---and Christian lets her tell him what she wants....and they both make adjustments. 
+ I think this book IS poorly written (what is up with the random hyphens??)....but I do appreciate that this book is allowing humans to be a bit more open with themselves about their sexuality....and about exploring. I think this book is good for starting conversation... 
+ Will I read the others? Not sure....depends on whether or not it appears....I am on a book-buying moratorium....and this book is not at the top of my list. 
+ Recommended: for those looking for a quick read...beach lit if you will. Check it out...you know you are curious.
+---
+review_id: 37936a374424bd9aee151614dab70d2c
+book_id: 24817626
+n_votes: 0
+review text:
+It has been decades since I read To Kill A Mockingbird, I'm glad I didn't re-read it before reading this book, it allowed me to go into it with no expectations. Many of the reviews on here are either disgusted or disappointed saying Atticus was a racist in this book. By today's standards you could say that. However, by the standards of the small Southern world that this book came from he was progressive. This book was written in the 1950's even though it wasn't published until 2015, you need to put it in the context of a book written by a Southern woman in the 50's not 2015's PC world. 
+ I took a lot away from this book, especially in this moment in time and our current political climate of hate and rioting. "Every man's island, Jean Louise, every man's watchman, is his conscience. There is no such thing as a collective conscious."
+---
+review_id: fd6b05f150a7606d7817318e5eb2b296
+book_id: 9969571
+n_votes: 3
+review text:
+Looking back on this book it was just way too vanilla. All I could remember was that there was a formula romance and the kids (I remember them as pretty young) were playing a videogame. Not enough to stand the test of time. Suarez in the Daemon/Freedom books wrote a much better video game thriller.
+---
+review_id: a6dea3246a539dd19a521c8f998574a4
+book_id: 6936382
+n_votes: 1
+review text:
+I don't know if its cause I'm the mom of four boys and the majority of the movies we watch are action but I have a hard time handling chick-lit. I got thru a third of the way thru this book, made my predictions, skipped the middle and read the last couple of chapters. Guess what? I was exactly right on every guess. Glad I didn't continue to wade thru the annoying protagonist and vulgarity.
+---
+review_id: 0879988ead0d5fd9f8d4f464bad2e873
+book_id: 24817626
+n_votes: 0
+review text:
+At another time, I might have given this book only 3 stars; as it happened, it came to me at the exact moment in my life that I really needed it and resonated deeply with me. In the recent political climate, I have experienced disillusionment while trying to reconcile the beliefs of friends and loved ones. Like Jean Louise, my convictions were formed in definite privilege, idealism, and yes, ignorance of many of the complex cultural, political, economic, and racial stakes. This book was a reminder that change happens slowly--that sometimes the way to make a difference is not by shutting out those who disagree with you in anger, but by listening to them, leading by example, and opening minds in small but powerful ways. The naive idealist in me hopes that when individuals grow even a little more tolerant than the generation that raised them, society can shed the prejudices of the past bit by bit.
+---
+
+Return the top 10 'review_id' from the provided dataset, ranked by their predicted star rating.
+First, infer the hidden star rating (from 1 to 5) of each review based on the sentiment of its content. Rank the reviews in descending order based on this predicted rating. To resolve ties between reviews that receive the same predicted rating, use the 'review_id' in alphanumeric order.
+
+Your output must contain only the required list of reviews_ids.

@@ -1,0 +1,5 @@
+You are given a dataset of cities, with various attributes:
+{DATAFRAME}
+Return the 5 best cities, based only on the provided data.
+
+Your output must contain only the required list of cities.

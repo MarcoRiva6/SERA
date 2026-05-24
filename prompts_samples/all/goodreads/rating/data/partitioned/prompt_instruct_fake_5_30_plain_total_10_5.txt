@@ -1,0 +1,6 @@
+You are given a dataset of book reviews:
+{DATAFRAME}
+Return the top 5 'review_id' from the provided dataset, ranked by their predicted star rating.
+First, infer the hidden star rating (from 1 to 5) of each review based on the sentiment of its content. Rank the reviews in descending order based on this predicted rating. To resolve ties between reviews that receive the same predicted rating, use the 'review_id' in alphanumeric order.
+
+Your output must contain only the required list of reviews_ids.

@@ -1,0 +1,80 @@
+You are given a dataset of cities, with various attributes:
+   City  Stability  Healthcare  Culture & Environment  Education  Infrastructure
+ City 1         20        29.2                   33.1       25.0            32.1
+ City 2         70        87.5                   58.6       66.7            83.9
+ City 3         80        62.5                   52.3       83.3            80.4
+ City 4         85        66.7                   53.2       58.3            85.7
+ City 5         80        54.2                   76.4       91.7            85.7
+ City 6         60        37.5                   53.7       83.3            75.0
+ City 7         50        29.2                   47.2       41.7            37.5
+ City 8         80        58.3                   51.2       50.0            67.9
+ City 9         55        41.7                   36.6       58.3            51.8
+City 10         75         NaN                    NaN       75.0             NaN
+City 11         50         NaN                    NaN       66.7            46.4
+City 12         90         NaN                   81.3       83.3             NaN
+City 13         85        75.0                   65.7       66.7            82.1
+City 14         75        62.5                   51.4       58.3            80.4
+City 15         55        62.5                   52.3       91.7            69.6
+City 16         65        62.5                   28.9       50.0            55.4
+City 17         50        54.2                   75.0       75.0            67.9
+City 18         55        54.2                   77.8       75.0            66.1
+City 19         85        58.3                   79.2       91.7             NaN
+City 20         55        37.5                   42.6       50.0             NaN
+City 21         90        91.7                   76.4       91.7            91.1
+City 22        100         NaN                    NaN       91.7             NaN
+City 23         80        83.3                   81.9       91.7            96.4
+City 24         75        54.2                   61.8       66.7            58.9
+City 25         70        66.7                   28.9       50.0            67.9
+City 26         95       100.0                   68.8       91.7            92.9
+City 27         70         NaN                   61.1       91.7             NaN
+City 28         80        58.3                   75.5       91.7            89.3
+City 29         50         NaN                    NaN       83.3             NaN
+City 30         50        41.7                   35.4       66.7            58.9
+City 31        100       100.0                   81.9       91.7            92.9
+City 32         85        58.3                   72.2       91.7            92.9
+City 33         95        58.3                   47.2       91.7           100.0
+City 34         65        58.3                   73.6       91.7            89.3
+City 35         75        25.0                   54.4       75.0            64.3
+City 36         60        50.0                   38.9       83.3            75.0
+City 37         65        41.7                   49.3       50.0             NaN
+City 38         60        54.2                    NaN       58.3            66.1
+City 39         85        54.2                   69.9       83.3            82.1
+City 40        100        87.5                   67.4       66.7            69.6
+City 41         85        87.5                   79.2       91.7            89.3
+City 42         95       100.0                   83.8       83.3            96.4
+City 43         55        33.3                   49.3       33.3            55.4
+City 44         65        70.8                   47.2       66.7            58.9
+City 45         60        50.0                   63.0       75.0            67.9
+City 46         95       100.0                   58.3       91.7           100.0
+City 47        100       100.0                   81.9       91.7            96.4
+City 48         75        62.5                   60.2       66.7            67.9
+City 49         85        83.3                   76.9       91.7            92.9
+City 50         90       100.0                   78.2       83.3           100.0
+City 51         60        58.3                   76.4       91.7            89.3
+City 52         85        66.7                   32.6       58.3            67.9
+City 53         75        70.8                   68.1       66.7            76.8
+City 54         90         NaN                   75.0       91.7             NaN
+City 55         60        41.7                    NaN       58.3            51.8
+City 56         60        25.0                   39.4       25.0            42.9
+City 57         90        45.8                   54.6       58.3            67.9
+City 58         80        62.5                   51.9       58.3            75.0
+City 59         85        66.7                   79.2       91.7            96.4
+City 60         85        58.3                   68.5       91.7            92.9
+City 61         75        75.0                   82.6       91.7            89.3
+City 62         55        16.7                   28.9       33.3            26.8
+City 63         75        66.7                   42.1       58.3            60.7
+City 64         35        33.3                   42.8       58.3            53.6
+City 65         85        62.5                   79.2       91.7            92.9
+City 66         60        58.3                   47.9       58.3            64.3
+City 67         80         NaN                    NaN       58.3             NaN
+City 68         30        37.5                   38.0       41.7            46.4
+City 69        100         NaN                   76.2       91.7           100.0
+City 70         80        75.0                   64.4       66.7            58.9
+
+Using the following formula:
+
+city_score = ('Stability' + 'Healthcare' + 'Culture & Environment' + 'Infrastructure')/4
+
+return the 10 cities with the highest computed city_score(s).
+
+Your output must contain only the required list of cities.

@@ -52,7 +52,7 @@ queries: # list of experiments to be run, with their configuration
   - ...
 ```
 The run configuration file `all.yaml` contains the setup used for our work.
-The `prompts_semples` folder contains a sample of each type of prompt generated with this configuration.
+The `prompts_samples` folder contains a sample of each type of prompt generated with this configuration.
 
 ### Execution
 To run a configuration, pass the file’s name to `experimenter.py` as follows:

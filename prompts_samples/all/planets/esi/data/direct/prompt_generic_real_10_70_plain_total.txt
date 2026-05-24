@@ -1,0 +1,76 @@
+You are given a dataset of planets, with various attributes:
+            Planet               Type Detection Method  Mass (Me)  Radius (Re)  Flux (Se)  Tsurf (K)  Period (days)  Distance (ly)  Age (Gy)
+     Kepler-1652 b      M Warm Terran          Transit   3.190000        1.600   0.841258 275.522943      38.097220     821.913120   3.20000
+          GJ 163 c M Warm Superterran  Radial Velocity   6.800000        2.500   1.251825 303.745620      25.630580      49.342510   6.00000
+          GJ 682 b M Warm Superterran  Radial Velocity   4.400000        1.930   0.313483 215.008938      17.478000      16.329685       NaN
+      Kepler-283 c K Warm Superterran          Transit   3.970000        1.820   0.894316 279.768189      92.743711    1526.716667   3.09000
+           K2-18 b M Warm Superterran          Transit   8.920000        2.370   1.264154 302.734505      32.939623     124.026037       NaN
+        Ross 128 b      M Warm Terran  Radial Velocity   1.400000        1.110   1.482444 316.641714       9.865800      11.006265   5.00000
+     Kepler-1638 b G Warm Superterran          Transit   4.160000        1.870   1.385758 312.138533     259.336830    4975.575011   4.37000
+     Kepler-1229 b      M Warm Terran          Transit   2.540000        1.400   0.324356 217.110603      86.828989     865.885472   3.72000
+          GJ 514 b M Warm Superterran  Radial Velocity   5.200000        2.130   0.270091 198.928456     140.430000      24.845847   0.80000
+      Kepler-296 f M Warm Superterran          Transit   3.890000          NaN        NaN 229.276521      63.336270     544.680520   4.20000
+          VL 120 e M Warm Superterran          Transit   5.288748          NaN        NaN 269.496160      73.921945     511.267378   3.89102
+     Kepler-1649 c      M Warm Terran          Transit   1.200000          NaN        NaN 302.728405      19.535270     300.687456       NaN
+        GJ 667 C c M Warm Superterran  Radial Velocity   3.800000        1.770   0.877540 278.425915      28.140000      23.626610   2.00000
+      Kepler-186 f      M Warm Terran          Transit   1.710000        1.170   0.294700 211.904510     129.944100     579.233487   4.00000
+      TRAPPIST-1 f      M Warm Terran          Transit   1.039000        1.045   0.373531 224.904846       9.207540      40.540828   0.50000
+      Kepler-155 c M Warm Superterran          Transit   5.650000        2.240   1.052857 291.418983      52.661793     957.264598   2.90000
+      Kepler-174 d K Warm Superterran          Transit   5.430000        2.190   0.587250 251.843755     247.353730    1254.908041   4.90000
+     Proxima Cen b      M Warm Terran  Radial Velocity   1.070000        1.030   0.678468 261.081034      11.186800       4.243909       NaN
+     Kepler-1540 b K Warm Superterran          Transit   6.760000        2.490        NaN 270.034850     125.413118     798.951738   2.51000
+        HD 40307 g K Warm Superterran  Radial Velocity   7.100000          NaN   0.666459 255.719668     197.800000      42.192519   4.50000
+        LHS 1140 b M Warm Superterran          Transit   5.600000        1.730   0.425226 232.236106      24.737230      48.878064   5.00000
+         GJ 3293 d M Warm Superterran  Radial Velocity   7.600000          NaN        NaN 251.304031      48.134500      65.851875       NaN
+Teegarden's Star b      M Warm Terran  Radial Velocity   1.160000        1.050   1.077943 293.090137       4.906340      12.494319   8.00000
+      TRAPPIST-1 e      M Warm Terran          Transit   0.692000        0.920   0.646776 257.995351       6.101013      40.540828   0.50000
+            K2-3 d      M Warm Terran          Transit   2.200000        1.458   1.454410 315.442726      44.556030     143.745755   6.90000
+        GJ 667 C f      M Warm Terran  Radial Velocity   2.700000        1.450   0.563568 249.223383      39.026000      23.626610   2.00000
+          GJ 433 d M Warm Superterran  Radial Velocity   5.223000        2.140        NaN 291.630098      36.059000      29.564606       NaN
+      TRAPPIST-1 d   M Warm Subterran          Transit   0.388000        0.788   1.115770 295.674255       4.049219      40.540828   0.50000
+       HD 216520 c K Warm Superterran  Radial Velocity   9.440000          NaN        NaN 304.941260     154.430000      63.770021   6.00000
+      Kepler-440 b K Warm Superterran          Transit   4.120000        1.860   1.435638 307.806931     101.111410     981.827407   1.30000
+          GJ 180 d M Warm Superterran  Radial Velocity   7.560000        2.660   0.260244 204.720567     106.300000      38.945309       NaN
+         TOI-700 e      M Warm Terran          Transit   0.818000        0.953   1.278049 305.688111      27.809780     101.520947   1.50000
+     Kepler-1606 b G Warm Superterran          Transit   4.940000        2.070   1.636043 325.367512     196.435224    2711.292428   4.27000
+      TRAPPIST-1 g      M Warm Terran          Transit   1.321000        1.129   0.252321 203.898168      12.352446      40.540828   0.50000
+       Wolf 1061 c M Warm Superterran  Radial Velocity   3.410000        1.660   1.296772 306.302838      17.871900      14.044016       NaN
+      Kepler-443 b K Warm Superterran          Transit   6.040000        2.330   0.890088 278.800421     177.669300    2616.655003   3.20000
+         GJ 1061 c      M Warm Terran  Radial Velocity   1.740000        1.180        NaN 310.495804       6.689000      11.978992   7.00000
+       Kepler-22 b G Warm Superterran          Transit   9.100000          NaN   1.411057 275.418077     289.863876     634.836562   7.00000
+        GJ 229 A c M Warm Superterran  Radial Velocity   8.581370        2.870   0.437087 227.764557     121.932680      18.774322   0.40000
+         GJ 1002 b      M Warm Terran  Radial Velocity   1.080000        1.030   0.673236 260.595805      10.346500      15.814228       NaN
+     Kepler-1410 b K Warm Superterran          Transit   3.820000        1.780   1.074750 292.922236      60.866168    1196.992520   4.07000
+Teegarden's Star c      M Warm Terran  Radial Velocity   1.050000        1.020   0.349402 221.119159      11.416000      12.494319   8.00000
+          GJ 357 d M Warm Superterran  Radial Velocity   6.100000        2.340   0.382595 226.261383      55.661000      30.795030       NaN
+      Kepler-296 e      M Warm Terran          Transit   2.960000        1.530   1.000607 281.634803      34.142110     544.680520   4.20000
+         GJ 1061 d      M Warm Terran  Radial Velocity   1.640000        1.160   0.686780 246.575633      13.031000      11.978992   7.00000
+        TOI-2257 b M Warm Superterran          Transit   5.450000        2.194   0.744017 253.700717      35.189346     188.489140       NaN
+        LP 890-9 c      M Warm Terran          Transit  25.300000        1.367   0.908576 280.876792       8.457463     105.771738   7.20000
+         TOI-904 c M Warm Superterran          Transit   5.340000        2.167   0.524434 244.820750      83.999700     150.322365   1.50000
+       Kepler-62 f      K Warm Terran          Transit  35.000000        1.410   0.407147 229.807024     267.291000     981.318603   7.00000
+      Kepler-452 b G Warm Superterran          Transit   3.290000        1.630   1.109013 295.229451     384.843000    1799.490714   6.00000
+          GJ 180 c M Warm Superterran  Radial Velocity   6.400000        2.410   0.784489 270.340012      24.329000      38.945309       NaN
+       HIP 38594 b M Warm Superterran  Radial Velocity   8.100000        2.770   1.342419 307.974666      60.722000      58.018586       NaN
+      Kepler-442 b      K Warm Terran          Transit   2.360000        1.340   0.699683 263.039166     112.305300    1193.616805   2.90000
+        GJ 667 C e      M Warm Terran  Radial Velocity   2.700000        1.450        NaN 213.292145      62.240000      23.626610   2.00000
+      Kepler-705 b M Warm Superterran          Transit   5.100000        2.110        NaN 269.111049      56.056054     903.063994   3.89000
+         GJ 1002 c      M Warm Terran  Radial Velocity   1.360000        1.100   0.258159 205.067738      21.202000      15.814228       NaN
+        Ross 508 b M Warm Superterran  Radial Velocity   4.000000        1.830   1.320491 301.859146      10.770000      36.563066       NaN
+        K2-288 B b M Warm Superterran          Transit   4.270000        1.900   0.436830 233.885661      31.393463     214.003346   1.00000
+         TOI-715 b      M Warm Terran          Transit   3.020000        1.550   0.712597 264.323925      19.288004     138.305799   6.20000
+            K2-9 b M Warm Superterran          Transit   5.690000        2.250   1.448496 315.612957      18.449800     270.589128   1.00000
+     Kepler-1653 b K Warm Superterran          Transit   5.350000        2.170   1.043990 290.803453     140.252400    2462.477800   7.70000
+          GJ 367 d M Warm Superterran  Radial Velocity   6.030000        2.330   1.145209 296.508615      34.369000      30.699858       NaN
+       Wolf 1069 b      M Warm Terran  Radial Velocity   1.260000        1.080   0.652021 258.518058      15.564000      31.256867       NaN
+          GJ 273 b      M Warm Terran  Radial Velocity   2.890000        1.510   1.064477 291.670019      18.649800      12.348462       NaN
+           K2-72 e      M Warm Terran          Transit   2.210000        1.290   1.303262 306.685393      24.158868     216.672280       NaN
+     Kepler-1544 b K Warm Superterran          Transit   3.820000        1.780   0.843026 275.667658     168.811174    1092.916140   2.34000
+          HN Lib b M Warm Superterran  Radial Velocity   5.460000          NaN        NaN 242.281867      36.116000      20.366550   4.40000
+       Kepler-62 e K Warm Superterran          Transit  36.000000        1.610   1.151183 297.996788     122.387400     981.318603   7.00000
+          K2-332 b M Warm Superterran          Transit   5.480000          NaN   1.166542 298.985869      17.706320     401.830715       NaN
+         TOI-700 d      M Warm Terran          Transit   1.250000        1.073   0.859827 276.939259      37.423960     101.520947   1.50000
+
+Return the top 10 planets that are most similar to Earth.
+
+Your output must contain only the required list of planets.

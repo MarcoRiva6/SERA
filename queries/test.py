@@ -17,7 +17,7 @@ import json
 import re
 import shutil
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, asdict, field
+from dataclasses import dataclass, asdict, field, astuple
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import get_type_hints, get_origin, Any, get_args
@@ -471,6 +471,23 @@ class Test[GTT: (str,int), T_TestParameters: TestParameters](ABC):
     parameters: T_TestParameters = None
     evaluations: Evaluations = None # Aggregated evaluations across all queries for this test.
     params_file_name: str = 'test_params.json'
+
+    def sample(self):
+        self.parameters.n_queries = 1
+        self.init_queries_registry()
+        self.generate_queries()
+        for q in self.queries:
+            valori_parametri = [str(valore) for valore in astuple(q.parameters)]
+            suffisso_file = "_".join(valori_parametri)
+            nome_file = f"prompt_{suffisso_file}.txt"
+            os.makedirs(self.run_folder, exist_ok=True)
+            with open(self.run_folder / nome_file, "w", encoding="utf-8") as file:
+                match q:
+                    case DirectQuery():
+                        to_write = q.prompt
+                    case PartitionedQuery():
+                        to_write = q.prompt_beg + "\n{DATAFRAME}\n" + q.prompt_end
+                file.write(to_write)
 
     def __post_init__(self):
         if self.json_schema is None:

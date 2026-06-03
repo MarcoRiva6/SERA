@@ -24,6 +24,12 @@ class Experiment:
     def __post_init__(self):
         self.inner_folder = self.run_folder / self.test.family / self.test.name_path / 'results' / self.model.name_path / self.run_type
 
+    def sample(self) -> None:
+        try:
+            self.test.sample()
+        except NotImplementedError as e:
+            print(e)
+
     def execute(self) -> None:
         """
         Execute the experiment by preparing the test, submitting queries to the model and saving results.

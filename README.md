@@ -9,7 +9,7 @@ pip install -r requirements.txt
 ### Datasets
 The datasets used for the experiments need to be placed within the `data` folder, each under a separate folder named as per the following list, which contains the datasets used in our experiments with their link:
 - [planets](https://phl.upr.edu/hwc/data) (the `simplified catalog` file)
-- [cities](https://en.wikipedia.org/wiki/Global_Liveability_Index) (the `lobal Liveability Index 2020` table was extracted and saved as `global_liveability.xlsx`)
+- [cities](https://en.wikipedia.org/wiki/Global_Liveability_Index) (the `global Liveability Index 2020` table was extracted and saved as `global_liveability.xlsx`)
 - [hr](https://www.kaggle.com/code/faressayah/ibm-hr-analytics-employee-attrition-performance/input)
 - [meters](https://www.kaggle.com/datasets/jeanmidev/smart-meters-in-london) (`the block_0.csv` file under `hhbloc_dataset/hhbloc_dataset` folder)
 - [molecules](https://doi.org/10.24432/C5WW4F) (the `new_dataset.csv` file under `dataset_Similarity_Prediction/new_dataset`)
@@ -31,7 +31,7 @@ The  env vars can be set in the `.env` file, which needs to be placed in the roo
 ## Execution
 ### Run configuration
 The run configuration is defined with a `.yaml` file, which needs to be placed within the `experiments` folder.
-This file specifies models/beckends, execution modes, experiments and their configuration to be run.
+This file specifies models/backends, execution modes, experiments and their configuration to be run.
 File structure is as follows:
 ```yaml
 models:
@@ -67,7 +67,7 @@ There, the execution will generate the test files (the queries that will be subm
         {test_name}/
             data/
                 {run_mode}/
-                    prepared_queries.csv # contains the generated queries for this experiment, with the paramers spcieifed in the run configuration file.
+                    prepared_queries.csv # contains the generated queries for this experiment, with the parameters specified in the run configuration file.
         results/
             {model_name}/
                 {run_mode}/
@@ -79,7 +79,7 @@ Results can be viewed directly from their `evaluated_queries` csv file, or via t
 ```bash
 python dashboard.py [run_config_file_name]
 ```
-The dashboard enables the exploration of experimental results through a customizable set of filters reflection the test parameters.
+The dashboard enables the exploration of experimental results through a customizable set of filters reflecting the test parameters.
 It provides various visualizations, such as scatter plots, heatmaps, and Pareto frontiers.
 It can be accessed at `http://localhost:8050/` after running the above command.
 ![dashboard](dashboard.png)
